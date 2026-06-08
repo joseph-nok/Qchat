@@ -1,0 +1,380 @@
+.edit-profile-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.edit-profile-header {
+  margin-bottom: 2rem;
+}
+
+.edit-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(18rem, 0.85fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.edit-profile-main,
+.edit-profile-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.edit-profile-card,
+.edit-summary-card,
+.edit-guidance-card {
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 1rem;
+  box-shadow: 0 14px 36px -24px rgba(58, 95, 148, 0.28);
+}
+
+.edit-profile-card {
+  padding: 1.5rem;
+}
+
+.edit-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+
+.edit-card-heading > .material-symbols-outlined {
+  color: var(--secondary);
+  font-size: 1.5rem;
+}
+
+.edit-card-heading h2,
+.edit-guidance-card h2,
+.edit-summary-card h2 {
+  margin: 0;
+  color: var(--on-surface);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.edit-card-heading p,
+.weekly-lock-row p,
+.edit-guidance-card p,
+.edit-summary-card p,
+.edit-field small {
+  margin: 0;
+  color: var(--outline);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.edit-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.edit-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 1rem;
+  background: var(--surface-container-low);
+}
+
+.edit-photo-preview {
+  width: 5rem;
+  height: 5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border: 2px solid white;
+  box-shadow: 0 8px 24px -16px rgba(58, 95, 148, 0.5);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.edit-photo-preview img,
+.edit-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.edit-photo-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.edit-photo-copy h3 {
+  margin: 0 0 0.25rem;
+  color: var(--on-surface);
+  font-size: 0.9375rem;
+  font-weight: 900;
+}
+
+.edit-photo-copy p {
+  margin: 0;
+  color: var(--outline);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.edit-photo-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.edit-field span {
+  color: var(--secondary);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.edit-field input,
+.edit-field select,
+.edit-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  font-family: var(--font-family);
+  font-size: 0.9375rem;
+  padding: 1rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.edit-field textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.edit-field input:focus,
+.edit-field select:focus,
+.edit-field textarea:focus {
+  background: white;
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 2px var(--secondary-container);
+}
+
+.edit-field input:disabled,
+.edit-field select:disabled {
+  cursor: not-allowed;
+  color: var(--outline);
+  background: rgba(234, 232, 231, 0.7);
+}
+
+.weekly-lock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 0.875rem;
+  background: var(--surface-container-low);
+}
+
+.weekly-lock-row strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--on-surface);
+  font-size: 0.875rem;
+}
+
+.edit-secondary-btn,
+.edit-ghost-btn,
+.edit-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  font-weight: 900;
+  transition: box-shadow 0.2s, transform 0.15s, opacity 0.2s;
+  white-space: nowrap;
+}
+
+.edit-secondary-btn {
+  padding: 0.75rem 1rem;
+  background: var(--secondary);
+  color: white;
+}
+
+.edit-ghost-btn {
+  padding: 0.75rem 1rem;
+  background: transparent;
+  color: var(--error);
+  border: 1px solid rgba(186, 26, 26, 0.24);
+}
+
+.edit-secondary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.edit-submit-btn {
+  padding: 1rem 1.25rem;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  box-shadow: 0 10px 18px -8px rgba(252, 209, 22, 0.6);
+}
+
+.edit-submit-btn:hover,
+.edit-ghost-btn:hover,
+.edit-secondary-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.edit-submit-btn:active,
+.edit-ghost-btn:active,
+.edit-secondary-btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.edit-profile-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-profile-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.edit-profile-notice.success {
+  background: rgba(4, 109, 63, 0.1);
+  color: var(--tertiary);
+}
+
+.edit-profile-notice.error {
+  background: rgba(186, 26, 26, 0.1);
+  color: var(--error);
+}
+
+.edit-summary-card,
+.edit-guidance-card {
+  padding: 1.25rem;
+}
+
+.edit-summary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.625rem;
+}
+
+.edit-avatar {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: 1.25rem;
+  font-weight: 900;
+  border: 2px solid white;
+  box-shadow: 0 8px 24px -16px rgba(58, 95, 148, 0.5);
+  overflow: hidden;
+}
+
+.edit-summary-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--surface-container-low);
+  color: var(--outline);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+
+.edit-summary-line span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-summary-line .material-symbols-outlined,
+.edit-guidance-card .material-symbols-outlined {
+  color: var(--secondary);
+  font-size: 1rem;
+}
+
+.edit-guidance-card {
+  border-left: 4px solid var(--secondary);
+}
+
+.edit-guidance-card .material-symbols-outlined {
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 1080px) {
+  .edit-profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .edit-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .edit-profile-card,
+  .edit-summary-card,
+  .edit-guidance-card {
+    padding: 1rem;
+  }
+
+  .weekly-lock-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .edit-photo-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .edit-profile-actions,
+  .edit-submit-btn,
+  .edit-ghost-btn,
+  .edit-secondary-btn {
+    width: 100%;
+  }
+}
