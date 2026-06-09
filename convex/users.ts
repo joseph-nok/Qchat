@@ -15,10 +15,13 @@ export const getMe = query({
 
     if (!user) return null;
 
+    const verificationStatus = user.approved === true ? "approved" : user.verificationStatus;
+
     return {
       ...user,
       institution: user.school,
-      isVerified: user.approved === true || user.verificationStatus === "approved",
+      verificationStatus,
+      isVerified: user.approved === true || verificationStatus === "approved",
     };
   },
 });

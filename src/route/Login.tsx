@@ -7,22 +7,57 @@ import '../route_css/Login.css';
 
 const convexApi = api as any;
 
+type LoginFieldErrors = {
+  role?: string;
+  email?: string;
+  password?: string;
+  form?: string;
+};
+
 const Login = () => {
   const navigate = useNavigate();
   const [role, setRole] = useState<'student' | 'lecturer'>('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const loginUser = useMutation(convexApi.qchat.loginUser);
 
+  const clearFieldError = (field: keyof LoginFieldErrors) => {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      delete next.form;
+      return next;
+    });
+  };
+
+  const placeServerError = (message: string) => {
+    if (message.includes('No account')) {
+      setFieldErrors({ email: message });
+      return;
+    }
+    if (message.includes('registered as')) {
+      setFieldErrors({ role: message });
+      return;
+    }
+    if (message.includes('Incorrect password')) {
+      setFieldErrors({ password: message });
+      return;
+    }
+    setFieldErrors({ form: message });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setFieldErrors({});
 
-    if (!email || !password) {
-      setError('Please enter your email and password.');
+    const nextErrors: LoginFieldErrors = {};
+    if (!email.trim()) nextErrors.email = 'Enter your institutional email address.';
+    if (!password) nextErrors.password = 'Enter your password.';
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
       return;
     }
 
@@ -32,7 +67,7 @@ const Login = () => {
       saveSessionToken(user.sessionToken);
       navigate('/messages');
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Invalid credentials. Please verify your role (${role}), institutional email, or password.`);
+      placeServerError(err instanceof Error ? err.message : 'Unable to log in. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -62,25 +97,7 @@ const Login = () => {
               <p className="auth-subtitle">Access your verified academic profile and credentials securely.</p>
             </div>
 
-            {error && (
-              <div 
-                style={{ 
-                  backgroundColor: 'rgba(186, 26, 26, 0.1)', 
-                  borderLeft: '4px solid var(--error)', 
-                  padding: '0.875rem 1rem', 
-                  borderRadius: '0.5rem', 
-                  fontSize: '0.8125rem', 
-                  color: 'var(--error)', 
-                  fontWeight: '600', 
-                  marginBottom: '1.25rem',
-                  lineHeight: '1.4'
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            <form className="auth-form" onSubmit={handleSubmit}>
+            <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-field-group">
                 <label className="auth-label">Select Account Type</label>
                 <div className="auth-role-toggle">
@@ -89,7 +106,7 @@ const Login = () => {
                     className={`role-btn ${role === 'student' ? 'active' : ''}`}
                     onClick={() => {
                       setRole('student');
-                      setError('');
+                      setFieldErrors({});
                     }}
                   >
                     Student
@@ -99,12 +116,13 @@ const Login = () => {
                     className={`role-btn ${role === 'lecturer' ? 'active' : ''}`}
                     onClick={() => {
                       setRole('lecturer');
-                      setError('');
+                      setFieldErrors({});
                     }}
                   >
                     Lecturer
                   </button>
                 </div>
+                {fieldErrors.role && <p className="auth-field-error">{fieldErrors.role}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -116,13 +134,18 @@ const Login = () => {
                   <input 
                     type="email" 
                     id="email" 
-                    className="auth-input with-icon" 
+                    className={`auth-input with-icon ${fieldErrors.email ? 'error' : ''}`}
                     placeholder="kwame.mensah@uenr.edu.gh" 
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required 
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      clearFieldError('email');
+                    }}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
                   />
                 </div>
+                {fieldErrors.email && <p className="auth-field-error" id="login-email-error">{fieldErrors.email}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -134,14 +157,20 @@ const Login = () => {
                   <input 
                     type={showPassword ? "text" : "password"} 
                     id="password" 
-                    className="auth-input with-icon" 
+                    className={`auth-input with-icon ${fieldErrors.password ? 'error' : ''}`}
                     placeholder="••••••••••••" 
                     style={{ paddingRight: '2.5rem' }}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required 
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      clearFieldError('password');
+                    }}
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
                   />
-                  <span 
+                  <button
+                    type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="material-symbols-outlined" 
                     onClick={() => setShowPassword(!showPassword)}
                     style={{ 
@@ -150,12 +179,18 @@ const Login = () => {
                       color: 'var(--on-surface-variant)', 
                       cursor: 'pointer', 
                       userSelect: 'none',
-                      fontSize: '1.25rem'
+                      fontSize: '1.25rem',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      display: 'inline-flex',
+                      alignItems: 'center'
                     }}
                   >
                     {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
+                  </button>
                 </div>
+                {fieldErrors.password && <p className="auth-field-error" id="login-password-error">{fieldErrors.password}</p>}
               </div>
 
               <div className="auth-helpers">
@@ -170,6 +205,7 @@ const Login = () => {
                 {isSubmitting ? 'Logging in...' : 'Login to Portal'}
                 <span className="material-symbols-outlined text-[18px]">{isSubmitting ? 'hourglass_top' : 'arrow_forward'}</span>
               </button>
+              {fieldErrors.form && <p className="auth-field-error center">{fieldErrors.form}</p>}
             </form>
 
           </div>

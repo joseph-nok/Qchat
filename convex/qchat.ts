@@ -36,24 +36,29 @@ const passwordHashFor = (password: string) => {
   return `qchat_${(hash >>> 0).toString(16)}`;
 };
 
-const publicUser = (user: Doc<"users">) => ({
-  _id: user._id,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  fullName: user.fullName,
-  email: user.email,
-  role: user.role,
-  school: user.school,
-  institution: user.school,
-  idNumber: user.idNumber,
-  bio: user.bio ?? "",
-  avatarStorageId: user.avatarStorageId,
-  avatarUrl: user.avatarUrl ?? "",
-  sessionToken: user.sessionToken,
-  verificationStatus: user.verificationStatus,
-  approved: user.approved === true,
-  isVerified: user.approved === true || user.verificationStatus === "approved",
-});
+const publicUser = (user: Doc<"users">) => {
+  const verificationStatus = user.approved === true ? "approved" : user.verificationStatus;
+  const approved = user.approved === true || verificationStatus === "approved";
+
+  return {
+    _id: user._id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+    school: user.school,
+    institution: user.school,
+    idNumber: user.idNumber,
+    bio: user.bio ?? "",
+    avatarStorageId: user.avatarStorageId,
+    avatarUrl: user.avatarUrl ?? "",
+    sessionToken: user.sessionToken,
+    verificationStatus,
+    approved,
+    isVerified: approved,
+  };
+};
 
 const ensureRoomMember = async (
   ctx: MutationCtx,
@@ -170,8 +175,17 @@ export const loginUser = mutation({
       .withIndex("by_email", (q) => q.eq("email", args.email.trim().toLowerCase()))
       .first();
 
-    if (!user || user.role !== args.role || user.passwordHash !== passwordHashFor(args.password)) {
-      throw new Error("Invalid credentials. Please verify your role, institutional email, or password.");
+    if (!user) {
+      throw new Error("No account found with this email address.");
+    }
+
+    if (user.role !== args.role) {
+      const registeredRole = user.role === "lecturer" ? "lecturer" : "student";
+      throw new Error(`This email is registered as a ${registeredRole}. Select ${registeredRole} to log in.`);
+    }
+
+    if (user.passwordHash !== passwordHashFor(args.password)) {
+      throw new Error("Incorrect password. Please try again.");
     }
 
     const sessionToken = `session:${user.email}:${crypto.randomUUID()}`;
@@ -181,6 +195,42 @@ export const loginUser = mutation({
     });
 
     return publicUser({ ...user, sessionToken });
+  },
+});
+
+export const resetPasswordWithIdentity = mutation({
+  args: {
+    email: v.string(),
+    idNumber: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const email = args.email.trim().toLowerCase();
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+
+    if (!user) {
+      throw new Error("No account found with this email address.");
+    }
+
+    const submittedIdNumber = args.idNumber.trim().toUpperCase();
+    const accountIdNumber = (user.idNumber ?? "").trim().toUpperCase();
+    if (!submittedIdNumber || submittedIdNumber !== accountIdNumber) {
+      throw new Error("Index number does not match this email account.");
+    }
+
+    if (args.password.length < 8) {
+      throw new Error("New password must be at least 8 characters long.");
+    }
+
+    await ctx.db.patch(user._id, {
+      passwordHash: passwordHashFor(args.password),
+      updatedAt: Date.now(),
+    });
+
+    return { ok: true };
   },
 });
 
@@ -214,7 +264,7 @@ export const getExploreUsers = query({
         institution: user.school,
         bio: user.bio ?? "",
         avatarUrl: user.avatarUrl ?? "",
-        verificationStatus: user.verificationStatus,
+        verificationStatus: user.approved === true ? "approved" : user.verificationStatus,
         isVerified: user.approved === true || user.verificationStatus === "approved",
       }))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
