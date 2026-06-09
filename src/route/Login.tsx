@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
+import { extractConvexErrorMessage, isNetworkError } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import '../route_css/Login.css';
 
@@ -33,20 +34,31 @@ const Login = () => {
     });
   };
 
-  const placeServerError = (message: string) => {
-    if (message.includes('No account')) {
-      setFieldErrors({ email: message });
+  const placeServerError = (error: unknown) => {
+    if (isNetworkError(error)) {
+      setFieldErrors({ form: 'Unable to connect. Please check your internet connection.' });
       return;
     }
-    if (message.includes('registered as')) {
-      setFieldErrors({ role: message });
+
+    const serverMessage = extractConvexErrorMessage(error).toLowerCase();
+
+    if (serverMessage.includes('password') || serverMessage.includes('incorrect')) {
+      setFieldErrors({ password: 'The password you entered is incorrect. Please try again.' });
       return;
     }
-    if (message.includes('Incorrect password')) {
-      setFieldErrors({ password: message });
+    if (serverMessage.includes('registered as')) {
+      const roleMatch = extractConvexErrorMessage(error).match(/registered as a (\w+)/i);
+      const registeredRole = roleMatch?.[1] ?? 'the correct account type';
+      setFieldErrors({
+        role: `This email is registered as a ${registeredRole}. Select ${registeredRole} to log in.`,
+      });
       return;
     }
-    setFieldErrors({ form: message });
+    if (serverMessage.includes('no account') || serverMessage.includes('not found')) {
+      setFieldErrors({ email: 'This email address is not registered with us.' });
+      return;
+    }
+    setFieldErrors({ form: 'Something went wrong. Please try again.' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,7 +79,7 @@ const Login = () => {
       saveSessionToken(user.sessionToken);
       navigate('/messages');
     } catch (err) {
-      placeServerError(err instanceof Error ? err.message : 'Unable to log in. Please try again.');
+      placeServerError(err);
     } finally {
       setIsSubmitting(false);
     }

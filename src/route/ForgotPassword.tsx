@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
+import { extractConvexErrorMessage, isNetworkError } from '../lib/convexErrors';
 import '../route_css/ForgotPassword.css';
 
 const convexApi = api as any;
@@ -35,20 +36,33 @@ const ForgotPassword = () => {
     });
   };
 
-  const placeServerError = (errorMessage: string) => {
-    if (errorMessage.includes('No account')) {
-      setFieldErrors({ email: errorMessage });
+  const identityMismatchMessage =
+    'The provided email address or Index Number does not match our student records.';
+
+  const placeServerError = (error: unknown) => {
+    if (isNetworkError(error)) {
+      setFieldErrors({ form: 'Unable to connect. Please check your internet connection.' });
       return;
     }
-    if (errorMessage.includes('Index number')) {
-      setFieldErrors({ idNumber: errorMessage });
+
+    const serverMessage = extractConvexErrorMessage(error).toLowerCase();
+
+    if (
+      serverMessage.includes('no account') ||
+      serverMessage.includes('index number') ||
+      serverMessage.includes('does not match')
+    ) {
+      setFieldErrors({
+        email: identityMismatchMessage,
+        idNumber: identityMismatchMessage,
+      });
       return;
     }
-    if (errorMessage.includes('password')) {
-      setFieldErrors({ password: errorMessage });
+    if (serverMessage.includes('password')) {
+      setFieldErrors({ password: 'New password must be at least 8 characters long.' });
       return;
     }
-    setFieldErrors({ form: errorMessage });
+    setFieldErrors({ form: 'Something went wrong. Please try again.' });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -78,13 +92,15 @@ const ForgotPassword = () => {
         idNumber,
         password,
       });
+      setFieldErrors({});
       setEmail('');
       setIdNumber('');
       setPassword('');
       setConfirmPassword('');
       setMessage('Password updated successfully. You can now log in with your new password.');
     } catch (err) {
-      placeServerError(err instanceof Error ? err.message : 'Unable to update password.');
+      setMessage('');
+      placeServerError(err);
     } finally {
       setIsSubmitting(false);
     }
