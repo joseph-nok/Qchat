@@ -17,25 +17,34 @@ export function extractConvexErrorMessage(error: unknown): string {
     return '';
   }
 
-  const uncaughtMatch = raw.match(
-    /Uncaught Error:\s*([\s\S]*?)(?:\n\s+at |\nCalled by client|$)/,
-  );
-  if (uncaughtMatch?.[1]) {
+  let cleaned = raw.replace(/\s*Called by client\s*$/i, '').trim();
+
+  const uncaughtMatch = cleaned.match(/Uncaught Error:\s*([\s\S]*?)(?:\n\s+at\s|\s*$)/);
+  if (uncaughtMatch?.[1]?.trim()) {
     return uncaughtMatch[1].trim();
   }
 
-  const serverErrorMatch = raw.match(
-    /Server Error[\s\S]*?Error:\s*([\s\S]*?)(?:\n\s+at |\nCalled by client|$)/,
-  );
-  if (serverErrorMatch?.[1]) {
-    return serverErrorMatch[1].trim();
+  const withoutConvexPrefix = cleaned
+    .replace(/^\[CONVEX\s+[QMA?]\([^)]*\)\]\s*/i, '')
+    .replace(/\[Request ID:\s*[^\]]+\]\s*/gi, '')
+    .trim();
+
+  const withoutServerErrorLabel = withoutConvexPrefix
+    .replace(/^Server Error\s*/i, '')
+    .trim();
+
+  if (withoutServerErrorLabel) {
+    return withoutServerErrorLabel;
   }
 
-  if (raw.includes('[CONVEX')) {
-    return '';
-  }
+  return cleaned.trim();
+}
 
-  return raw.trim();
+/** Lowercased text used to classify Convex failures into user-facing field errors. */
+export function getSearchableErrorText(error: unknown): string {
+  const extracted = extractConvexErrorMessage(error);
+  const raw = getRawErrorMessage(error);
+  return `${extracted} ${raw}`.toLowerCase();
 }
 
 export function isNetworkError(error: unknown): boolean {

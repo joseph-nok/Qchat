@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { extractConvexErrorMessage, isNetworkError } from '../lib/convexErrors';
+import { getSearchableErrorText, isNetworkError } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import '../route_css/Register.css';
 
@@ -126,18 +126,22 @@ const Register = () => {
       return;
     }
 
-    const serverMessage = extractConvexErrorMessage(error).toLowerCase();
+    const serverMessage = getSearchableErrorText(error);
 
     if (
       serverMessage.includes('already exists') ||
       serverMessage.includes('already in use') ||
-      (serverMessage.includes('email') && serverMessage.includes('account'))
+      serverMessage.includes('email address already')
     ) {
       setFieldErrors({ email: 'This email address is already in use by another student.' });
       return;
     }
-    if (serverMessage.includes('id') || serverMessage.includes('index')) {
+    if (serverMessage.includes('id number') || serverMessage.includes('index number') || serverMessage.includes('id already')) {
       setFieldErrors({ idNumber: 'This ID number is already registered with another account.' });
+      return;
+    }
+    if (serverMessage.includes('could not create user')) {
+      setFieldErrors({ form: 'We could not create your account. Please check your details and try again.' });
       return;
     }
     setFieldErrors({ form: 'Something went wrong. Please try again.' });

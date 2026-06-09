@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { extractConvexErrorMessage, isNetworkError } from '../lib/convexErrors';
+import { getSearchableErrorText, isNetworkError } from '../lib/convexErrors';
 import '../route_css/ForgotPassword.css';
 
 const convexApi = api as any;
@@ -45,12 +45,14 @@ const ForgotPassword = () => {
       return;
     }
 
-    const serverMessage = extractConvexErrorMessage(error).toLowerCase();
+    const serverMessage = getSearchableErrorText(error);
 
     if (
       serverMessage.includes('no account') ||
+      serverMessage.includes('not found') ||
       serverMessage.includes('index number') ||
-      serverMessage.includes('does not match')
+      serverMessage.includes('does not match') ||
+      serverMessage.includes('email account')
     ) {
       setFieldErrors({
         email: identityMismatchMessage,
@@ -58,7 +60,7 @@ const ForgotPassword = () => {
       });
       return;
     }
-    if (serverMessage.includes('password')) {
+    if (serverMessage.includes('at least 8 characters') || serverMessage.includes('new password')) {
       setFieldErrors({ password: 'New password must be at least 8 characters long.' });
       return;
     }

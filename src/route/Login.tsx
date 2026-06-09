@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { extractConvexErrorMessage, isNetworkError } from '../lib/convexErrors';
+import { extractConvexErrorMessage, getSearchableErrorText, isNetworkError } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import '../route_css/Login.css';
 
@@ -40,9 +40,9 @@ const Login = () => {
       return;
     }
 
-    const serverMessage = extractConvexErrorMessage(error).toLowerCase();
+    const serverMessage = getSearchableErrorText(error);
 
-    if (serverMessage.includes('password') || serverMessage.includes('incorrect')) {
+    if (serverMessage.includes('incorrect password') || serverMessage.includes('password')) {
       setFieldErrors({ password: 'The password you entered is incorrect. Please try again.' });
       return;
     }
@@ -54,7 +54,7 @@ const Login = () => {
       });
       return;
     }
-    if (serverMessage.includes('no account') || serverMessage.includes('not found')) {
+    if (serverMessage.includes('no account') || serverMessage.includes('not found') || serverMessage.includes('email address')) {
       setFieldErrors({ email: 'This email address is not registered with us.' });
       return;
     }
