@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { extractConvexErrorMessage, getSearchableErrorText, isNetworkError } from '../lib/convexErrors';
+import { isNetworkError, toErrorText } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import '../route_css/Login.css';
 
 const convexApi = api as any;
 
-type LoginFieldErrors = {
+type LoginErrorsRecord = {
   role?: string;
   email?: string;
   password?: string;
@@ -21,12 +21,12 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
+  const [errorsRecord, setErrorsRecord] = useState<LoginErrorsRecord>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const loginUser = useMutation(convexApi.qchat.loginUser);
 
-  const clearFieldError = (field: keyof LoginFieldErrors) => {
-    setFieldErrors((current) => {
+  const clearFieldError = (field: keyof LoginErrorsRecord) => {
+    setErrorsRecord((current) => {
       const next = { ...current };
       delete next[field];
       delete next.form;
@@ -34,42 +34,60 @@ const Login = () => {
     });
   };
 
-  const placeServerError = (error: unknown) => {
+  /** Tier 1 — validate locally before calling Convex. */
+  const runFrontendValidation = (): LoginErrorsRecord | null => {
+    const errors: LoginErrorsRecord = {};
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      errors.email = 'Enter your institutional email address.';
+    } else if (!trimmedEmail.includes('@')) {
+      errors.email = 'Enter a valid email address that includes @.';
+    }
+
+    if (!password) {
+      errors.password = 'Enter your password.';
+    }
+
+    return Object.keys(errors).length > 0 ? errors : null;
+  };
+
+  /** Tier 2 — map database errors to the correct field using keyword checks. */
+  const applyBackendError = (error: unknown) => {
     if (isNetworkError(error)) {
-      setFieldErrors({ form: 'Unable to connect. Please check your internet connection.' });
+      setErrorsRecord({ form: 'Unable to connect. Please check your internet connection.' });
       return;
     }
 
-    const serverMessage = getSearchableErrorText(error);
+    const errorText = toErrorText(error);
 
-    if (serverMessage.includes('incorrect password') || serverMessage.includes('password')) {
-      setFieldErrors({ password: 'The password you entered is incorrect. Please try again.' });
-      return;
-    }
-    if (serverMessage.includes('registered as')) {
-      const roleMatch = extractConvexErrorMessage(error).match(/registered as a (\w+)/i);
-      const registeredRole = roleMatch?.[1] ?? 'the correct account type';
-      setFieldErrors({
-        role: `This email is registered as a ${registeredRole}. Select ${registeredRole} to log in.`,
+    if (errorText.includes('registered as')) {
+      setErrorsRecord({
+        role: 'This email is registered under a different account type. Select the correct Student or Lecturer option.',
       });
       return;
     }
-    if (serverMessage.includes('no account') || serverMessage.includes('not found') || serverMessage.includes('email address')) {
-      setFieldErrors({ email: 'This email address is not registered with us.' });
+
+    if (errorText.includes('no account') || errorText.includes('exist')) {
+      setErrorsRecord({ email: 'This email address is not registered with us.' });
       return;
     }
-    setFieldErrors({ form: 'Something went wrong. Please try again.' });
+
+    if (errorText.includes('credential') || errorText.includes('password')) {
+      setErrorsRecord({ password: 'The password you entered is incorrect. Please try again.' });
+      return;
+    }
+
+    setErrorsRecord({ form: 'Something went wrong. Please try again.' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFieldErrors({});
+    setErrorsRecord({});
 
-    const nextErrors: LoginFieldErrors = {};
-    if (!email.trim()) nextErrors.email = 'Enter your institutional email address.';
-    if (!password) nextErrors.password = 'Enter your password.';
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
+    const frontendErrors = runFrontendValidation();
+    if (frontendErrors) {
+      setErrorsRecord(frontendErrors);
       return;
     }
 
@@ -78,8 +96,8 @@ const Login = () => {
       const user = await loginUser({ email, password, role });
       saveSessionToken(user.sessionToken);
       navigate('/messages');
-    } catch (err) {
-      placeServerError(err);
+    } catch (error) {
+      applyBackendError(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -113,28 +131,28 @@ const Login = () => {
               <div className="auth-field-group">
                 <label className="auth-label">Select Account Type</label>
                 <div className="auth-role-toggle">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`role-btn ${role === 'student' ? 'active' : ''}`}
                     onClick={() => {
                       setRole('student');
-                      setFieldErrors({});
+                      setErrorsRecord({});
                     }}
                   >
                     Student
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`role-btn ${role === 'lecturer' ? 'active' : ''}`}
                     onClick={() => {
                       setRole('lecturer');
-                      setFieldErrors({});
+                      setErrorsRecord({});
                     }}
                   >
                     Lecturer
                   </button>
                 </div>
-                {fieldErrors.role && <p className="auth-field-error">{fieldErrors.role}</p>}
+                {errorsRecord.role && <p className="auth-field-error">{errorsRecord.role}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -143,21 +161,21 @@ const Login = () => {
                   <div className="auth-input-icon">
                     <span className="material-symbols-outlined text-[20px]">mail</span>
                   </div>
-                  <input 
-                    type="email" 
-                    id="email" 
-                    className={`auth-input with-icon ${fieldErrors.email ? 'error' : ''}`}
-                    placeholder="kwame.mensah@uenr.edu.gh" 
+                  <input
+                    type="email"
+                    id="email"
+                    className={`auth-input with-icon ${errorsRecord.email ? 'error' : ''}`}
+                    placeholder="kwame.mensah@uenr.edu.gh"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
                       clearFieldError('email');
                     }}
-                    aria-invalid={Boolean(fieldErrors.email)}
-                    aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.email)}
+                    aria-describedby={errorsRecord.email ? 'login-email-error' : undefined}
                   />
                 </div>
-                {fieldErrors.email && <p className="auth-field-error" id="login-email-error">{fieldErrors.email}</p>}
+                {errorsRecord.email && <p className="auth-field-error" id="login-email-error">{errorsRecord.email}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -166,43 +184,43 @@ const Login = () => {
                   <div className="auth-input-icon">
                     <span className="material-symbols-outlined text-[20px]">lock</span>
                   </div>
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    id="password" 
-                    className={`auth-input with-icon ${fieldErrors.password ? 'error' : ''}`}
-                    placeholder="••••••••••••" 
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    className={`auth-input with-icon ${errorsRecord.password ? 'error' : ''}`}
+                    placeholder="••••••••••••"
                     style={{ paddingRight: '2.5rem' }}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
                       clearFieldError('password');
                     }}
-                    aria-invalid={Boolean(fieldErrors.password)}
-                    aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.password)}
+                    aria-describedby={errorsRecord.password ? 'login-password-error' : undefined}
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="material-symbols-outlined" 
+                    className="material-symbols-outlined"
                     onClick={() => setShowPassword(!showPassword)}
-                    style={{ 
-                      position: 'absolute', 
-                      right: '0.875rem', 
-                      color: 'var(--on-surface-variant)', 
-                      cursor: 'pointer', 
+                    style={{
+                      position: 'absolute',
+                      right: '0.875rem',
+                      color: 'var(--on-surface-variant)',
+                      cursor: 'pointer',
                       userSelect: 'none',
                       fontSize: '1.25rem',
                       background: 'none',
                       border: 'none',
                       padding: 0,
                       display: 'inline-flex',
-                      alignItems: 'center'
+                      alignItems: 'center',
                     }}
                   >
                     {showPassword ? 'visibility_off' : 'visibility'}
                   </button>
                 </div>
-                {fieldErrors.password && <p className="auth-field-error" id="login-password-error">{fieldErrors.password}</p>}
+                {errorsRecord.password && <p className="auth-field-error" id="login-password-error">{errorsRecord.password}</p>}
               </div>
 
               <div className="auth-helpers">
@@ -217,7 +235,7 @@ const Login = () => {
                 {isSubmitting ? 'Logging in...' : 'Login to Portal'}
                 <span className="material-symbols-outlined text-[18px]">{isSubmitting ? 'hourglass_top' : 'arrow_forward'}</span>
               </button>
-              {fieldErrors.form && <p className="auth-field-error center">{fieldErrors.form}</p>}
+              {errorsRecord.form && <p className="auth-field-error center">{errorsRecord.form}</p>}
             </form>
 
           </div>

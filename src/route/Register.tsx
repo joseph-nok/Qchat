@@ -2,13 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { getSearchableErrorText, isNetworkError } from '../lib/convexErrors';
+import { isNetworkError, toErrorText } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import '../route_css/Register.css';
 
 const convexApi = api as any;
 
-type RegisterFieldErrors = {
+type RegisterErrorsRecord = {
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -56,7 +56,7 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({});
+  const [errorsRecord, setErrorsRecord] = useState<RegisterErrorsRecord>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showInstitutionDropdown, setShowInstitutionDropdown] = useState(false);
   const institutionRef = useRef<HTMLDivElement>(null);
@@ -111,8 +111,8 @@ const Register = () => {
 
   const strength = getPasswordStrength(password);
 
-  const clearFieldError = (field: keyof RegisterFieldErrors) => {
-    setFieldErrors((current) => {
+  const clearFieldError = (field: keyof RegisterErrorsRecord) => {
+    setErrorsRecord((current) => {
       const next = { ...current };
       delete next[field];
       delete next.form;
@@ -120,82 +120,95 @@ const Register = () => {
     });
   };
 
-  const placeServerError = (error: unknown) => {
+  /** Tier 1 — validate locally before calling Convex. */
+  const runFrontendValidation = (): RegisterErrorsRecord | null => {
+    const errors: RegisterErrorsRecord = {};
+    const trimmedEmail = email.trim();
+
+    if (!firstName.trim()) errors.firstName = 'Enter your first name.';
+    if (!lastName.trim()) errors.lastName = 'Enter your last name.';
+
+    if (!trimmedEmail) {
+      errors.email = 'Enter your institutional email address.';
+    } else if (!trimmedEmail.includes('@')) {
+      errors.email = 'Enter a valid email address that includes @.';
+    }
+
+    if (!institution.trim()) errors.institution = 'Enter or select your institution.';
+    if (!idNumber.trim()) {
+      errors.idNumber = `Enter your ${role === 'student' ? 'student ID number' : 'staff ID number'}.`;
+    }
+    if (!password) errors.password = 'Enter a password.';
+    if (!confirmPassword) errors.confirmPassword = 'Confirm your password.';
+
+    if (Object.keys(errors).length > 0) {
+      return errors;
+    }
+
+    const allowedDomains = ['@uenr.edu.gh', '@ug.edu.gh', '@knust.edu.gh', '@ucom.edu.gh', '@ucc.edu.gh'];
+    const hasAllowedDomain = allowedDomains.some((domain) => trimmedEmail.toLowerCase().endsWith(domain));
+    if (!hasAllowedDomain) {
+      return { email: 'Please use a valid institutional email address (e.g. @uenr.edu.gh, @ug.edu.gh, or @knust.edu.gh).' };
+    }
+
+    if (role === 'student') {
+      const studentIdPattern = /^UEB\d{7}$/i;
+      if (!studentIdPattern.test(idNumber)) {
+        return { idNumber: 'Student ID Number must start with "UEB" followed by exactly 7 digits (e.g. UEB1234567).' };
+      }
+    } else if (idNumber.trim().length < 5) {
+      return { idNumber: 'Staff ID Number must be at least 5 characters long.' };
+    }
+
+    if (password !== confirmPassword) {
+      return { confirmPassword: 'Passwords do not match.' };
+    }
+
+    if (password.length < 8) {
+      return { password: 'Password must be at least 8 characters long.' };
+    }
+
+    if (strength.score < 2) {
+      return { password: 'Password is too weak. Please choose a stronger password.' };
+    }
+
+    return null;
+  };
+
+  /** Tier 2 — map database errors to the correct field using keyword checks. */
+  const applyBackendError = (error: unknown) => {
     if (isNetworkError(error)) {
-      setFieldErrors({ form: 'Unable to connect. Please check your internet connection.' });
+      setErrorsRecord({ form: 'Unable to connect. Please check your internet connection.' });
       return;
     }
 
-    const serverMessage = getSearchableErrorText(error);
+    const errorText = toErrorText(error);
 
-    if (
-      serverMessage.includes('already exists') ||
-      serverMessage.includes('already in use') ||
-      serverMessage.includes('email address already')
-    ) {
-      setFieldErrors({ email: 'This email address is already in use by another student.' });
+    if (errorText.includes('index') || errorText.includes('match')) {
+      setErrorsRecord({ idNumber: 'This ID number is already registered with another account.' });
       return;
     }
-    if (serverMessage.includes('id number') || serverMessage.includes('index number') || serverMessage.includes('id already')) {
-      setFieldErrors({ idNumber: 'This ID number is already registered with another account.' });
+
+    if (errorText.includes('no account') || errorText.includes('exist')) {
+      setErrorsRecord({ email: 'This email address is already in use by another student.' });
       return;
     }
-    if (serverMessage.includes('could not create user')) {
-      setFieldErrors({ form: 'We could not create your account. Please check your details and try again.' });
+
+    if (errorText.includes('credential') || errorText.includes('password')) {
+      setErrorsRecord({ password: 'Could not save your password. Please choose a different one and try again.' });
       return;
     }
-    setFieldErrors({ form: 'Something went wrong. Please try again.' });
+
+    setErrorsRecord({ form: 'Something went wrong. Please try again.' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFieldErrors({});
+    setErrorsRecord({});
 
-    const nextErrors: RegisterFieldErrors = {};
-    if (!firstName.trim()) nextErrors.firstName = 'Enter your first name.';
-    if (!lastName.trim()) nextErrors.lastName = 'Enter your last name.';
-    if (!email.trim()) nextErrors.email = 'Enter your institutional email address.';
-    if (!institution.trim()) nextErrors.institution = 'Enter or select your institution.';
-    if (!idNumber.trim()) nextErrors.idNumber = `Enter your ${role === 'student' ? 'student ID number' : 'staff ID number'}.`;
-    if (!password) nextErrors.password = 'Enter a password.';
-    if (!confirmPassword) nextErrors.confirmPassword = 'Confirm your password.';
-
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
-      return;
-    }
-
-    // Institutional email validation
-    const allowedDomains = ['@uenr.edu.gh', '@ug.edu.gh', '@knust.edu.gh', '@ucom.edu.gh', '@ucc.edu.gh'];
-    const hasAllowedDomain = allowedDomains.some(domain => email.toLowerCase().endsWith(domain));
-    if (!hasAllowedDomain) {
-      setFieldErrors({ email: 'Please use a valid institutional email address (e.g. @uenr.edu.gh, @ug.edu.gh, or @knust.edu.gh).' });
-      return;
-    }
-
-    // ID validation
-    if (role === 'student') {
-      const studentIdPattern = /^UEB\d{7}$/i;
-      if (!studentIdPattern.test(idNumber)) {
-        setFieldErrors({ idNumber: 'Student ID Number must start with "UEB" followed by exactly 7 digits (e.g. UEB1234567).' });
-        return;
-      }
-    } else {
-      if (idNumber.trim().length < 5) {
-        setFieldErrors({ idNumber: 'Staff ID Number must be at least 5 characters long.' });
-        return;
-      }
-    }
-
-    // Password matching
-    if (password !== confirmPassword) {
-      setFieldErrors({ confirmPassword: 'Passwords do not match.' });
-      return;
-    }
-
-    // Minimum strength check
-    if (strength.score < 2) {
-      setFieldErrors({ password: 'Password is too weak. Please choose a stronger password.' });
+    const frontendErrors = runFrontendValidation();
+    if (frontendErrors) {
+      setErrorsRecord(frontendErrors);
       return;
     }
 
@@ -212,8 +225,8 @@ const Register = () => {
       });
       saveSessionToken(user.sessionToken);
       navigate('/messages');
-    } catch (err) {
-      placeServerError(err);
+    } catch (error) {
+      applyBackendError(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -244,7 +257,7 @@ const Register = () => {
                     className={`role-btn ${role === 'student' ? 'active' : ''}`}
                     onClick={() => {
                       setRole('student');
-                      setFieldErrors({});
+                      setErrorsRecord({});
                     }}
                   >
                     Student
@@ -254,7 +267,7 @@ const Register = () => {
                     className={`role-btn ${role === 'lecturer' ? 'active' : ''}`}
                     onClick={() => {
                       setRole('lecturer');
-                      setFieldErrors({});
+                      setErrorsRecord({});
                     }}
                   >
                     Lecturer
@@ -268,34 +281,34 @@ const Register = () => {
                   <input 
                     type="text" 
                     id="first_name" 
-                    className={`auth-input ${fieldErrors.firstName ? 'error' : ''}`}
+                    className={`auth-input ${errorsRecord.firstName ? 'error' : ''}`}
                     placeholder="e.g. Kwame" 
                     value={firstName}
                     onChange={(e) => {
                       setFirstName(e.target.value);
                       clearFieldError('firstName');
                     }}
-                    aria-invalid={Boolean(fieldErrors.firstName)}
-                    aria-describedby={fieldErrors.firstName ? 'register-first-name-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.firstName)}
+                    aria-describedby={errorsRecord.firstName ? 'register-first-name-error' : undefined}
                   />
-                  {fieldErrors.firstName && <p className="auth-field-error" id="register-first-name-error">{fieldErrors.firstName}</p>}
+                  {errorsRecord.firstName && <p className="auth-field-error" id="register-first-name-error">{errorsRecord.firstName}</p>}
                 </div>
                 <div className="auth-field-group">
                   <label className="auth-label" htmlFor="last_name">Last Name</label>
                   <input 
                     type="text" 
                     id="last_name" 
-                    className={`auth-input ${fieldErrors.lastName ? 'error' : ''}`}
+                    className={`auth-input ${errorsRecord.lastName ? 'error' : ''}`}
                     placeholder="e.g. Mensah" 
                     value={lastName}
                     onChange={(e) => {
                       setLastName(e.target.value);
                       clearFieldError('lastName');
                     }}
-                    aria-invalid={Boolean(fieldErrors.lastName)}
-                    aria-describedby={fieldErrors.lastName ? 'register-last-name-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.lastName)}
+                    aria-describedby={errorsRecord.lastName ? 'register-last-name-error' : undefined}
                   />
-                  {fieldErrors.lastName && <p className="auth-field-error" id="register-last-name-error">{fieldErrors.lastName}</p>}
+                  {errorsRecord.lastName && <p className="auth-field-error" id="register-last-name-error">{errorsRecord.lastName}</p>}
                 </div>
               </div>
 
@@ -304,18 +317,18 @@ const Register = () => {
                 <input 
                   type="email" 
                   id="email" 
-                  className={`auth-input ${fieldErrors.email ? 'error' : ''}`}
+                  className={`auth-input ${errorsRecord.email ? 'error' : ''}`}
                   placeholder="username@uenr.edu.gh" 
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     clearFieldError('email');
                   }}
-                  aria-invalid={Boolean(fieldErrors.email)}
-                  aria-describedby={fieldErrors.email ? 'register-email-error' : undefined}
+                  aria-invalid={Boolean(errorsRecord.email)}
+                  aria-describedby={errorsRecord.email ? 'register-email-error' : undefined}
                 />
                 <p className="auth-input-hint">Please use your official @uenr.edu.gh, @ug.edu.gh, or @knust.edu.gh email address.</p>
-                {fieldErrors.email && <p className="auth-field-error" id="register-email-error">{fieldErrors.email}</p>}
+                {errorsRecord.email && <p className="auth-field-error" id="register-email-error">{errorsRecord.email}</p>}
               </div>
 
               <div className="auth-field-group" ref={institutionRef}>
@@ -326,7 +339,7 @@ const Register = () => {
                     <input
                       type="text"
                       id="institution"
-                      className={`auth-input ${fieldErrors.institution ? 'error' : ''}`}
+                      className={`auth-input ${errorsRecord.institution ? 'error' : ''}`}
                       style={{ paddingLeft: '2.75rem', paddingRight: '2.5rem', borderRadius: '0.75rem', border: 'none' }}
                       placeholder="Search or enter your institution..."
                       value={institution}
@@ -337,8 +350,8 @@ const Register = () => {
                       }}
                       onFocus={() => setShowInstitutionDropdown(true)}
                       autoComplete="off"
-                      aria-invalid={Boolean(fieldErrors.institution)}
-                      aria-describedby={fieldErrors.institution ? 'register-institution-error' : undefined}
+                      aria-invalid={Boolean(errorsRecord.institution)}
+                      aria-describedby={errorsRecord.institution ? 'register-institution-error' : undefined}
                     />
                     <span
                       className="material-symbols-outlined auth-select-icon"
@@ -377,7 +390,7 @@ const Register = () => {
                   )}
                 </div>
                 <p className="auth-input-hint">Type to search — if your school isn&apos;t listed, just continue with what you entered.</p>
-                {fieldErrors.institution && <p className="auth-field-error" id="register-institution-error">{fieldErrors.institution}</p>}
+                {errorsRecord.institution && <p className="auth-field-error" id="register-institution-error">{errorsRecord.institution}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -385,17 +398,17 @@ const Register = () => {
                 <input 
                   type="text" 
                   id="id_number" 
-                  className={`auth-input ${fieldErrors.idNumber ? 'error' : ''}`}
+                  className={`auth-input ${errorsRecord.idNumber ? 'error' : ''}`}
                   placeholder={idPlaceholder} 
                   value={idNumber}
                   onChange={(e) => {
                     setIdNumber(e.target.value);
                     clearFieldError('idNumber');
                   }}
-                  aria-invalid={Boolean(fieldErrors.idNumber)}
-                  aria-describedby={fieldErrors.idNumber ? 'register-id-number-error' : undefined}
+                  aria-invalid={Boolean(errorsRecord.idNumber)}
+                  aria-describedby={errorsRecord.idNumber ? 'register-id-number-error' : undefined}
                 />
-                {fieldErrors.idNumber && <p className="auth-field-error" id="register-id-number-error">{fieldErrors.idNumber}</p>}
+                {errorsRecord.idNumber && <p className="auth-field-error" id="register-id-number-error">{errorsRecord.idNumber}</p>}
               </div>
 
               <div className="auth-row">
@@ -405,15 +418,15 @@ const Register = () => {
                     <input 
                       type={showPassword ? "text" : "password"} 
                       id="password" 
-                      className={`auth-input ${fieldErrors.password ? 'error' : ''}`}
+                      className={`auth-input ${errorsRecord.password ? 'error' : ''}`}
                       style={{ paddingRight: '2.5rem' }}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
                         clearFieldError('password');
                       }}
-                      aria-invalid={Boolean(fieldErrors.password)}
-                      aria-describedby={fieldErrors.password ? 'register-password-error' : undefined}
+                      aria-invalid={Boolean(errorsRecord.password)}
+                      aria-describedby={errorsRecord.password ? 'register-password-error' : undefined}
                     />
                     <button
                       type="button"
@@ -460,7 +473,7 @@ const Register = () => {
                   <p className="strength-text" style={{ color: strength.color, transition: 'color 0.3s ease' }}>
                     {strength.text}
                   </p>
-                  {fieldErrors.password && <p className="auth-field-error" id="register-password-error">{fieldErrors.password}</p>}
+                  {errorsRecord.password && <p className="auth-field-error" id="register-password-error">{errorsRecord.password}</p>}
                 </div>
                 <div className="auth-field-group">
                   <label className="auth-label" htmlFor="confirm_password">Confirm</label>
@@ -468,15 +481,15 @@ const Register = () => {
                     <input 
                       type={showConfirmPassword ? "text" : "password"} 
                       id="confirm_password" 
-                      className={`auth-input ${fieldErrors.confirmPassword ? 'error' : ''}`}
+                      className={`auth-input ${errorsRecord.confirmPassword ? 'error' : ''}`}
                       style={{ paddingRight: '2.5rem' }}
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
                         clearFieldError('confirmPassword');
                       }}
-                      aria-invalid={Boolean(fieldErrors.confirmPassword)}
-                      aria-describedby={fieldErrors.confirmPassword ? 'register-confirm-password-error' : undefined}
+                      aria-invalid={Boolean(errorsRecord.confirmPassword)}
+                      aria-describedby={errorsRecord.confirmPassword ? 'register-confirm-password-error' : undefined}
                     />
                     <button
                       type="button"
@@ -500,7 +513,7 @@ const Register = () => {
                       {showConfirmPassword ? 'visibility_off' : 'visibility'}
                     </button>
                   </div>
-                  {fieldErrors.confirmPassword && <p className="auth-field-error" id="register-confirm-password-error">{fieldErrors.confirmPassword}</p>}
+                  {errorsRecord.confirmPassword && <p className="auth-field-error" id="register-confirm-password-error">{errorsRecord.confirmPassword}</p>}
                 </div>
               </div>
 
@@ -508,7 +521,7 @@ const Register = () => {
                 <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_top' : 'how_to_reg'}</span>
                 {isSubmitting ? 'Registering...' : 'Register'}
               </button>
-              {fieldErrors.form && <p className="auth-field-error center">{fieldErrors.form}</p>}
+              {errorsRecord.form && <p className="auth-field-error center">{errorsRecord.form}</p>}
 
             </form>
 

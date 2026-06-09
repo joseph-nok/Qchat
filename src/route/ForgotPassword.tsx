@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { getSearchableErrorText, isNetworkError } from '../lib/convexErrors';
+import { isNetworkError, toErrorText } from '../lib/convexErrors';
 import '../route_css/ForgotPassword.css';
 
 const convexApi = api as any;
 
-type ResetFieldErrors = {
+type ResetErrorsRecord = {
   email?: string;
   idNumber?: string;
   password?: string;
@@ -23,12 +23,12 @@ const ForgotPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<ResetFieldErrors>({});
-  const [message, setMessage] = useState('');
+  const [errorsRecord, setErrorsRecord] = useState<ResetErrorsRecord>({});
+  const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const clearFieldError = (field: keyof ResetFieldErrors) => {
-    setFieldErrors((current) => {
+  const clearFieldError = (field: keyof ResetErrorsRecord) => {
+    setErrorsRecord((current) => {
       const next = { ...current };
       delete next[field];
       delete next.form;
@@ -36,54 +36,75 @@ const ForgotPassword = () => {
     });
   };
 
-  const identityMismatchMessage =
-    'The provided email address or Index Number does not match our student records.';
+  /** Tier 1 — validate locally before calling Convex. */
+  const runFrontendValidation = (): ResetErrorsRecord | null => {
+    const errors: ResetErrorsRecord = {};
+    const trimmedEmail = email.trim();
 
-  const placeServerError = (error: unknown) => {
+    if (!trimmedEmail) {
+      errors.email = 'Enter the email for your account.';
+    } else if (!trimmedEmail.includes('@')) {
+      errors.email = 'Enter a valid email address that includes @.';
+    }
+
+    if (!idNumber.trim()) {
+      errors.idNumber = 'Enter your student or staff index number.';
+    }
+
+    if (!password) {
+      errors.password = 'Enter a new password.';
+    } else if (password.length < 8) {
+      errors.password = 'New password must be at least 8 characters long.';
+    }
+
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Confirm your new password.';
+    } else if (password && password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+
+    return Object.keys(errors).length > 0 ? errors : null;
+  };
+
+  /** Tier 2 — map database errors to the correct field using keyword checks. */
+  const applyBackendError = (error: unknown) => {
     if (isNetworkError(error)) {
-      setFieldErrors({ form: 'Unable to connect. Please check your internet connection.' });
+      setErrorsRecord({ form: 'Unable to connect. Please check your internet connection.' });
       return;
     }
 
-    const serverMessage = getSearchableErrorText(error);
+    const errorText = toErrorText(error);
 
-    if (
-      serverMessage.includes('no account') ||
-      serverMessage.includes('not found') ||
-      serverMessage.includes('index number') ||
-      serverMessage.includes('does not match') ||
-      serverMessage.includes('email account')
-    ) {
-      setFieldErrors({
-        email: identityMismatchMessage,
-        idNumber: identityMismatchMessage,
+    if (errorText.includes('index') || errorText.includes('match')) {
+      setErrorsRecord({
+        idNumber: 'The provided email address or Index Number does not match our student records.',
       });
       return;
     }
-    if (serverMessage.includes('at least 8 characters') || serverMessage.includes('new password')) {
-      setFieldErrors({ password: 'New password must be at least 8 characters long.' });
+
+    if (errorText.includes('no account') || errorText.includes('exist')) {
+      setErrorsRecord({
+        email: 'The provided email address or Index Number does not match our student records.',
+      });
       return;
     }
-    setFieldErrors({ form: 'Something went wrong. Please try again.' });
+
+    if (errorText.includes('credential') || errorText.includes('password')) {
+      setErrorsRecord({ password: 'New password must be at least 8 characters long.' });
+      return;
+    }
+
+    setErrorsRecord({ form: 'Something went wrong. Please try again.' });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setMessage('');
-    setFieldErrors({});
+    setSuccessMessage('');
+    setErrorsRecord({});
 
-    const nextErrors: ResetFieldErrors = {};
-    if (!email.trim()) nextErrors.email = 'Enter the email for your account.';
-    if (!idNumber.trim()) nextErrors.idNumber = 'Enter your student or staff index number.';
-    if (!password) nextErrors.password = 'Enter a new password.';
-    if (!confirmPassword) nextErrors.confirmPassword = 'Confirm your new password.';
-    if (password && password.length < 8) nextErrors.password = 'New password must be at least 8 characters long.';
-    if (password && confirmPassword && password !== confirmPassword) {
-      nextErrors.confirmPassword = 'Passwords do not match.';
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
+    const frontendErrors = runFrontendValidation();
+    if (frontendErrors) {
+      setErrorsRecord(frontendErrors);
       return;
     }
 
@@ -94,15 +115,15 @@ const ForgotPassword = () => {
         idNumber,
         password,
       });
-      setFieldErrors({});
+      setErrorsRecord({});
       setEmail('');
       setIdNumber('');
       setPassword('');
       setConfirmPassword('');
-      setMessage('Password updated successfully. You can now log in with your new password.');
-    } catch (err) {
-      setMessage('');
-      placeServerError(err);
+      setSuccessMessage('Password updated successfully. You can now log in with your new password.');
+    } catch (error) {
+      setSuccessMessage('');
+      applyBackendError(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +132,7 @@ const ForgotPassword = () => {
   return (
     <div className="auth-page">
       <div className="bg-shape one"></div>
-      
+
       <main className="auth-main">
         <div className="auth-card" style={{ padding: '2rem 1rem' }}>
           <div className="auth-content">
@@ -132,21 +153,21 @@ const ForgotPassword = () => {
                   <div className="auth-input-icon">
                     <span className="material-symbols-outlined text-[20px]">mail</span>
                   </div>
-                  <input 
-                    type="email" 
-                    id="email" 
-                    className={`auth-input with-icon ${fieldErrors.email ? 'error' : ''}`}
-                    placeholder="name@uenr.edu.gh" 
+                  <input
+                    type="email"
+                    id="email"
+                    className={`auth-input with-icon ${errorsRecord.email ? 'error' : ''}`}
+                    placeholder="name@uenr.edu.gh"
                     value={email}
                     onChange={(event) => {
                       setEmail(event.target.value);
                       clearFieldError('email');
                     }}
-                    aria-invalid={Boolean(fieldErrors.email)}
-                    aria-describedby={fieldErrors.email ? 'reset-email-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.email)}
+                    aria-describedby={errorsRecord.email ? 'reset-email-error' : undefined}
                   />
                 </div>
-                {fieldErrors.email && <p className="auth-field-error" id="reset-email-error">{fieldErrors.email}</p>}
+                {errorsRecord.email && <p className="auth-field-error" id="reset-email-error">{errorsRecord.email}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -158,18 +179,18 @@ const ForgotPassword = () => {
                   <input
                     type="text"
                     id="id_number"
-                    className={`auth-input with-icon ${fieldErrors.idNumber ? 'error' : ''}`}
+                    className={`auth-input with-icon ${errorsRecord.idNumber ? 'error' : ''}`}
                     placeholder="UEB1234567 or staff ID"
                     value={idNumber}
                     onChange={(event) => {
                       setIdNumber(event.target.value);
                       clearFieldError('idNumber');
                     }}
-                    aria-invalid={Boolean(fieldErrors.idNumber)}
-                    aria-describedby={fieldErrors.idNumber ? 'reset-id-number-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.idNumber)}
+                    aria-describedby={errorsRecord.idNumber ? 'reset-id-number-error' : undefined}
                   />
                 </div>
-                {fieldErrors.idNumber && <p className="auth-field-error" id="reset-id-number-error">{fieldErrors.idNumber}</p>}
+                {errorsRecord.idNumber && <p className="auth-field-error" id="reset-id-number-error">{errorsRecord.idNumber}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -181,7 +202,7 @@ const ForgotPassword = () => {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="new_password"
-                    className={`auth-input with-icon ${fieldErrors.password ? 'error' : ''}`}
+                    className={`auth-input with-icon ${errorsRecord.password ? 'error' : ''}`}
                     placeholder="At least 8 characters"
                     style={{ paddingRight: '2.5rem' }}
                     value={password}
@@ -189,8 +210,8 @@ const ForgotPassword = () => {
                       setPassword(event.target.value);
                       clearFieldError('password');
                     }}
-                    aria-invalid={Boolean(fieldErrors.password)}
-                    aria-describedby={fieldErrors.password ? 'reset-password-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.password)}
+                    aria-describedby={errorsRecord.password ? 'reset-password-error' : undefined}
                   />
                   <button
                     type="button"
@@ -214,7 +235,7 @@ const ForgotPassword = () => {
                     {showPassword ? 'visibility_off' : 'visibility'}
                   </button>
                 </div>
-                {fieldErrors.password && <p className="auth-field-error" id="reset-password-error">{fieldErrors.password}</p>}
+                {errorsRecord.password && <p className="auth-field-error" id="reset-password-error">{errorsRecord.password}</p>}
               </div>
 
               <div className="auth-field-group">
@@ -226,7 +247,7 @@ const ForgotPassword = () => {
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     id="confirm_password"
-                    className={`auth-input with-icon ${fieldErrors.confirmPassword ? 'error' : ''}`}
+                    className={`auth-input with-icon ${errorsRecord.confirmPassword ? 'error' : ''}`}
                     placeholder="Repeat new password"
                     style={{ paddingRight: '2.5rem' }}
                     value={confirmPassword}
@@ -234,8 +255,8 @@ const ForgotPassword = () => {
                       setConfirmPassword(event.target.value);
                       clearFieldError('confirmPassword');
                     }}
-                    aria-invalid={Boolean(fieldErrors.confirmPassword)}
-                    aria-describedby={fieldErrors.confirmPassword ? 'reset-confirm-password-error' : undefined}
+                    aria-invalid={Boolean(errorsRecord.confirmPassword)}
+                    aria-describedby={errorsRecord.confirmPassword ? 'reset-confirm-password-error' : undefined}
                   />
                   <button
                     type="button"
@@ -259,15 +280,15 @@ const ForgotPassword = () => {
                     {showConfirmPassword ? 'visibility_off' : 'visibility'}
                   </button>
                 </div>
-                {fieldErrors.confirmPassword && (
-                  <p className="auth-field-error" id="reset-confirm-password-error">{fieldErrors.confirmPassword}</p>
+                {errorsRecord.confirmPassword && (
+                  <p className="auth-field-error" id="reset-confirm-password-error">{errorsRecord.confirmPassword}</p>
                 )}
               </div>
 
-              {message && (
+              {successMessage && (
                 <div className="auth-success-message">
                   <span className="material-symbols-outlined">check_circle</span>
-                  <span>{message}</span>
+                  <span>{successMessage}</span>
                 </div>
               )}
 
@@ -275,7 +296,7 @@ const ForgotPassword = () => {
                 {isSubmitting ? 'Updating Password...' : 'Update Password'}
                 <span className="material-symbols-outlined text-[20px]">{isSubmitting ? 'hourglass_top' : 'arrow_forward'}</span>
               </button>
-              {fieldErrors.form && <p className="auth-field-error center">{fieldErrors.form}</p>}
+              {errorsRecord.form && <p className="auth-field-error center">{errorsRecord.form}</p>}
             </form>
 
             <div className="auth-divider" style={{ marginBottom: '1.5rem', marginTop: '2.5rem' }}>
@@ -283,14 +304,14 @@ const ForgotPassword = () => {
             </div>
 
             <div style={{ textAlign: 'center' }}>
-              <Link to="/login" style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
-                color: 'var(--secondary)', 
-                fontWeight: '600', 
+              <Link to="/login" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: 'var(--secondary)',
+                fontWeight: '600',
                 textDecoration: 'none',
-                transition: 'color 0.2s'
+                transition: 'color 0.2s',
               }}>
                 <span className="material-symbols-outlined text-[18px]">keyboard_backspace</span>
                 <span>Back to Login</span>
@@ -299,7 +320,7 @@ const ForgotPassword = () => {
           </div>
         </div>
       </main>
-      
+
       <div style={{ textAlign: 'center', paddingBottom: '2rem', color: 'var(--outline)', fontSize: '0.75rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
         University of Energy and Natural Resources
       </div>
