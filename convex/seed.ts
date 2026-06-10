@@ -96,7 +96,8 @@ const testUsers = [
   },
 ];
 
-const reviewStatusFor = (approved: boolean) => (approved ? "approved" : "pending");
+const reviewStatusFor = (approved: boolean): "approved" | "pending" | "rejected" =>
+  approved ? "approved" : "pending";
 
 export const run = mutation({
   args: {},

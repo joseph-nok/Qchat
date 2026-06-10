@@ -183,12 +183,27 @@ const MessagesList = () => {
     setEditingId(null);
   };
 
-  // Long-press handlers for hold-to-act on own messages
-  const handlePointerDown = (message: ChatMessage) => {
+  const startCoordsRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Long-press handlers for hold-to-act on own messages (hold for 2 to 3 seconds)
+  const handlePointerDown = (event: React.PointerEvent, message: ChatMessage) => {
     if (!message.isMine) return;
+    startCoordsRef.current = { x: event.clientX, y: event.clientY };
     longPressTimerRef.current = setTimeout(() => {
       setMenuMessage(message);
-    }, 600);
+    }, 2000); // 2 seconds
+  };
+
+  const handlePointerMove = (event: React.PointerEvent) => {
+    if (!startCoordsRef.current || !longPressTimerRef.current) return;
+    const dx = event.clientX - startCoordsRef.current.x;
+    const dy = event.clientY - startCoordsRef.current.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 10) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+      startCoordsRef.current = null;
+    }
   };
 
   const handlePointerUp = () => {
@@ -196,6 +211,7 @@ const MessagesList = () => {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    startCoordsRef.current = null;
   };
 
   const handleDeleteMessage = async () => {
@@ -470,9 +486,11 @@ const MessagesList = () => {
                   <div
                     key={message._id}
                     className={`message-bubble-wrapper ${message.isMine ? 'outgoing' : 'incoming'}`}
-                    onPointerDown={() => handlePointerDown(message)}
+                    onPointerDown={(e) => handlePointerDown(e, message)}
                     onPointerUp={handlePointerUp}
                     onPointerLeave={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onPointerMove={handlePointerMove}
                     onContextMenu={(e) => { if (message.isMine) { e.preventDefault(); setMenuMessage(message); } }}
                     style={{ userSelect: 'none' }}
                   >
