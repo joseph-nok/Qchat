@@ -1,9 +1,10 @@
 .edit-profile-inner {
-  max-width: 72rem;
+  max-width: 60rem;
   margin: 0 auto;
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .edit-profile-header {
@@ -356,6 +357,19 @@
 }
 
 @media (max-width: 768px) {
+  .edit-profile-inner {
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .edit-profile-grid {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
   .edit-form-grid {
     grid-template-columns: 1fr;
   }
