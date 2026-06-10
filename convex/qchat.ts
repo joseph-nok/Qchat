@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
@@ -176,16 +176,15 @@ export const loginUser = mutation({
       .first();
 
     if (!user) {
-      throw new Error("No account found with this email address.");
+      throw new ConvexError("EMAIL_NOT_FOUND");
     }
 
     if (user.role !== args.role) {
-      const registeredRole = user.role === "lecturer" ? "lecturer" : "student";
-      throw new Error(`This email is registered as a ${registeredRole}. Select ${registeredRole} to log in.`);
+      throw new ConvexError("WRONG_ROLE");
     }
 
     if (user.passwordHash !== passwordHashFor(args.password)) {
-      throw new Error("Incorrect password. Please try again.");
+      throw new ConvexError("INVALID_PASSWORD");
     }
 
     const sessionToken = `session:${user.email}:${crypto.randomUUID()}`;

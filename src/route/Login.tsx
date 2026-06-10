@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { isNetworkError, toErrorText } from '../lib/convexErrors';
+import { getConvexErrorCode, isNetworkError, toErrorText } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import '../route_css/Login.css';
 
@@ -59,6 +59,25 @@ const Login = () => {
       return;
     }
 
+    const errorCode = getConvexErrorCode(error);
+
+    if (errorCode === 'EMAIL_NOT_FOUND') {
+      setErrorsRecord({ email: 'This email address is not registered with us.' });
+      return;
+    }
+
+    if (errorCode === 'WRONG_ROLE') {
+      setErrorsRecord({
+        role: 'This email is registered under a different account type. Select the correct Student or Lecturer option.',
+      });
+      return;
+    }
+
+    if (errorCode === 'INVALID_PASSWORD') {
+      setErrorsRecord({ password: 'The password you entered is incorrect. Please try again.' });
+      return;
+    }
+
     const errorText = toErrorText(error);
 
     if (errorText.includes('registered as')) {
@@ -68,13 +87,13 @@ const Login = () => {
       return;
     }
 
-    if (errorText.includes('no account') || errorText.includes('exist')) {
-      setErrorsRecord({ email: 'This email address is not registered with us.' });
+    if (errorText.includes('incorrect') || errorText.includes('credential') || errorText.includes('password')) {
+      setErrorsRecord({ password: 'The password you entered is incorrect. Please try again.' });
       return;
     }
 
-    if (errorText.includes('credential') || errorText.includes('password')) {
-      setErrorsRecord({ password: 'The password you entered is incorrect. Please try again.' });
+    if (errorText.includes('no account') || errorText.includes('not found') || errorText.includes('exist')) {
+      setErrorsRecord({ email: 'This email address is not registered with us.' });
       return;
     }
 
