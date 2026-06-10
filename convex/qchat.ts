@@ -211,17 +211,17 @@ export const resetPasswordWithIdentity = mutation({
       .first();
 
     if (!user) {
-      throw new Error("No account found with this email address.");
+      throw new ConvexError("EMAIL_NOT_FOUND");
     }
 
     const submittedIdNumber = args.idNumber.trim().toUpperCase();
     const accountIdNumber = (user.idNumber ?? "").trim().toUpperCase();
     if (!submittedIdNumber || submittedIdNumber !== accountIdNumber) {
-      throw new Error("Index number does not match this email account.");
+      throw new ConvexError("INDEX_MISMATCH");
     }
 
     if (args.password.length < 8) {
-      throw new Error("New password must be at least 8 characters long.");
+      throw new ConvexError("PASSWORD_TOO_SHORT");
     }
 
     await ctx.db.patch(user._id, {

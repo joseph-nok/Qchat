@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { isNetworkError, toErrorText } from '../lib/convexErrors';
+import { getConvexErrorCode, isNetworkError, toErrorText } from '../lib/convexErrors';
 import '../route_css/ForgotPassword.css';
 
 const convexApi = api as any;
@@ -66,6 +66,9 @@ const ForgotPassword = () => {
     return Object.keys(errors).length > 0 ? errors : null;
   };
 
+  const identityMismatchMessage =
+    'The provided email address or Index Number does not match our student records.';
+
   /** Tier 2 — map database errors to the correct field using keyword checks. */
   const applyBackendError = (error: unknown) => {
     if (isNetworkError(error)) {
@@ -73,23 +76,36 @@ const ForgotPassword = () => {
       return;
     }
 
+    const errorCode = getConvexErrorCode(error);
+
+    if (errorCode === 'EMAIL_NOT_FOUND') {
+      setErrorsRecord({ email: identityMismatchMessage });
+      return;
+    }
+
+    if (errorCode === 'INDEX_MISMATCH') {
+      setErrorsRecord({ idNumber: identityMismatchMessage });
+      return;
+    }
+
+    if (errorCode === 'PASSWORD_TOO_SHORT') {
+      setErrorsRecord({ password: 'New password must be at least 8 characters long.' });
+      return;
+    }
+
     const errorText = toErrorText(error);
 
-    if (errorText.includes('index') || errorText.includes('match')) {
-      setErrorsRecord({
-        idNumber: 'The provided email address or Index Number does not match our student records.',
-      });
+    if (errorText.includes('index number') || errorText.includes('does not match')) {
+      setErrorsRecord({ idNumber: identityMismatchMessage });
       return;
     }
 
-    if (errorText.includes('no account') || errorText.includes('exist')) {
-      setErrorsRecord({
-        email: 'The provided email address or Index Number does not match our student records.',
-      });
+    if (errorText.includes('no account') || errorText.includes('not found')) {
+      setErrorsRecord({ email: identityMismatchMessage });
       return;
     }
 
-    if (errorText.includes('credential') || errorText.includes('password')) {
+    if (errorText.includes('at least 8 characters') || errorText.includes('too short')) {
       setErrorsRecord({ password: 'New password must be at least 8 characters long.' });
       return;
     }
