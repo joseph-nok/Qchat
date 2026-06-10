@@ -9,8 +9,8 @@ const Footer = () => {
           <p className="footer-desc">Building the future of secure academic communication for the Republic of Ghana.</p>
         </div>
         <nav className="footer-nav">
-          <a href="#">About</a>
-          <a href="#">Privacy Policy</a>
+          {/* <a href="#">About</a>
+          <a href="#">Privacy Policy</a> */}
         </nav>
         <div className="footer-divider"></div>
         <div className="footer-bottom">

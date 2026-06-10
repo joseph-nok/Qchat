@@ -810,7 +810,7 @@ body {
   font-weight: 500;
 }
 
-.chat-encryption-badge {
+/* .chat-encryption-badge {
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -824,7 +824,7 @@ body {
 
 .chat-encryption-badge span {
   font-size: 0.75rem;
-}
+} */
 
 .chat-drawer-messages {
   flex: 1;

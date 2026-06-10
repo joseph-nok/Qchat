@@ -290,7 +290,6 @@ const VerifyProfile = () => {
                 </div>
 
                 {[
-                  ['Full access', 'Unlock secure messaging, discovery, and credential workflows.'],
                   ['Verified badge', 'Show students and lecturers that your identity is trusted.'],
                   ['Credential sharing', 'Prepare your profile for cross-institution academic requests.'],
                 ].map(([title, body]) => (

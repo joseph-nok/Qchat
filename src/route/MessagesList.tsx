@@ -456,10 +456,7 @@ const MessagesList = () => {
                   <p className="chat-drawer-school">{activeRoom.otherUser.school}</p>
                 </div>
               </div>
-              <div className="chat-encryption-badge">
-                <span className="material-symbols-outlined">sync</span>
-                <span>LIVE</span>
-              </div>
+              
             </div>
 
             <div className="chat-drawer-messages">
