@@ -7,6 +7,7 @@ import AppHeader from '../components/AppHeader';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext.jsx';
+import '../route_css/MessagesList.css';
 import '../route_css/Explore.css';
 
 const convexApi = api as any;
@@ -212,12 +213,12 @@ const Explore = () => {
 
                       <p className="explore-email">
                         <span className="material-symbols-outlined" style={{ fontSize: '0.875rem' }}>mail</span>
-                        {user.email}
+                        <span className="explore-detail-text">{user.email}</span>
                       </p>
 
                       <p className="explore-institution">
                         <span className="material-symbols-outlined" style={{ fontSize: '0.875rem' }}>account_balance</span>
-                        {user.school}
+                        <span className="explore-detail-text">{user.school}</span>
                       </p>
                     </div>
 

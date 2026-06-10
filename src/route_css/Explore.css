@@ -218,10 +218,17 @@
   font-size: 0.8125rem;
   color: var(--outline);
   margin: 0;
-  white-space: nowrap;
+  font-weight: 500;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.explore-detail-text {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 500;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Message / Start Chat button */
@@ -274,13 +281,13 @@
   .explore-card {
     flex-wrap: wrap;
     gap: 1rem;
+    padding: 1rem;
   }
   .explore-chat-btn {
     width: 100%;
     justify-content: center;
   }
-  .explore-email,
-  .explore-institution {
+  .explore-name {
     white-space: normal;
   }
 }

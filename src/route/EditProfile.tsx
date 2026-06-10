@@ -190,7 +190,7 @@ const EditProfile = () => {
           <div className="page-header edit-profile-header">
             <div>
               <h1 className="page-title">Edit Profile</h1>
-              <p className="page-subtitle">Update your live Qchat profile details from Convex.</p>
+              {/* <p className="page-subtitle">Update your live Qchat profile details from Convex.</p> */}
             </div>
           </div>
 
@@ -314,10 +314,7 @@ const EditProfile = () => {
                 </div>
               </div>
 
-              <div className="edit-guidance-card">
-                <span className="material-symbols-outlined">sync</span>
-                <p>Saving patches your Convex user document, so Explore, verification, and header profile views receive the same live values.</p>
-              </div>
+              
             </aside>
           </form>
         </div>

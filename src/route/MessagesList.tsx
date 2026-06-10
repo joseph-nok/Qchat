@@ -244,7 +244,7 @@ const MessagesList = () => {
           <div className="page-header">
             <div>
               <h1 className="page-title">Messages</h1>
-              <p className="page-subtitle">Live conversations stored and synced through Convex.</p>
+              {/* <p className="page-subtitle">Live conversations stored and synced through Convex.</p> */}
             </div>
           </div>
 

@@ -304,11 +304,11 @@ const VerifyProfile = () => {
                 ))}
               </div>
 
-              <div className="verify-security-card">
+              {/* <div className="verify-security-card">
                 <span className="material-symbols-outlined">lock_person</span>
                 <h2>Privacy and Security</h2>
                 <p>Your uploaded document is stored in Convex File Storage and linked only to your verification review.</p>
-              </div>
+              </div> */}
             </aside>
           </div>
         </div>
