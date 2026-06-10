@@ -41,6 +41,7 @@ type ChatMessage = {
   attachmentName?: string;
   attachmentType?: string;
   attachmentSize?: number;
+  editedAt?: number;
 };
 
 const clampChatDrawerWidth = (width: number) => {
@@ -80,6 +81,8 @@ const MessagesList = () => {
   const generateUploadUrl = useMutation(convexApi.qchat.generateUploadUrl);
   const sendMessage = useMutation(convexApi.qchat.sendMessage);
   const markAsRead = useMutation(convexApi.qchat.markAsRead);
+  const deleteMessage = useMutation(convexApi.qchat.deleteMessage);
+  const editMessage = useMutation(convexApi.qchat.editMessage);
 
   const requestedRoomId = searchParams.get('roomId') as Id<'chatRooms'> | null;
   const [activeRoomId, setActiveRoomId] = useState<Id<'chatRooms'> | null>(requestedRoomId);
@@ -93,6 +96,15 @@ const MessagesList = () => {
   const [isResizingChat, setIsResizingChat] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Long-press / context-menu state
+  const [menuMessage, setMenuMessage] = useState<ChatMessage | null>(null);
+  const [editingId, setEditingId] = useState<Id<'messages'> | null>(null);
+  const [editText, setEditText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   const messages = useQuery(
     convexApi.qchat.getMessages,
@@ -167,6 +179,63 @@ const MessagesList = () => {
   const handleCloseDrawer = () => {
     setActiveRoomId(null);
     setSearchParams({});
+    setMenuMessage(null);
+    setEditingId(null);
+  };
+
+  // Long-press handlers for hold-to-act on own messages
+  const handlePointerDown = (message: ChatMessage) => {
+    if (!message.isMine) return;
+    longPressTimerRef.current = setTimeout(() => {
+      setMenuMessage(message);
+    }, 600);
+  };
+
+  const handlePointerUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!menuMessage || !sessionToken) return;
+    setIsDeleting(true);
+    try {
+      await deleteMessage({ sessionToken, messageId: menuMessage._id });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete message.');
+    } finally {
+      setIsDeleting(false);
+      setMenuMessage(null);
+    }
+  };
+
+  const handleStartEdit = () => {
+    if (!menuMessage) return;
+    setEditingId(menuMessage._id);
+    setEditText(menuMessage.text);
+    setMenuMessage(null);
+    setTimeout(() => editInputRef.current?.focus(), 50);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !sessionToken) return;
+    setIsEditing(true);
+    try {
+      await editMessage({ sessionToken, messageId: editingId, text: editText });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not edit message.');
+    } finally {
+      setIsEditing(false);
+      setEditingId(null);
+      setEditText('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditText('');
   };
 
   const handleFileChange = (files: FileList | null) => {
@@ -401,22 +470,57 @@ const MessagesList = () => {
                 </div>
               ) : messages.length > 0 ? (
                 messages.map((message) => (
-                  <div key={message._id} className={`message-bubble-wrapper ${message.isMine ? 'outgoing' : 'incoming'}`}>
-                    <div className="message-bubble">
-                      {message.text && <p className="message-text">{message.text}</p>}
-                      {message.attachmentUrl && (
-                        <a
-                          href={message.attachmentUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="message-text"
-                          style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', fontWeight: 700 }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>attach_file</span>
-                          {message.attachmentName || 'Attachment'} {formatFileSize(message.attachmentSize)}
-                        </a>
+                  <div
+                    key={message._id}
+                    className={`message-bubble-wrapper ${message.isMine ? 'outgoing' : 'incoming'}`}
+                    onPointerDown={() => handlePointerDown(message)}
+                    onPointerUp={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
+                    onContextMenu={(e) => { if (message.isMine) { e.preventDefault(); setMenuMessage(message); } }}
+                    style={{ userSelect: 'none' }}
+                  >
+                    <div className={`message-bubble ${editingId === message._id ? 'editing' : ''}`}>
+                      {editingId === message._id ? (
+                        <div className="message-edit-area">
+                          <input
+                            ref={editInputRef}
+                            className="message-edit-input"
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void handleSaveEdit();
+                              if (e.key === 'Escape') handleCancelEdit();
+                            }}
+                          />
+                          <div className="message-edit-actions">
+                            <button type="button" className="msg-action-cancel" onClick={handleCancelEdit}>
+                              <span className="material-symbols-outlined">close</span>
+                            </button>
+                            <button type="button" className="msg-action-save" onClick={() => void handleSaveEdit()} disabled={isEditing || !editText.trim()}>
+                              <span className="material-symbols-outlined">{isEditing ? 'hourglass_top' : 'check'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {message.text && <p className="message-text">{message.text}</p>}
+                          {message.attachmentUrl && (
+                            <a
+                              href={message.attachmentUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="message-text"
+                              style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', fontWeight: 700 }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>attach_file</span>
+                              {message.attachmentName || 'Attachment'} {formatFileSize(message.attachmentSize)}
+                            </a>
+                          )}
+                          <span className="message-time">
+                            {message.editedAt ? 'edited · ' : ''}{formatTime(message.createdAt)}
+                          </span>
+                        </>
                       )}
-                      <span className="message-time">{formatTime(message.createdAt)}</span>
                     </div>
                   </div>
                 ))
@@ -457,6 +561,49 @@ const MessagesList = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* ===== MESSAGE CONTEXT MENU ===== */}
+      {menuMessage && (
+        <>
+          <button
+            type="button"
+            className="msg-menu-backdrop"
+            aria-label="Close menu"
+            onClick={() => setMenuMessage(null)}
+          />
+          <div className="msg-context-menu" role="menu">
+            <div className="msg-context-preview">
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem', opacity: 0.5 }}>
+                {menuMessage.attachmentUrl ? 'attach_file' : 'chat_bubble'}
+              </span>
+              <span className="msg-context-preview-text">
+                {menuMessage.attachmentName || menuMessage.text || 'Message'}
+              </span>
+            </div>
+            {!menuMessage.attachmentUrl && (
+              <button
+                type="button"
+                className="msg-context-btn edit"
+                role="menuitem"
+                onClick={handleStartEdit}
+              >
+                <span className="material-symbols-outlined">edit</span>
+                Edit message
+              </button>
+            )}
+            <button
+              type="button"
+              className="msg-context-btn delete"
+              role="menuitem"
+              onClick={() => void handleDeleteMessage()}
+              disabled={isDeleting}
+            >
+              <span className="material-symbols-outlined">delete</span>
+              {isDeleting ? 'Deleting…' : 'Delete message'}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

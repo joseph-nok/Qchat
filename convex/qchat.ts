@@ -367,18 +367,21 @@ export const getMessages = query({
       .order("asc")
       .take(100);
 
-    return messages.map((message) => ({
-      _id: message._id,
-      text: message.text,
-      createdAt: message.createdAt,
-      senderId: message.senderId,
-      isMine: message.senderId === currentUser._id,
-      readBy: message.readBy,
-      attachmentUrl: message.attachmentUrl,
-      attachmentName: message.attachmentName,
-      attachmentType: message.attachmentType,
-      attachmentSize: message.attachmentSize,
-    }));
+    return messages
+      .filter((message) => !message.deletedAt)
+      .map((message) => ({
+        _id: message._id,
+        text: message.text,
+        createdAt: message.createdAt,
+        senderId: message.senderId,
+        isMine: message.senderId === currentUser._id,
+        readBy: message.readBy,
+        attachmentUrl: message.attachmentUrl,
+        attachmentName: message.attachmentName,
+        attachmentType: message.attachmentType,
+        attachmentSize: message.attachmentSize,
+        editedAt: message.editedAt,
+      }));
   },
 });
 
@@ -554,5 +557,54 @@ export const submitAcademicVerification = mutation({
     });
 
     return { ok: true, evidenceUrl };
+  },
+});
+
+export const deleteMessage = mutation({
+  args: {
+    sessionToken: v.string(),
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found.");
+    }
+    if (message.senderId !== currentUser._id) {
+      throw new Error("You can only delete your own messages.");
+    }
+    await ctx.db.patch(args.messageId, { deletedAt: Date.now() });
+    return { ok: true };
+  },
+});
+
+export const editMessage = mutation({
+  args: {
+    sessionToken: v.string(),
+    messageId: v.id("messages"),
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found.");
+    }
+    if (message.senderId !== currentUser._id) {
+      throw new Error("You can only edit your own messages.");
+    }
+    if (message.attachmentStorageId) {
+      throw new Error("File messages cannot be edited.");
+    }
+    const newText = args.text.trim();
+    if (!newText) {
+      throw new Error("Message text cannot be empty.");
+    }
+    await ctx.db.patch(args.messageId, {
+      text: newText,
+      editedAt: Date.now(),
+    });
+    return { ok: true };
   },
 });

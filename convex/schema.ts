@@ -64,6 +64,8 @@ export default defineSchema({
     attachmentSize: v.optional(v.number()),
     readBy: v.array(v.id("users")),
     createdAt: v.number(),
+    editedAt: v.optional(v.number()),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_roomId_and_createdAt", ["roomId", "createdAt"])
     .index("by_senderId", ["senderId"]),
