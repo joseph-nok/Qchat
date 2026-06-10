@@ -316,7 +316,6 @@ const EditProfile = () => {
 
               <div className="edit-guidance-card">
                 <span className="material-symbols-outlined">sync</span>
-                <h2>Live Sync</h2>
                 <p>Saving patches your Convex user document, so Explore, verification, and header profile views receive the same live values.</p>
               </div>
             </aside>
