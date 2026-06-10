@@ -370,12 +370,14 @@ const MessagesList = () => {
                 <span className="material-symbols-outlined">arrow_back</span>
               </button>
               <div className="chat-drawer-user-info">
-                <div className="chat-drawer-avatar-wrapper chat-drawer-avatar">
-                  {activeRoom.otherUser.avatarUrl ? (
-                    <img src={activeRoom.otherUser.avatarUrl} alt={activeRoom.otherUser.fullName} />
-                  ) : (
-                    <span className="conv-avatar-initials">{getInitials(activeRoom.otherUser.fullName)}</span>
-                  )}
+                <div className="chat-drawer-avatar-wrapper">
+                  <div className="chat-drawer-avatar">
+                    {activeRoom.otherUser.avatarUrl ? (
+                      <img src={activeRoom.otherUser.avatarUrl} alt={activeRoom.otherUser.fullName} />
+                    ) : (
+                      <span className="conv-avatar-initials">{getInitials(activeRoom.otherUser.fullName)}</span>
+                    )}
+                  </div>
                   {activeRoom.otherUser.isVerified && (
                     <span className="chat-drawer-verified-badge material-symbols-outlined">verified</span>
                   )}
