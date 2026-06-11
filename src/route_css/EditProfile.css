@@ -362,32 +362,59 @@
     width: 100%;
     box-sizing: border-box;
     overflow-x: hidden;
+    padding: 0;
   }
 
   .edit-profile-grid {
     width: 100%;
+    max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
+    overflow-x: hidden;
   }
 
-  .edit-form-grid {
-    grid-template-columns: 1fr;
+  .edit-profile-main,
+  .edit-profile-side {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .edit-profile-card,
   .edit-summary-card,
   .edit-guidance-card {
     padding: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .edit-form-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .edit-field input,
+  .edit-field select,
+  .edit-field textarea {
+    font-size: 1rem; /* prevents iOS zoom on focus */
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .weekly-lock-row {
     align-items: stretch;
     flex-direction: column;
+    box-sizing: border-box;
   }
 
   .edit-photo-row {
     align-items: flex-start;
     flex-direction: column;
+    box-sizing: border-box;
   }
 
   .edit-profile-actions,
@@ -398,9 +425,9 @@
     box-sizing: border-box;
   }
 
-  .edit-field input,
-  .edit-field select,
-  .edit-field textarea {
-    font-size: 1rem; /* prevents iOS zoom on focus */
+  .edit-summary-line {
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 }
