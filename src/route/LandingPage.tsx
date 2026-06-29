@@ -21,10 +21,10 @@ const LandingPage = () => {
                 Ghana Education <br />
                 <span className="highlight">Connect.</span>
               </h1>
-              <p className="hero-subtitle">
-                Experience quantum-simulated file sharing. Built for Ghanaian
+              {/* <p className="hero-subtitle">
+                 Built for Ghanaian
                 academia's next frontier
-              </p>
+              </p> */}
               <div className="hero-actions">
                 <Link
                   to="/register"
@@ -49,7 +49,7 @@ const LandingPage = () => {
                 />
                 <div className="glass-card">
                   <div className="glass-card-icon">
-                    <span className="material-symbols-outlined">security</span>
+                    <span className="material-symbols-outlined"></span>
                   </div>
                   <div className="glass-card-text">
                     <p className="glass-title">Web3 Integration.</p>
@@ -69,19 +69,18 @@ const LandingPage = () => {
         <section className="features-section">
           <div className="features-container">
             <div className="features-header">
-              <h2 className="section-title">Academic Sovereignty</h2>
+              <h2 className="section-title">Academia Connect</h2>
               <p className="section-subtitle">
                 Experience a communication layer built specifically for the
-                Ghanaian academic landscape, where security isn't an option—it's
-                the foundation.
+                Ghanaian academic landscape.
               </p>
             </div>
             <div className="features-grid">
               <div className="feature-card">
                 <div className="feature-icon-wrapper primary">
-                  <span className="material-symbols-outlined">
+                  {/* <span className="material-symbols-outlined">
                     cloud_upload
-                  </span>
+                  </span> */}
                 </div>
                 <h3 className="feature-title">Academic Material Upload</h3>
                 <p className="feature-desc">
@@ -95,7 +94,7 @@ const LandingPage = () => {
                 </div>
                 <h3 className="feature-title">Academic Chat</h3>
                 <p className="feature-desc">
-                  Communicate with peers and lecturers in real-time
+                  Communicate with peers and lecturers in the academic network.
                 </p>
               </div>
             </div>

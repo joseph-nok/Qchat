@@ -60,6 +60,41 @@ const publicUser = (user: Doc<"users">) => {
   };
 };
 
+const questionPreview = (body: string) => {
+  const trimmed = body.trim().replace(/\s+/g, " ");
+  return trimmed.length > 180 ? `${trimmed.slice(0, 177)}...` : trimmed;
+};
+
+const normalizeHashtags = (hashtags: string[]) => {
+  const unique = new Set<string>();
+  for (const tag of hashtags) {
+    const normalized = tag.trim().replace(/^#+/, "").replace(/\s+/g, "");
+    if (!normalized) continue;
+    unique.add(`#${normalized.slice(0, 40)}`);
+  }
+  return [...unique].slice(0, 8);
+};
+
+const attachmentFields = async (
+  ctx: MutationCtx,
+  attachmentStorageId?: Id<"_storage">,
+  attachmentName?: string,
+  attachmentType?: string,
+  attachmentSize?: number,
+) => {
+  const attachmentUrl = attachmentStorageId
+    ? (await ctx.storage.getUrl(attachmentStorageId)) ?? undefined
+    : undefined;
+
+  return {
+    ...(attachmentStorageId ? { attachmentStorageId } : {}),
+    ...(attachmentUrl ? { attachmentUrl } : {}),
+    ...(attachmentName ? { attachmentName } : {}),
+    ...(attachmentType ? { attachmentType } : {}),
+    ...(attachmentSize ? { attachmentSize } : {}),
+  };
+};
+
 const ensureRoomMember = async (
   ctx: MutationCtx,
   roomId: Id<"chatRooms">,
@@ -385,6 +420,134 @@ export const getMessages = query({
   },
 });
 
+export const getQuestions = query({
+  args: {
+    sessionToken: v.optional(v.string()),
+  },
+  handler: async (ctx) => {
+    const questions = await ctx.db
+      .query("questions")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .take(75);
+
+    const rows = [];
+    for (const question of questions) {
+      const author = await ctx.db.get(question.authorId);
+      if (!author) continue;
+
+      rows.push({
+        _id: question._id,
+        title: question.title,
+        preview: questionPreview(question.body),
+        hashtags: question.hashtags,
+        author: publicUser(author),
+        date: question.createdAt,
+        answerCount: question.answerCount,
+        answered: question.answered,
+        attachmentName: question.attachmentName,
+        attachmentType: question.attachmentType,
+        attachmentSize: question.attachmentSize,
+      });
+    }
+
+    return rows;
+  },
+});
+
+export const getQuestionThread = query({
+  args: {
+    sessionToken: v.string(),
+    questionId: v.id("questions"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getUserBySessionToken(ctx, args.sessionToken);
+    if (!currentUser) return null;
+
+    const question = await ctx.db.get(args.questionId);
+    if (!question) return null;
+
+    const author = await ctx.db.get(question.authorId);
+    if (!author) return null;
+
+    const answers = await ctx.db
+      .query("answers")
+      .withIndex("by_questionId_and_createdAt", (q) => q.eq("questionId", args.questionId))
+      .order("asc")
+      .take(150);
+
+    const renderedAnswers = [];
+    for (const answer of answers) {
+      const answerAuthor = await ctx.db.get(answer.authorId);
+      if (!answerAuthor) continue;
+      renderedAnswers.push({
+        _id: answer._id,
+        body: answer.body,
+        author: publicUser(answerAuthor),
+        createdAt: answer.createdAt,
+        isMine: answer.authorId === currentUser._id,
+        attachmentUrl: answer.attachmentUrl,
+        attachmentName: answer.attachmentName,
+        attachmentType: answer.attachmentType,
+        attachmentSize: answer.attachmentSize,
+      });
+    }
+
+    return {
+      question: {
+        _id: question._id,
+        title: question.title,
+        body: question.body,
+        hashtags: question.hashtags,
+        author: publicUser(author),
+        createdAt: question.createdAt,
+        updatedAt: question.updatedAt,
+        answered: question.answered,
+        answerCount: question.answerCount,
+        isMine: question.authorId === currentUser._id,
+        attachmentUrl: question.attachmentUrl,
+        attachmentName: question.attachmentName,
+        attachmentType: question.attachmentType,
+        attachmentSize: question.attachmentSize,
+      },
+      answers: renderedAnswers,
+    };
+  },
+});
+
+export const getNotifications = query({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getUserBySessionToken(ctx, args.sessionToken);
+    if (!currentUser) return [];
+
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId_and_createdAt", (q) => q.eq("userId", currentUser._id))
+      .order("desc")
+      .take(25);
+
+    const rows = [];
+    for (const notification of notifications) {
+      const actor = await ctx.db.get(notification.actorId);
+      rows.push({
+        _id: notification._id,
+        type: notification.type,
+        title: notification.title,
+        body: notification.body,
+        read: notification.read,
+        createdAt: notification.createdAt,
+        questionId: notification.questionId,
+        actorName: actor?.fullName ?? "Someone",
+      });
+    }
+
+    return rows;
+  },
+});
+
 export const sendMessage = mutation({
   args: {
     sessionToken: v.string(),
@@ -446,6 +609,135 @@ export const sendMessage = mutation({
     }
 
     return { messageId };
+  },
+});
+
+export const askQuestion = mutation({
+  args: {
+    sessionToken: v.string(),
+    title: v.string(),
+    body: v.string(),
+    hashtags: v.array(v.string()),
+    attachmentStorageId: v.optional(v.id("_storage")),
+    attachmentName: v.optional(v.string()),
+    attachmentType: v.optional(v.string()),
+    attachmentSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const title = args.title.trim().replace(/\s+/g, " ");
+    const body = args.body.trim();
+    if (title.length < 6) {
+      throw new Error("Question title must be at least 6 characters.");
+    }
+    if (body.length < 12) {
+      throw new Error("Question details must be at least 12 characters.");
+    }
+
+    const now = Date.now();
+    const questionId = await ctx.db.insert("questions", {
+      authorId: currentUser._id,
+      title,
+      body,
+      hashtags: normalizeHashtags(args.hashtags),
+      ...(await attachmentFields(
+        ctx,
+        args.attachmentStorageId,
+        args.attachmentName,
+        args.attachmentType,
+        args.attachmentSize,
+      )),
+      answerCount: 0,
+      answered: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { questionId };
+  },
+});
+
+export const addAnswer = mutation({
+  args: {
+    sessionToken: v.string(),
+    questionId: v.id("questions"),
+    body: v.string(),
+    attachmentStorageId: v.optional(v.id("_storage")),
+    attachmentName: v.optional(v.string()),
+    attachmentType: v.optional(v.string()),
+    attachmentSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const question = await ctx.db.get(args.questionId);
+    if (!question) {
+      throw new Error("Question not found.");
+    }
+
+    const body = args.body.trim();
+    if (!body && !args.attachmentStorageId) {
+      throw new Error("Reply cannot be empty.");
+    }
+
+    const now = Date.now();
+    const answerId = await ctx.db.insert("answers", {
+      questionId: args.questionId,
+      authorId: currentUser._id,
+      body,
+      ...(await attachmentFields(
+        ctx,
+        args.attachmentStorageId,
+        args.attachmentName,
+        args.attachmentType,
+        args.attachmentSize,
+      )),
+      createdAt: now,
+    });
+
+    await ctx.db.patch(args.questionId, {
+      answerCount: question.answerCount + 1,
+      updatedAt: now,
+    });
+
+    if (question.authorId !== currentUser._id) {
+      await ctx.db.insert("notifications", {
+        userId: question.authorId,
+        actorId: currentUser._id,
+        questionId: args.questionId,
+        answerId,
+        type: "question_reply",
+        title: "New answer on your question",
+        body: `${currentUser.fullName} replied to "${question.title}"`,
+        read: false,
+        createdAt: now,
+      });
+    }
+
+    return { answerId };
+  },
+});
+
+export const markQuestionAnswered = mutation({
+  args: {
+    sessionToken: v.string(),
+    questionId: v.id("questions"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const question = await ctx.db.get(args.questionId);
+    if (!question) {
+      throw new Error("Question not found.");
+    }
+    if (question.authorId !== currentUser._id) {
+      throw new Error("Only the original poster can mark this answered.");
+    }
+
+    await ctx.db.patch(args.questionId, {
+      answered: true,
+      updatedAt: Date.now(),
+    });
+
+    return { ok: true };
   },
 });
 

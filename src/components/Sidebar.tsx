@@ -20,6 +20,7 @@ const Sidebar = () => {
 
   const links = [
     { to: '/messages', icon: 'chat_bubble', label: 'Messages' },
+    { to: '/qa', icon: 'quiz', label: 'Q&A' },
     { to: '/explore', icon: 'travel_explore', label: 'Explore' },
     { to: '/verify-profile', icon: 'verified_user', label: 'Verify Profile' },
     { to: '/edit-profile', icon: 'manage_accounts', label: 'Edit Profile' },

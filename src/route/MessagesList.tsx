@@ -6,6 +6,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import AppHeader from '../components/AppHeader';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
+import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
 import '../route_css/MessagesList.css';
 
@@ -58,13 +59,6 @@ const formatTime = (timestamp?: number) => {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 };
 
-const formatFileSize = (size?: number) => {
-  if (!size) return '';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-};
-
 const getInitials = (name: string) => name
   .split(' ')
   .filter(Boolean)
@@ -95,7 +89,6 @@ const MessagesList = () => {
   const [chatDrawerWidth, setChatDrawerWidth] = useState(() => clampChatDrawerWidth(DEFAULT_CHAT_DRAWER_WIDTH));
   const [isResizingChat, setIsResizingChat] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Long-press / context-menu state
   const [menuMessage, setMenuMessage] = useState<ChatMessage | null>(null);
@@ -254,8 +247,7 @@ const MessagesList = () => {
     setEditText('');
   };
 
-  const handleFileChange = (files: FileList | null) => {
-    const file = files?.[0];
+  const handleSelectedFile = (file: File | null) => {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
       setError('Attachments must be 10MB or smaller.');
@@ -273,35 +265,18 @@ const MessagesList = () => {
     setIsSending(true);
     setError('');
     try {
-      let attachmentStorageId: Id<'_storage'> | undefined;
-      if (selectedFile) {
-        const uploadUrl = await generateUploadUrl();
-        const uploadResponse = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': selectedFile.type || 'application/octet-stream' },
-          body: selectedFile,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error('Attachment upload failed. Please try again.');
-        }
-
-        const uploadResult = await uploadResponse.json();
-        attachmentStorageId = uploadResult.storageId;
-      }
+      const attachment = selectedFile
+        ? await uploadAttachment(selectedFile, generateUploadUrl)
+        : {};
 
       await sendMessage({
         sessionToken,
         roomId: activeRoomId,
         text: newMessage,
-        attachmentStorageId,
-        attachmentName: selectedFile?.name,
-        attachmentType: selectedFile?.type,
-        attachmentSize: selectedFile?.size,
+        ...attachment,
       });
       setNewMessage('');
       setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to send this message.');
     } finally {
@@ -519,18 +494,7 @@ const MessagesList = () => {
                       ) : (
                         <>
                           {message.text && <p className="message-text">{message.text}</p>}
-                          {message.attachmentUrl && (
-                            <a
-                              href={message.attachmentUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="message-text"
-                              style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', fontWeight: 700 }}
-                            >
-                              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>attach_file</span>
-                              {message.attachmentName || 'Attachment'} {formatFileSize(message.attachmentSize)}
-                            </a>
-                          )}
+                          <AttachmentLink attachment={message} compact />
                           <span className="message-time">
                             {message.editedAt ? 'edited · ' : ''}{formatTime(message.createdAt)}
                           </span>
@@ -548,21 +512,8 @@ const MessagesList = () => {
               <div ref={chatEndRef} />
             </div>
 
-            {selectedFile && (
-              <div className="chat-drawer-input-area" style={{ borderBottom: '1px solid var(--outline-variant)', paddingBlock: '0.5rem' }}>
-                <span className="material-symbols-outlined">attach_file</span>
-                <span style={{ flex: 1, fontSize: '0.85rem', fontWeight: 700 }}>{selectedFile.name}</span>
-                <button type="button" className="close-drawer-btn" onClick={() => setSelectedFile(null)}>
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-            )}
-
             <form onSubmit={(event) => void handleSendMessage(event)} className="chat-drawer-input-area">
-              <input ref={fileInputRef} type="file" hidden onChange={(event) => handleFileChange(event.target.files)} />
-              <button type="button" className="chat-drawer-send-btn" onClick={() => fileInputRef.current?.click()} title="Attach file">
-                <span className="material-symbols-outlined">attach_file</span>
-              </button>
+              <AttachmentPicker selectedFile={selectedFile} onFileChange={handleSelectedFile} onClear={() => setSelectedFile(null)} />
               <input
                 type="text"
                 placeholder="Type your secure message..."

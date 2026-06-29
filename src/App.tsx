@@ -4,6 +4,7 @@ import Login from './route/Login';
 import Register from './route/Register';
 import ForgotPassword from './route/ForgotPassword';
 import MessagesList from './route/MessagesList';
+import QAPage from './route/QAPage';
 import Explore from './route/Explore';
 import VerifyProfile from './route/VerifyProfile';
 import EditProfile from './route/EditProfile';
@@ -17,6 +18,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/messages" element={<MessagesList />} />
+        <Route path="/qa" element={<QAPage />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/verify-profile" element={<VerifyProfile />} />
         <Route path="/edit-profile" element={<EditProfile />} />

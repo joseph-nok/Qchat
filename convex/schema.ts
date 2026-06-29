@@ -70,6 +70,52 @@ export default defineSchema({
     .index("by_roomId_and_createdAt", ["roomId", "createdAt"])
     .index("by_senderId", ["senderId"]),
 
+  questions: defineTable({
+    authorId: v.id("users"),
+    title: v.string(),
+    body: v.string(),
+    hashtags: v.array(v.string()),
+    attachmentStorageId: v.optional(v.id("_storage")),
+    attachmentUrl: v.optional(v.string()),
+    attachmentName: v.optional(v.string()),
+    attachmentType: v.optional(v.string()),
+    attachmentSize: v.optional(v.number()),
+    answerCount: v.number(),
+    answered: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_authorId_and_createdAt", ["authorId", "createdAt"]),
+
+  answers: defineTable({
+    questionId: v.id("questions"),
+    authorId: v.id("users"),
+    body: v.string(),
+    attachmentStorageId: v.optional(v.id("_storage")),
+    attachmentUrl: v.optional(v.string()),
+    attachmentName: v.optional(v.string()),
+    attachmentType: v.optional(v.string()),
+    attachmentSize: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_questionId_and_createdAt", ["questionId", "createdAt"])
+    .index("by_authorId_and_createdAt", ["authorId", "createdAt"]),
+
+  notifications: defineTable({
+    userId: v.id("users"),
+    actorId: v.id("users"),
+    questionId: v.id("questions"),
+    answerId: v.optional(v.id("answers")),
+    type: v.union(v.literal("question_reply")),
+    title: v.string(),
+    body: v.string(),
+    read: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_userId_and_createdAt", ["userId", "createdAt"])
+    .index("by_userId_and_read_and_createdAt", ["userId", "read", "createdAt"]),
+
   verificationRequests: defineTable({
     userId: v.id("users"),
     school: v.string(),
