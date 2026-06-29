@@ -74,6 +74,16 @@ const getInitials = (name: string) => name
   .join('')
   .toUpperCase();
 
+const QAAvatar = ({ user, small = false }: { user: PublicUser; small?: boolean }) => (
+  <span className={`qa-avatar ${small ? 'small' : ''}`}>
+    {user.avatarUrl ? (
+      <img src={user.avatarUrl} alt={`${user.fullName} profile`} />
+    ) : (
+      getInitials(user.fullName)
+    )}
+  </span>
+);
+
 const QAPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -297,7 +307,7 @@ const QAPage = () => {
                   <article className="qa-question-panel">
                     <div className="qa-question-topline">
                       <div className="qa-author">
-                        <span className="qa-avatar">{getInitials(thread.question.author.fullName)}</span>
+                        <QAAvatar user={thread.question.author} />
                         <div>
                           <strong>{thread.question.author.fullName}</strong>
                           <span>{thread.question.author.school} · {formatDate(thread.question.createdAt)}</span>
@@ -323,7 +333,7 @@ const QAPage = () => {
                     {thread.answers.length > 0 ? thread.answers.map((answer) => (
                       <article key={answer._id} className={`qa-answer ${answer.isMine ? 'mine' : ''}`}>
                         <div className="qa-author">
-                          <span className="qa-avatar small">{getInitials(answer.author.fullName)}</span>
+                          <QAAvatar user={answer.author} small />
                           <div>
                             <strong>{answer.author.fullName}</strong>
                             <span>{formatDate(answer.createdAt)}</span>
