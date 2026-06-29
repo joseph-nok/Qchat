@@ -1,0 +1,22 @@
+{
+  "name": "contract",
+  "version": "1.0.0",
+  "description": "MessageVerifier smart contract for QChat",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test",
+    "compile": "npx hardhat compile",
+    "deploy:besu": "npx hardhat run scripts/deploy.ts --network besu",
+    "deploy:local": "npx hardhat run scripts/deploy.ts --network hardhat"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/node": "^22.20.0",
+    "hardhat": "^2.22.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.4"
+  }
+}
