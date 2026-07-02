@@ -1,22 +1,22 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
-// Set your private key here for Besu deployment.
-// WARNING: Do NOT commit real private keys! Use environment variables in production.
+// Fallback development private key for zero-gas deployment orchestration
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY ||
-  "0x8f2a55949038a9610f50fb23b5883af3b4ca1305f03d5fc4107bcda663b610c1";
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 const config: HardhatUserConfig = {
   solidity: "0.8.20",
   networks: {
-    // Local Hyperledger Besu network (zero gas)
+    // 1. Enterprise Hyperledger Besu Network via your live secure internet tunnel
     besu: {
       url: "http://127.0.0.1:8545",
       chainId: 1337,
-      gasPrice: 0,
+      gasPrice: 0, // Hyperledger Besu private network zero-gas deployment flag
       accounts: [PRIVATE_KEY],
     },
+    // 2. Fallback Hardhat sandbox node
     hardhat: {
       gasPrice: 0,
       initialBaseFeePerGas: 0,
