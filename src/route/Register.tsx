@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
 import { isNetworkError, toErrorText } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
+import { savePrivateKeyToIndexedDB, relayHashToBesu } from '../utils/cryptoBridge';
 import '../route_css/Register.css';
 
 const convexApi = api as any;
@@ -214,6 +215,23 @@ const Register = () => {
 
     setIsSubmitting(true);
     try {
+      // 1. Generate RSA-2048 key pair
+      const keyPair = await window.crypto.subtle.generateKey(
+        {
+          name: "RSASSA-PKCS1-v1_5",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        false, // Private key is non-extractable, public key is extractable
+        ["sign", "verify"]
+      );
+
+      // 2. Export public key in SPKI format as Base64 string
+      const exportedPublic = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+      const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
+
+      // 3. Register user with public key string in Convex
       const user = await registerUser({
         firstName,
         lastName,
@@ -222,7 +240,17 @@ const Register = () => {
         school: institution,
         idNumber,
         password,
+        publicKey: publicKeyBase64,
       });
+
+      // 4. Save the non-extractable private key to browser's IndexedDB
+      await savePrivateKeyToIndexedDB(user._id, keyPair.privateKey);
+
+      // 5. Asynchronously trigger the Besu network manual identity approval trigger
+      relayHashToBesu("APPROVE_USER", user._id, `${firstName} ${lastName}`)
+        .then((txHash) => console.log(`[Blockchain Sync] User approved on Besu. Tx: ${txHash}`))
+        .catch((err) => console.error("[Blockchain Sync] Failed to approve user on Besu:", err));
+
       saveSessionToken(user.sessionToken);
       navigate('/messages');
     } catch (error) {

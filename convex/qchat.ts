@@ -156,6 +156,7 @@ export const registerUser = mutation({
     school: v.string(),
     idNumber: v.string(),
     password: v.string(),
+    publicKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
@@ -189,6 +190,7 @@ export const registerUser = mutation({
       sessionToken,
       verificationStatus: "unverified",
       approved: false,
+      publicKey: args.publicKey,
       updatedAt: now,
     });
 

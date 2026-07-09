@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
+import { relayHashToBesu } from '../utils/cryptoBridge';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
 
@@ -148,6 +149,8 @@ const QAPage = () => {
     event.preventDefault();
     if (!sessionToken || isSubmitting) return;
 
+    const postTitle = title;
+    const postBody = body;
     setIsSubmitting(true);
     setError('');
     try {
@@ -159,6 +162,13 @@ const QAPage = () => {
         hashtags: parseTags(hashtags),
         ...attachment,
       });
+
+      // Asynchronously relay the forum post (title + body) content hash to Besu using the Convex question ID as anchor
+      const postTextToAnchor = `${postTitle}\n${postBody}`;
+      relayHashToBesu("RECORD_MESSAGE", result.questionId, postTextToAnchor)
+        .then((txHash) => console.log(`[Blockchain Sync] Forum post anchored to Besu. Tx: ${txHash}`))
+        .catch((err) => console.error("[Blockchain Sync] Failed to anchor forum post hash to Besu:", err));
+
       setTitle('');
       setBody('');
       setHashtags('');
@@ -177,16 +187,23 @@ const QAPage = () => {
     if (!sessionToken || !questionId || isSubmitting) return;
     if (!replyBody.trim() && !replyFile) return;
 
+    const answerText = replyBody;
     setIsSubmitting(true);
     setError('');
     try {
       const attachment = replyFile ? await uploadAttachment(replyFile, generateUploadUrl) : {};
-      await addAnswer({
+      const result = await addAnswer({
         sessionToken,
         questionId,
         body: replyBody,
         ...attachment,
       });
+
+      // Asynchronously relay the reply content hash to Besu using the Convex answer ID as anchor
+      relayHashToBesu("RECORD_MESSAGE", result.answerId, answerText)
+        .then((txHash) => console.log(`[Blockchain Sync] Forum reply anchored to Besu. Tx: ${txHash}`))
+        .catch((err) => console.error("[Blockchain Sync] Failed to anchor forum reply hash to Besu:", err));
+
       setReplyBody('');
       setReplyFile(null);
     } catch (err) {

@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
+import { relayHashToBesu } from '../utils/cryptoBridge';
 import '../route_css/MessagesList.css';
 
 const convexApi = api as any;
@@ -262,6 +263,7 @@ const MessagesList = () => {
     if (!sessionToken || !activeRoomId || isSending) return;
     if (!newMessage.trim() && !selectedFile) return;
 
+    const messageTextToAnchor = newMessage;
     setIsSending(true);
     setError('');
     try {
@@ -269,12 +271,18 @@ const MessagesList = () => {
         ? await uploadAttachment(selectedFile, generateUploadUrl)
         : {};
 
-      await sendMessage({
+      const result = await sendMessage({
         sessionToken,
         roomId: activeRoomId,
         text: newMessage,
         ...attachment,
       });
+
+      // Asynchronously relay the message SHA-256 hash to Besu network using the Convex message ID as anchor
+      relayHashToBesu("RECORD_MESSAGE", result.messageId, messageTextToAnchor)
+        .then((txHash) => console.log(`[Blockchain Sync] DM anchored to Besu. Tx: ${txHash}`))
+        .catch((err) => console.error("[Blockchain Sync] Failed to anchor DM hash to Besu:", err));
+
       setNewMessage('');
       setSelectedFile(null);
     } catch (err) {
