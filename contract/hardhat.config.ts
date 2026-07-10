@@ -11,7 +11,7 @@ const config: HardhatUserConfig = {
   networks: {
     // 1. Enterprise Hyperledger Besu Network via your live secure internet tunnel
     besu: {
-      url: "http://127.0.0.1:8545",
+      url: "https://ngrok-free.dev", // Changed from 127.0.0.1 to your live ngrok bridge!
       chainId: 1337,
       gasPrice: 0, // Hyperledger Besu private network zero-gas deployment flag
       accounts: [PRIVATE_KEY],
