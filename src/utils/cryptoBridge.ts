@@ -3,19 +3,33 @@ import { ethers } from "ethers";
 // Environment variables configuration with fallbacks
 const BLOCKCHAIN_RPC_URL =
   (import.meta.env?.VITE_BLOCKCHAIN_RPC_URL as string) ||
-  "https://ngrok-free.dev";
+  "http://127.0.0.1:8545"; // Default local Besu/Hardhat network port
 
 const CONTRACT_ADDRESS =
   (import.meta.env?.VITE_CONTRACT_ADDRESS as string) ||
-  "0x0000000000000000000000000000000000000000"; // Fallback address or placeholder if not set
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Standard Hardhat deploy address #1
 
 const ADMIN_PRIVATE_KEY =
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 const CONTRACT_ABI = [
-  "function recordMessageHash(string calldata _messageId, bytes32 _contentHash) external",
-  "function approveUserIdentity(string calldata _userId) external",
+  "function recordHash(string memory messageId, bytes32 messageHash, address sender, address receiver) external",
+  "function verifyHash(string memory messageId) external view returns (bytes32)",
+  "function verifyUser(address userAddress, string memory role) external",
+  "function getUserRole(address userAddress) external view returns (string memory)",
 ];
+
+/**
+ * Deterministically derives a 20-byte Ethereum address from a Convex ID.
+ * This allows user-specific or entity-specific keys without needing true wallets.
+ */
+export function getPseudoAddress(id: string): string {
+  if (!id || id === "public" || id === "skip") {
+    return ethers.ZeroAddress;
+  }
+  const hash = ethers.keccak256(ethers.toUtf8Bytes(id));
+  return "0x" + hash.substring(26);
+}
 
 /**
  * Generates a 2048-bit RSA key pair (RSASSA-PKCS1-v1_5, SHA-256).
@@ -150,15 +164,21 @@ export async function computeSHA256Bytes32(payload: string): Promise<string> {
  * @param actionType The operation to perform: "APPROVE_USER" or "RECORD_MESSAGE".
  * @param identifier The target ID (convexUserId or messageId).
  * @param rawTextPayload The raw text payload to hash (empty string or custom payload for user approvals, message text for messages).
+ * @param extraData Optional extra context (senderId, receiverId, role).
  * @returns The transaction hash of the dispatched blockchain transaction.
  */
 export async function relayHashToBesu(
   actionType: "APPROVE_USER" | "RECORD_MESSAGE",
   identifier: string,
-  rawTextPayload: string
+  rawTextPayload: string,
+  extraData?: {
+    senderId?: string;
+    receiverId?: string;
+    role?: string;
+  }
 ): Promise<string> {
   try {
-    // 1. Initialize Ethers provider (connecting to ngrok RPC tunnel)
+    // 1. Initialize Ethers provider (connecting to local or tunnel RPC URL)
     const provider = new ethers.JsonRpcProvider(BLOCKCHAIN_RPC_URL);
 
     // 2. Instantiate the admin wallet signer
@@ -177,18 +197,23 @@ export async function relayHashToBesu(
     // 5. Execute transaction based on action type with { gasPrice: 0 }
     let txResponse;
     if (actionType === "APPROVE_USER") {
-      txResponse = await contract.approveUserIdentity(identifier, {
+      const userAddress = getPseudoAddress(identifier);
+      const role = extraData?.role || "student";
+      txResponse = await contract.verifyUser(userAddress, role, {
         gasPrice: 0n, // zero-gas dev network
       });
     } else if (actionType === "RECORD_MESSAGE") {
-      txResponse = await contract.recordMessageHash(identifier, contentHash, {
+      const senderAddr = getPseudoAddress(extraData?.senderId || "admin");
+      const receiverAddr = getPseudoAddress(extraData?.receiverId || "public");
+
+      txResponse = await contract.recordHash(identifier, contentHash, senderAddr, receiverAddr, {
         gasPrice: 0n, // zero-gas dev network
       });
     } else {
       throw new Error(`Unsupported action type: ${actionType}`);
     }
 
-    // Wait for the transaction to be mined (optional, or return response hash immediately)
+    // Wait for the transaction to be mined
     const receipt = await txResponse.wait();
     return receipt.hash || txResponse.hash;
   } catch (error) {

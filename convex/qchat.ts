@@ -418,6 +418,7 @@ export const getMessages = query({
         attachmentType: message.attachmentType,
         attachmentSize: message.attachmentSize,
         editedAt: message.editedAt,
+        blockchainTxHash: message.blockchainTxHash,
       }));
   },
 });
@@ -898,6 +899,39 @@ export const editMessage = mutation({
     await ctx.db.patch(args.messageId, {
       text: newText,
       editedAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+export const deleteAccount = mutation({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    await ctx.db.delete(currentUser._id);
+    return { ok: true };
+  },
+});
+
+export const updateMessageTxHash = mutation({
+  args: {
+    sessionToken: v.string(),
+    messageId: v.id("messages"),
+    txHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found.");
+    }
+    if (message.senderId !== currentUser._id) {
+      throw new Error("You can only update your own messages.");
+    }
+    await ctx.db.patch(args.messageId, {
+      blockchainTxHash: args.txHash,
     });
     return { ok: true };
   },

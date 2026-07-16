@@ -44,6 +44,7 @@ type ChatMessage = {
   attachmentType?: string;
   attachmentSize?: number;
   editedAt?: number;
+  blockchainTxHash?: string;
 };
 
 const clampChatDrawerWidth = (width: number) => {
@@ -78,6 +79,7 @@ const MessagesList = () => {
   const markAsRead = useMutation(convexApi.qchat.markAsRead);
   const deleteMessage = useMutation(convexApi.qchat.deleteMessage);
   const editMessage = useMutation(convexApi.qchat.editMessage);
+  const updateMessageTxHash = useMutation(convexApi.qchat.updateMessageTxHash);
 
   const requestedRoomId = searchParams.get('roomId') as Id<'chatRooms'> | null;
   const [activeRoomId, setActiveRoomId] = useState<Id<'chatRooms'> | null>(requestedRoomId);
@@ -210,9 +212,18 @@ const MessagesList = () => {
 
   const handleDeleteMessage = async () => {
     if (!menuMessage || !sessionToken) return;
+    const deletedMessageId = menuMessage._id;
     setIsDeleting(true);
     try {
-      await deleteMessage({ sessionToken, messageId: menuMessage._id });
+      await deleteMessage({ sessionToken, messageId: deletedMessageId });
+      
+      // Anchor the deletion/revocation block to Besu for chronological audit trail
+      relayHashToBesu("RECORD_MESSAGE", `${deletedMessageId}-delete-${Date.now()}`, "MESSAGE_DELETED", {
+        senderId: currentUser?._id,
+        receiverId: activeRoom?.otherUser?._id,
+      })
+        .then((txHash) => console.log(`[Blockchain Sync] Message deletion anchored to Besu. Tx: ${txHash}`))
+        .catch((err) => console.error("[Blockchain Sync] Failed to anchor message deletion to Besu:", err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete message.');
     } finally {
@@ -231,9 +242,22 @@ const MessagesList = () => {
 
   const handleSaveEdit = async () => {
     if (!editingId || !sessionToken) return;
+    const editedMessageId = editingId;
+    const messageTextToAnchor = editText;
     setIsEditing(true);
     try {
-      await editMessage({ sessionToken, messageId: editingId, text: editText });
+      await editMessage({ sessionToken, messageId: editedMessageId, text: messageTextToAnchor });
+      
+      // Anchor the edit block to Besu for chronological audit trail
+      relayHashToBesu("RECORD_MESSAGE", `${editedMessageId}-edit-${Date.now()}`, messageTextToAnchor, {
+        senderId: currentUser?._id,
+        receiverId: activeRoom?.otherUser?._id,
+      })
+        .then((txHash) => {
+          console.log(`[Blockchain Sync] Message edit anchored to Besu. Tx: ${txHash}`);
+          void updateMessageTxHash({ sessionToken, messageId: editedMessageId, txHash });
+        })
+        .catch((err) => console.error("[Blockchain Sync] Failed to anchor message edit to Besu:", err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not edit message.');
     } finally {
@@ -279,8 +303,14 @@ const MessagesList = () => {
       });
 
       // Asynchronously relay the message SHA-256 hash to Besu network using the Convex message ID as anchor
-      relayHashToBesu("RECORD_MESSAGE", result.messageId, messageTextToAnchor)
-        .then((txHash) => console.log(`[Blockchain Sync] DM anchored to Besu. Tx: ${txHash}`))
+      relayHashToBesu("RECORD_MESSAGE", result.messageId, messageTextToAnchor, {
+        senderId: currentUser?._id,
+        receiverId: activeRoom?.otherUser?._id,
+      })
+        .then((txHash) => {
+          console.log(`[Blockchain Sync] DM anchored to Besu. Tx: ${txHash}`);
+          void updateMessageTxHash({ sessionToken, messageId: result.messageId, txHash });
+        })
         .catch((err) => console.error("[Blockchain Sync] Failed to anchor DM hash to Besu:", err));
 
       setNewMessage('');
@@ -503,8 +533,34 @@ const MessagesList = () => {
                         <>
                           {message.text && <p className="message-text">{message.text}</p>}
                           <AttachmentLink attachment={message} compact />
-                          <span className="message-time">
+                          <span className="message-time" style={{ display: 'inline-flex', alignItems: 'center' }}>
                             {message.editedAt ? 'edited · ' : ''}{formatTime(message.createdAt)}
+                            {message.blockchainTxHash ? (
+                              <span 
+                                className="material-symbols-outlined onchain-tick" 
+                                style={{ 
+                                  fontSize: '0.85rem', 
+                                  color: '#00c853', // Emerald green
+                                  marginLeft: '0.25rem', 
+                                  cursor: 'help'
+                                }}
+                                title={`Anchored on Hyperledger Besu Blockchain. Tx: ${message.blockchainTxHash}`}
+                              >
+                                link
+                              </span>
+                            ) : (
+                              <span 
+                                className="material-symbols-outlined onchain-tick" 
+                                style={{ 
+                                  fontSize: '0.85rem', 
+                                  color: 'var(--outline)', 
+                                  marginLeft: '0.25rem'
+                                }}
+                                title="Saved to Convex, anchoring to Besu..."
+                              >
+                                check
+                              </span>
+                            )}
                           </span>
                         </>
                       )}

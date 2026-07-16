@@ -67,6 +67,7 @@ export default defineSchema({
     createdAt: v.number(),
     editedAt: v.optional(v.number()),
     deletedAt: v.optional(v.number()),
+    blockchainTxHash: v.optional(v.string()),
   })
     .index("by_roomId_and_createdAt", ["roomId", "createdAt"])
     .index("by_senderId", ["senderId"]),

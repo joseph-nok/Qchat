@@ -7,6 +7,8 @@ import AppHeader from '../components/AppHeader';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext.jsx';
+import { clearSessionToken } from '../lib/session';
+import { relayHashToBesu } from '../utils/cryptoBridge';
 import '../route_css/MessagesList.css';
 import '../route_css/EditProfile.css';
 
@@ -43,6 +45,7 @@ const EditProfile = () => {
   const me = useQuery(convexApi.users.getMe, sessionToken ? { sessionToken } : 'skip');
   const generateUploadUrl = useMutation(convexApi.qchat.generateUploadUrl);
   const updateProfile = useMutation(convexApi.qchat.updateProfile);
+  const deleteAccount = useMutation(convexApi.qchat.deleteAccount);
   const profile = me ?? currentUser;
 
   const [form, setForm] = useState<ProfileForm>({
@@ -56,6 +59,8 @@ const EditProfile = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -162,6 +167,36 @@ const EditProfile = () => {
       setError(err instanceof Error ? err.message : 'Unable to update profile.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!sessionToken || !profile) return;
+    setIsDeletingAccount(true);
+    setError('');
+    setMessage('');
+    try {
+      const userId = profile._id;
+
+      // 1. Submit account deletion to Convex backend
+      await deleteAccount({ sessionToken });
+
+      // 2. Relay the deletion transaction to the Besu network
+      // (Binds the user address to "deleted" role on-ledger)
+      try {
+        await relayHashToBesu("APPROVE_USER", userId, "ACCOUNT_DELETED", { role: "deleted" });
+        console.log("[Blockchain Sync] Account deletion recorded on Besu.");
+      } catch (blockchainErr) {
+        console.error("[Blockchain Sync] Failed to record deletion on Besu:", blockchainErr);
+      }
+
+      // 3. Clear local session cookies and redirect
+      clearSessionToken();
+      navigate('/login');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete account.');
+      setIsDeletingAccount(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -283,6 +318,60 @@ const EditProfile = () => {
                   />
                   <small>{form.bio.length}/240 characters</small>
                 </label>
+              </div>
+
+              {/* Danger Zone card */}
+              <div className="edit-profile-card danger-zone" style={{ border: '1px solid var(--error)', background: 'rgba(186, 26, 26, 0.02)', marginTop: '1.5rem' }}>
+                <div className="edit-card-heading">
+                  <span className="material-symbols-outlined" style={{ color: 'var(--error)' }}>warning</span>
+                  <div>
+                    <h2 style={{ color: 'var(--error)' }}>Danger Zone</h2>
+                    <p>Permanently remove your account from Convex and register its deletion on the blockchain.</p>
+                  </div>
+                </div>
+
+                {showDeleteConfirm ? (
+                  <div style={{ background: 'var(--surface-container-low)', padding: '1rem', borderRadius: '0.75rem', border: '1px dashed var(--error)' }}>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', fontWeight: 700, marginBottom: '0.75rem' }}>
+                      Are you absolutely sure you want to delete your account? This will revoke your verified role on the blockchain and delete your profile.
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button
+                        type="button"
+                        className="edit-secondary-btn"
+                        onClick={() => void handleDeleteAccount()}
+                        disabled={isDeletingAccount}
+                        style={{ background: 'var(--error)', color: 'white' }}
+                      >
+                        {isDeletingAccount ? 'Deleting...' : 'Yes, Delete Account'}
+                      </button>
+                      <button
+                        type="button"
+                        className="edit-secondary-btn"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeletingAccount}
+                        style={{ background: 'var(--surface-container-high)', color: 'var(--on-surface)' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--outline)', marginBottom: '1rem' }}>
+                      This action is irreversible. Your Web2 credentials and active session will be permanently erased. A role-revocation transaction will be permanently registered on the Hyperledger Besu blockchain.
+                    </p>
+                    <button
+                      type="button"
+                      className="edit-ghost-btn"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      style={{ borderColor: 'var(--error)', color: 'var(--error)', width: 'auto' }}
+                    >
+                      <span className="material-symbols-outlined">delete_forever</span>
+                      Delete Account
+                    </button>
+                  </>
+                )}
               </div>
 
               <div className="edit-profile-actions">

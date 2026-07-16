@@ -247,7 +247,7 @@ const Register = () => {
       await savePrivateKeyToIndexedDB(user._id, keyPair.privateKey);
 
       // 5. Asynchronously trigger the Besu network manual identity approval trigger
-      relayHashToBesu("APPROVE_USER", user._id, `${firstName} ${lastName}`)
+      relayHashToBesu("APPROVE_USER", user._id, `${firstName} ${lastName}`, { role })
         .then((txHash) => console.log(`[Blockchain Sync] User approved on Besu. Tx: ${txHash}`))
         .catch((err) => console.error("[Blockchain Sync] Failed to approve user on Besu:", err));
 

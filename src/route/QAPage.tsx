@@ -165,7 +165,10 @@ const QAPage = () => {
 
       // Asynchronously relay the forum post (title + body) content hash to Besu using the Convex question ID as anchor
       const postTextToAnchor = `${postTitle}\n${postBody}`;
-      relayHashToBesu("RECORD_MESSAGE", result.questionId, postTextToAnchor)
+      relayHashToBesu("RECORD_MESSAGE", result.questionId, postTextToAnchor, {
+        senderId: currentUser?._id,
+        receiverId: "public",
+      })
         .then((txHash) => console.log(`[Blockchain Sync] Forum post anchored to Besu. Tx: ${txHash}`))
         .catch((err) => console.error("[Blockchain Sync] Failed to anchor forum post hash to Besu:", err));
 
@@ -200,7 +203,10 @@ const QAPage = () => {
       });
 
       // Asynchronously relay the reply content hash to Besu using the Convex answer ID as anchor
-      relayHashToBesu("RECORD_MESSAGE", result.answerId, answerText)
+      relayHashToBesu("RECORD_MESSAGE", result.answerId, answerText, {
+        senderId: currentUser?._id,
+        receiverId: thread?.question?.author?._id,
+      })
         .then((txHash) => console.log(`[Blockchain Sync] Forum reply anchored to Besu. Tx: ${txHash}`))
         .catch((err) => console.error("[Blockchain Sync] Failed to anchor forum reply hash to Besu:", err));
 
