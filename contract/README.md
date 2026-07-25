@@ -36,7 +36,13 @@ npx hardhat test
 ## Deployment to Besu (Zero-Gas Local Network)
 
 1. **Start your Besu network:**
-Ensure your Besu node is running locally and exposing the RPC endpoint at `http://127.0.0.1:8545`.
+Ensure your Besu node is running locally with mining enabled and exposing RPC at `http://127.0.0.1:8545`:
+
+```bash
+./scripts/start-besu.sh
+```
+
+Use Besu dev test account 1 (`0xfe3b557e8fb62b89f4916b721be55ceb828dbd73`, 200 ETH prefunded). Without `--miner-enabled`, deployments hang waiting for block 1.
 
 2. **Deploy the contract:**
 Deploy the smart contract to the local Besu network using the following command:
