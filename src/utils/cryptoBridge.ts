@@ -2,15 +2,18 @@ import { ethers } from "ethers";
 
 // Environment variables configuration with fallbacks
 const BLOCKCHAIN_RPC_URL =
+  (import.meta.env?.VITE_BESU_RPC_URL as string) ||
   (import.meta.env?.VITE_BLOCKCHAIN_RPC_URL as string) ||
   "http://127.0.0.1:8545"; // Default local Besu/Hardhat network port
 
 const CONTRACT_ADDRESS =
   (import.meta.env?.VITE_CONTRACT_ADDRESS as string) ||
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Standard Hardhat deploy address #1
+  "0xa50a51c09a5c451C52BB714527E1974b686D8e77";
 
 const ADMIN_PRIVATE_KEY =
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+  (import.meta.env?.VITE_SYSTEM_PRIVATE_KEY as string) ||
+  (import.meta.env?.VITE_ADMIN_PRIVATE_KEY as string) ||
+  "0x8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63";
 
 const CONTRACT_ABI = [
   "function recordHash(string memory messageId, bytes32 messageHash, address sender, address receiver) external",

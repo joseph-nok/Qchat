@@ -149,8 +149,13 @@ const VerifyProfile = () => {
     }
   };
 
+  useEffect(() => {
+    if (!sessionToken && !authLoading) {
+      navigate('/login');
+    }
+  }, [authLoading, navigate, sessionToken]);
+
   if (!sessionToken && !authLoading) {
-    navigate('/login');
     return null;
   }
 
