@@ -25,6 +25,7 @@ export default defineSchema({
     verificationEvidenceUrl: v.optional(v.string()),
     verificationSubmittedAt: v.optional(v.number()),
     publicKey: v.optional(v.string()),
+    hasKeypair: v.optional(v.boolean()),
     updatedAt: v.number(),
   })
     .index("by_email", ["email"])

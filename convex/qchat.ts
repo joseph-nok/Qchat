@@ -157,6 +157,7 @@ export const registerUser = mutation({
     idNumber: v.string(),
     password: v.string(),
     publicKey: v.optional(v.string()),
+    hasKeypair: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
@@ -191,6 +192,7 @@ export const registerUser = mutation({
       verificationStatus: "unverified",
       approved: false,
       publicKey: args.publicKey,
+      hasKeypair: args.hasKeypair ?? (!!args.publicKey),
       updatedAt: now,
     });
 

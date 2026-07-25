@@ -9,6 +9,7 @@ import Footer from '../components/Footer';
 import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu } from '../utils/cryptoBridge';
+import { logHashToBlockchain } from '../services/web3Service';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
 
@@ -151,9 +152,31 @@ const QAPage = () => {
 
     const postTitle = title;
     const postBody = body;
+    const postTextToAnchor = `${postTitle}\n${postBody}`;
+
     setIsSubmitting(true);
     setError('');
     try {
+      // 1. Read private key from localStorage
+      const privateKeyData = localStorage.getItem('qchat_private_identity_key');
+      if (!privateKeyData) {
+        console.warn('Private identity key missing from local storage.');
+      }
+
+      // 2. Calculate client-side SHA-256 fingerprint hash of post text payload
+      const msgUint8 = new TextEncoder().encode(postTextToAnchor);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
+      const calculatedHash = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // 3. Register fingerprint on local Besu node
+      try {
+        await logHashToBlockchain(calculatedHash);
+      } catch (err) {
+        console.error('Besu node registration error:', err);
+      }
+
       const attachment = questionFile ? await uploadAttachment(questionFile, generateUploadUrl) : {};
       const result = await askQuestion({
         sessionToken,
@@ -164,7 +187,6 @@ const QAPage = () => {
       });
 
       // Asynchronously relay the forum post (title + body) content hash to Besu using the Convex question ID as anchor
-      const postTextToAnchor = `${postTitle}\n${postBody}`;
       relayHashToBesu("RECORD_MESSAGE", result.questionId, postTextToAnchor, {
         senderId: currentUser?._id,
         receiverId: "public",
@@ -194,6 +216,26 @@ const QAPage = () => {
     setIsSubmitting(true);
     setError('');
     try {
+      // 1. Read private key from localStorage
+      const privateKeyData = localStorage.getItem('qchat_private_identity_key');
+      if (!privateKeyData) {
+        console.warn('Private identity key missing from local storage.');
+      }
+
+      // 2. Calculate client-side SHA-256 fingerprint hash of reply text payload
+      const msgUint8 = new TextEncoder().encode(answerText);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
+      const calculatedHash = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // 3. Register fingerprint on local Besu node
+      try {
+        await logHashToBlockchain(calculatedHash);
+      } catch (err) {
+        console.error('Besu node registration error:', err);
+      }
+
       const attachment = replyFile ? await uploadAttachment(replyFile, generateUploadUrl) : {};
       const result = await addAnswer({
         sessionToken,

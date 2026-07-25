@@ -215,23 +215,27 @@ const Register = () => {
 
     setIsSubmitting(true);
     try {
-      // 1. Generate RSA-2048 key pair
+      // 1. Generate 2048-bit RSA-OAEP keypair using Web Crypto API
       const keyPair = await window.crypto.subtle.generateKey(
         {
-          name: "RSASSA-PKCS1-v1_5",
+          name: "RSA-OAEP",
           modulusLength: 2048,
           publicExponent: new Uint8Array([1, 0, 1]),
           hash: "SHA-256",
         },
-        false, // Private key is non-extractable, public key is extractable
-        ["sign", "verify"]
+        true,
+        ["encrypt", "decrypt"]
       );
 
-      // 2. Export public key in SPKI format as Base64 string
+      // 2. Export Public Key as SPKI base64 string
       const exportedPublic = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
       const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
 
-      // 3. Register user with public key string in Convex
+      // 3. Save Private Key object into browser's localStorage as 'qchat_private_identity_key'
+      const exportedPrivate = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+      localStorage.setItem("qchat_private_identity_key", JSON.stringify(exportedPrivate));
+
+      // 4. Register user with Convex mutation appending publicKey and hasKeypair
       const user = await registerUser({
         firstName,
         lastName,
@@ -241,12 +245,13 @@ const Register = () => {
         idNumber,
         password,
         publicKey: publicKeyBase64,
+        hasKeypair: true,
       });
 
-      // 4. Save the non-extractable private key to browser's IndexedDB
+      // Save to local vault in IndexedDB as well for persistent storage
       await savePrivateKeyToIndexedDB(user._id, keyPair.privateKey);
 
-      // 5. Asynchronously trigger the Besu network manual identity approval trigger
+      // Asynchronously trigger Besu network approval trigger
       relayHashToBesu("APPROVE_USER", user._id, `${firstName} ${lastName}`, { role })
         .then((txHash) => console.log(`[Blockchain Sync] User approved on Besu. Tx: ${txHash}`))
         .catch((err) => console.error("[Blockchain Sync] Failed to approve user on Besu:", err));

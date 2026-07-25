@@ -9,6 +9,7 @@ import Footer from '../components/Footer';
 import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu } from '../utils/cryptoBridge';
+import { logHashToBlockchain } from '../services/web3Service';
 import '../route_css/MessagesList.css';
 
 const convexApi = api as any;
@@ -291,6 +292,26 @@ const MessagesList = () => {
     setIsSending(true);
     setError('');
     try {
+      // 1. Read private key from localStorage
+      const privateKeyData = localStorage.getItem('qchat_private_identity_key');
+      if (!privateKeyData) {
+        console.warn('Private identity key missing from local storage.');
+      }
+
+      // 2. Calculate client-side SHA-256 fingerprint hash of message text payload
+      const msgUint8 = new TextEncoder().encode(messageTextToAnchor);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
+      const calculatedHash = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // 3. Register fingerprint on local Besu node
+      try {
+        await logHashToBlockchain(calculatedHash);
+      } catch (err) {
+        console.error('Besu node registration error:', err);
+      }
+
       const attachment = selectedFile
         ? await uploadAttachment(selectedFile, generateUploadUrl)
         : {};
