@@ -65,6 +65,142 @@ body {
   gap: 1.5rem;
 }
 
+.app-notification-wrap {
+  position: relative;
+}
+
+.app-notification-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.app-notification-button:hover,
+.app-notification-button[aria-expanded='true'] {
+  background: var(--surface-container-high);
+  color: var(--secondary);
+}
+
+.app-notification-button.has-notifications {
+  color: var(--secondary);
+}
+
+.app-notification-count {
+  position: absolute;
+  top: -0.1rem;
+  right: -0.1rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.2rem;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: var(--error);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.1rem;
+  text-align: center;
+}
+
+.app-notification-panel {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  z-index: 100;
+  width: min(22rem, calc(100vw - 2rem));
+  overflow: hidden;
+  border: 1px solid var(--outline-variant);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 45px rgba(27, 28, 28, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.app-notification-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.9rem 1rem 0.65rem;
+  border-bottom: 1px solid var(--surface-container-high);
+  color: var(--on-surface);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.app-notification-panel-header small {
+  color: var(--secondary);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.app-notification-item {
+  display: flex;
+  width: 100%;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--surface-container-high);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-notification-item:hover {
+  background: #fffbe3;
+}
+
+.app-notification-icon {
+  display: grid;
+  flex: 0 0 2rem;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.65rem;
+  background: #fff4b8;
+  color: var(--primary);
+  font-size: 1.25rem;
+}
+
+.app-notification-copy {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.app-notification-copy strong {
+  color: var(--on-surface);
+  font-size: 0.8rem;
+}
+
+.app-notification-copy span {
+  color: var(--on-surface-variant);
+}
+
+.app-notification-copy em {
+  color: var(--secondary);
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.app-notification-empty {
+  margin: 0;
+  padding: 1.2rem 1rem;
+  color: var(--outline);
+  font-size: 0.8rem;
+}
+
 .user-profile {
   display: flex;
   align-items: center;
@@ -1439,4 +1575,3 @@ body {
 .outgoing .msg-action-save:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
-

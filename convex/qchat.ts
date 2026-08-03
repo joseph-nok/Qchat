@@ -381,6 +381,11 @@ export const getRooms = query({
         preview: room.lastMessageText ?? DEFAULT_ROOM_PREVIEW,
         lastMessageAt: room.lastMessageAt ?? room.createdAt,
         unread: member.unreadCount,
+        bb84Fingerprint: room.bb84Fingerprint,
+        bb84PendingConfirmation: Boolean(
+          room.bb84Fingerprint &&
+            !(room.bb84ConfirmedUsers ?? []).includes(currentUser._id),
+        ),
       });
     }
 
@@ -489,6 +494,34 @@ export const initiateBB84KeyExchange = mutation({
       updatedAt: Date.now(),
     });
 
+    const otherUserId = room.participantIds.find((id) => id !== currentUser._id);
+    if (otherUserId) {
+      const now = Date.now();
+      const existingNotifications = await ctx.db
+        .query("notifications")
+        .withIndex("by_userId_and_roomId_and_type", (q) =>
+          q.eq("userId", otherUserId).eq("roomId", args.roomId).eq("type", "bb84_key_exchange"),
+        )
+        .collect();
+
+      for (const notification of existingNotifications) {
+        if (!notification.read) {
+          await ctx.db.patch(notification._id, { read: true });
+        }
+      }
+
+      await ctx.db.insert("notifications", {
+        userId: otherUserId,
+        actorId: currentUser._id,
+        roomId: args.roomId,
+        type: "bb84_key_exchange",
+        title: "Quantum Key Exchange Request",
+        body: `${currentUser.fullName} initiated a BB84 quantum key exchange. Confirm the fingerprint to unlock encrypted chat.`,
+        read: false,
+        createdAt: now,
+      });
+    }
+
     return { ok: true };
   },
 });
@@ -512,6 +545,19 @@ export const confirmBB84KeyExchange = mutation({
         bb84ConfirmedUsers: [...currentConfirmed, currentUser._id],
         updatedAt: Date.now(),
       });
+    }
+
+    const bb84Notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId_and_roomId_and_type", (q) =>
+        q.eq("userId", currentUser._id).eq("roomId", args.roomId).eq("type", "bb84_key_exchange"),
+      )
+      .collect();
+
+    for (const notification of bb84Notifications) {
+      if (!notification.read) {
+        await ctx.db.patch(notification._id, { read: true });
+      }
     }
 
     return { ok: true };
@@ -663,11 +709,67 @@ export const getNotifications = query({
         read: notification.read,
         createdAt: notification.createdAt,
         questionId: notification.questionId,
+        roomId: notification.roomId,
         actorName: actor?.fullName ?? "Someone",
       });
     }
 
     return rows;
+  },
+});
+
+export const getPendingBB84Notifications = query({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getUserBySessionToken(ctx, args.sessionToken);
+    if (!currentUser) return [];
+
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId_and_read_and_createdAt", (q) =>
+        q.eq("userId", currentUser._id).eq("read", false),
+      )
+      .order("desc")
+      .take(25);
+
+    const rows = [];
+    for (const notification of notifications) {
+      if (notification.type !== "bb84_key_exchange" || !notification.roomId) continue;
+
+      const room = await ctx.db.get(notification.roomId);
+      if (!room?.bb84Fingerprint) continue;
+      if ((room.bb84ConfirmedUsers ?? []).includes(currentUser._id)) continue;
+
+      const actor = await ctx.db.get(notification.actorId);
+      rows.push({
+        _id: notification._id,
+        roomId: notification.roomId,
+        actorName: actor?.fullName ?? "Someone",
+        fingerprint: room.bb84Fingerprint,
+        createdAt: notification.createdAt,
+      });
+    }
+
+    return rows;
+  },
+});
+
+export const markBB84NotificationRead = mutation({
+  args: {
+    sessionToken: v.string(),
+    notificationId: v.id("notifications"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification || notification.userId !== currentUser._id) {
+      throw new Error("Notification not found.");
+    }
+
+    await ctx.db.patch(args.notificationId, { read: true });
+    return { ok: true };
   },
 });
 

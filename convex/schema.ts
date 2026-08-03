@@ -121,16 +121,18 @@ export default defineSchema({
   notifications: defineTable({
     userId: v.id("users"),
     actorId: v.id("users"),
-    questionId: v.id("questions"),
+    questionId: v.optional(v.id("questions")),
     answerId: v.optional(v.id("answers")),
-    type: v.union(v.literal("question_reply")),
+    roomId: v.optional(v.id("chatRooms")),
+    type: v.union(v.literal("question_reply"), v.literal("bb84_key_exchange")),
     title: v.string(),
     body: v.string(),
     read: v.boolean(),
     createdAt: v.number(),
   })
     .index("by_userId_and_createdAt", ["userId", "createdAt"])
-    .index("by_userId_and_read_and_createdAt", ["userId", "read", "createdAt"]),
+    .index("by_userId_and_read_and_createdAt", ["userId", "read", "createdAt"])
+    .index("by_userId_and_roomId_and_type", ["userId", "roomId", "type"]),
 
   verificationRequests: defineTable({
     userId: v.id("users"),
