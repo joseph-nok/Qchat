@@ -17,7 +17,6 @@ import {
   encryptFile,
   decryptFile,
 } from '../services/keyExchange';
-import type { BB84SimulationDetails } from '../lib/bb84';
 import '../route_css/MessagesList.css';
 
 const convexApi = api as any;
@@ -68,7 +67,6 @@ type RoomDetails = {
   bb84Key?: string;
   bb84Fingerprint?: string;
   bb84ConfirmedUsers?: Id<'users'>[];
-  bb84DebugInfo?: BB84SimulationDetails | { totalBitsSent: number; siftedLength: number; efficiencyPercentage: number; qber: number };
 };
 
 const clampChatDrawerWidth = (width: number) => {
@@ -126,7 +124,6 @@ const MessagesList = () => {
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [isSimulatingBB84, setIsSimulatingBB84] = useState(false);
   // Full simulation details kept in local state only (never sent to Convex) for educational debug view
-  const [localBB84Details, setLocalBB84Details] = useState<BB84SimulationDetails | null>(null);
   const [decryptedTexts, setDecryptedTexts] = useState<Record<string, string>>({});
   const [decryptingFileId, setDecryptingFileId] = useState<string | null>(null);
 
@@ -177,7 +174,6 @@ const MessagesList = () => {
           console.log('[BB84] Initiating automated quantum key exchange simulation...');
           const result = await performBB84KeyExchange();
           // Store full simulation details locally for the educational debug modal
-          setLocalBB84Details(result.details);
           // Send only the 4 summary fields to Convex (Convex validator rejects extra fields)
           await initiateBB84KeyExchange({
             sessionToken,
@@ -311,7 +307,6 @@ const MessagesList = () => {
       await resetBB84KeyExchange({ sessionToken, roomId: activeRoomId });
       const result = await performBB84KeyExchange();
       // Update local full details for the debug view
-      setLocalBB84Details(result.details);
       // Send only summary stats to Convex
       await initiateBB84KeyExchange({
         sessionToken,
@@ -369,11 +364,25 @@ const MessagesList = () => {
 
   // Long-press handlers for hold-to-act on own messages (hold for 2 to 3 seconds)
   const handlePointerDown = (event: React.PointerEvent, message: ChatMessage) => {
-    if (!message.isMine) return;
+    // Mouse right-clicks are handled by onContextMenu below. Do not let the
+    // long-press timer compete with the desktop context-menu interaction.
+    if (!message.isMine || (event.pointerType === 'mouse' && event.button !== 0)) return;
     startCoordsRef.current = { x: event.clientX, y: event.clientY };
     longPressTimerRef.current = setTimeout(() => {
       setMenuMessage(message);
     }, 2000);
+  };
+
+  const handleMessageContextMenu = (event: React.MouseEvent, message: ChatMessage) => {
+    if (!message.isMine) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    startCoordsRef.current = null;
+    setMenuMessage(message);
   };
 
   const handlePointerMove = (event: React.PointerEvent) => {
@@ -757,7 +766,7 @@ const MessagesList = () => {
                 <button
                   className={`chat-bb84-key-badge ${isConfirmedByMe ? 'confirmed' : 'pending'}`}
                   onClick={() => setShowKeyModal(true)}
-                  title="View BB84 Key Fingerprint & Educational Debug Info"
+                  title="View BB84 Key Fingerprint"
                 >
                   <span className="key-icon">⚛️</span>
                   <span className="key-fp">{roomDetails.bb84Fingerprint}</span>
@@ -788,7 +797,7 @@ const MessagesList = () => {
                       onPointerLeave={handlePointerUp}
                       onPointerCancel={handlePointerUp}
                       onPointerMove={handlePointerMove}
-                      onContextMenu={(e) => { if (message.isMine) { e.preventDefault(); setMenuMessage(message); } }}
+                      onContextMenu={(e) => handleMessageContextMenu(e, message)}
                       style={{ userSelect: 'none' }}
                     >
                       <div className={`message-bubble ${editingId === message._id ? 'editing' : ''}`}>
@@ -936,7 +945,6 @@ const MessagesList = () => {
           isConfirmedByMe={isConfirmedByMe}
           isConfirmedByOther={isConfirmedByOther}
           otherUserName={activeRoom?.otherUser?.fullName || 'Academic Peer'}
-          debugInfo={localBB84Details ?? roomDetails.bb84DebugInfo}
           onConfirm={() => void handleConfirmFingerprint()}
           onRegenerateKey={() => void handleRegenerateKey()}
           onClose={() => setShowKeyModal(false)}
