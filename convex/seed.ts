@@ -1,6 +1,15 @@
 import { mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
+const passwordHashFor = (password: string) => {
+  let hash = 2166136261;
+  for (let i = 0; i < password.length; i += 1) {
+    hash ^= password.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `qchat_${(hash >>> 0).toString(16)}`;
+};
+
 const now = () => Date.now();
 
 const testUsers = [
@@ -103,6 +112,27 @@ export const run = mutation({
   args: {},
   handler: async (ctx) => {
     const timestamp = now();
+    const adminEmail = "admin@qchat.local";
+    const existingAdmin = await ctx.db
+      .query("admins")
+      .withIndex("by_email", (q) => q.eq("email", adminEmail))
+      .first();
+    if (existingAdmin) {
+      await ctx.db.patch(existingAdmin._id, {
+        displayName: "Qchat Administrator",
+        passwordHash: passwordHashFor("Admin@12345"),
+        updatedAt: timestamp,
+      });
+    } else {
+      await ctx.db.insert("admins", {
+        email: adminEmail,
+        displayName: "Qchat Administrator",
+        passwordHash: passwordHashFor("Admin@12345"),
+        sessionToken: `admin-seed:${crypto.randomUUID()}`,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
     const userIds = [];
     let usersInserted = 0;
     let usersUpdated = 0;

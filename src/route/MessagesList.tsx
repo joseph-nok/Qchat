@@ -588,8 +588,7 @@ const MessagesList = () => {
         <div className="app-main-inner">
           <div className="page-header">
             <div>
-              <h1 className="page-title">Encrypted Messages</h1>
-              <p className="page-subtitle">Quantum-Secured BB84 Communications & Verification</p>
+              <h1 className="page-title">Messages</h1>
             </div>
           </div>
 
@@ -641,7 +640,7 @@ const MessagesList = () => {
             {rooms === undefined ? (
               <div className="no-conversations">
                 <span className="material-symbols-outlined no-conv-icon">hourglass_top</span>
-                <p>Loading encrypted messages...</p>
+                <p>Loading messages...</p>
               </div>
             ) : filteredRooms.length > 0 ? (
               filteredRooms.map((room) => {
@@ -793,7 +792,7 @@ const MessagesList = () => {
                 messages.map((message) => {
                   const isEncrypted = message.isEncrypted;
                   const decryptedText = isEncrypted
-                    ? (decryptedTexts[message._id] || '🔒 [Decrypting message...]')
+                    ? (decryptedTexts[message._id] || '[Decrypting message...]')
                     : message.text;
 
                   return (
@@ -901,11 +900,6 @@ const MessagesList = () => {
                             )}
 
                             <span className="message-time" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              {isEncrypted && (
-                                <span style={{ fontSize: '0.7rem', color: '#0284c7', marginRight: '0.4rem', fontWeight: 600 }}>
-                                  🔒 AES-256
-                                </span>
-                              )}
                               {message.editedAt ? 'edited · ' : ''}{formatTime(message.createdAt)}
                               {message.blockchainTxHash ? (
                                 <span 
@@ -951,7 +945,7 @@ const MessagesList = () => {
 
             {!isConfirmedByMe && (
               <div className="key-unconfirmed-warning" style={{ background: '#fffbe3', borderTop: '1px solid #fde68a', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', textAlign: 'center', fontWeight: 600 }}>
-                ⚠️ Confirm the BB84 Fingerprint to enable sending encrypted messages.
+                ⚠️ Confirm the BB84 Fingerprint to enable sending messages.
                 <button
                   onClick={() => setShowKeyModal(true)}
                   style={{ marginLeft: '0.5rem', textDecoration: 'underline', background: 'none', border: 'none', color: '#0284c7', cursor: 'pointer', fontWeight: 700 }}
@@ -965,7 +959,7 @@ const MessagesList = () => {
               <AttachmentPicker selectedFile={selectedFile} onFileChange={handleSelectedFile} onClear={() => setSelectedFile(null)} />
               <input
                 type="text"
-                placeholder={isConfirmedByMe ? "Type your encrypted message..." : "Confirm BB84 fingerprint to chat..."}
+                placeholder={isConfirmedByMe ? "Type your message..." : "Confirm BB84 fingerprint to chat..."}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="chat-drawer-input"

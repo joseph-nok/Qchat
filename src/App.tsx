@@ -14,6 +14,8 @@ import QAPage from "./route/QAPage";
 import Explore from "./route/Explore";
 import VerifyProfile from "./route/VerifyProfile";
 import EditProfile from "./route/EditProfile";
+import Admin from "./route/Admin";
+import AdminLogin from "./route/AdminLogin";
 
 function App() {
   // Replace this with your real auth source (Clerk, Convex auth, context, etc.)
@@ -38,6 +40,8 @@ function App() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/verify-profile" element={<VerifyProfile />} />
         <Route path="/edit-profile" element={<EditProfile />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
       </Routes>
     </BrowserRouter>
   );

@@ -53,14 +53,6 @@ const Sidebar = (_props: SidebarProps) => {
       )}
 
       <aside id="dashboard-sidebar" className={`sidebar ${isOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <h2 className="sidebar-title">Academic Luminary</h2>
-          <p className="sidebar-subtitle">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-            Verified Portal
-          </p>
-        </div>
-
         <nav className="sidebar-nav">
           {links.map(({ to, icon, label }) => (
             <Link

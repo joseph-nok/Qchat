@@ -13,10 +13,6 @@ const LandingPage = () => {
         <section className="hero-section">
           <div className="hero-content">
             <div className="hero-text-area">
-              <div className="verified-badge">
-                <span className="material-symbols-outlined icon">verified</span>
-                <span className="badge-text">Verified Academic Network</span>
-              </div>
               <h1 className="hero-title">
                 Ghana Education <br />
                 <span className="highlight">Connect.</span>

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as qchat from "../qchat.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -19,6 +20,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   qchat: typeof qchat;
   seed: typeof seed;
   users: typeof users;
