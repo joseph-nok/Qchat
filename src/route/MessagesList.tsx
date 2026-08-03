@@ -71,13 +71,7 @@ type RoomDetails = {
   bb84DebugInfo?: BB84SimulationDetails | { totalBitsSent: number; siftedLength: number; efficiencyPercentage: number; qber: number };
 };
 
-type PendingBB84Notification = {
-  _id: Id<'notifications'>;
-  roomId: Id<'chatRooms'>;
-  actorName: string;
-  fingerprint: string;
-  createdAt: number;
-};
+const clampChatDrawerWidth = (width: number) => {
   const viewportMax = Math.max(MIN_CHAT_DRAWER_WIDTH, window.innerWidth - 96);
   return Math.min(Math.max(width, MIN_CHAT_DRAWER_WIDTH), Math.min(MAX_CHAT_DRAWER_WIDTH, viewportMax));
 };
@@ -114,7 +108,6 @@ const MessagesList = () => {
   // BB84 Convex mutations
   const initiateBB84KeyExchange = useMutation(convexApi.qchat.initiateBB84KeyExchange);
   const confirmBB84KeyExchange = useMutation(convexApi.qchat.confirmBB84KeyExchange);
-  const markBB84NotificationRead = useMutation(convexApi.qchat.markBB84NotificationRead);
   const resetBB84KeyExchange = useMutation(convexApi.qchat.resetBB84KeyExchange);
 
   const requestedRoomId = searchParams.get('roomId') as Id<'chatRooms'> | null;
@@ -136,10 +129,6 @@ const MessagesList = () => {
   const [localBB84Details, setLocalBB84Details] = useState<BB84SimulationDetails | null>(null);
   const [decryptedTexts, setDecryptedTexts] = useState<Record<string, string>>({});
   const [decryptingFileId, setDecryptingFileId] = useState<string | null>(null);
-  const pendingBB84Notifications = useQuery(
-    convexApi.qchat.getPendingBB84Notifications,
-    sessionToken ? { sessionToken } : 'skip',
-  ) as PendingBB84Notification[] | undefined;
 
   // Long-press / context-menu state
   const [menuMessage, setMenuMessage] = useState<ChatMessage | null>(null);
@@ -309,10 +298,6 @@ const MessagesList = () => {
     if (!sessionToken || !activeRoomId) return;
     try {
       await confirmBB84KeyExchange({ sessionToken, roomId: activeRoomId });
-      const notification = pendingBB84Notifications?.find((item) => item.roomId === activeRoomId);
-      if (notification) {
-        await markBB84NotificationRead({ sessionToken, notificationId: notification._id });
-      }
       setShowKeyModal(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not confirm key.');
