@@ -1014,6 +1014,7 @@ body {
 }
 
 .message-bubble {
+  position: relative;
   max-width: 80%;
   padding: 1rem 1.25rem;
   border-radius: 1.25rem;
@@ -1030,6 +1031,67 @@ body {
   background-color: var(--secondary);
   color: white;
   border-bottom-right-radius: 0.25rem;
+}
+
+.message-hover-actions {
+  position: absolute;
+  top: 0.35rem;
+  right: calc(100% + 0.45rem);
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  transform: translateX(0.25rem);
+}
+
+.message-bubble-wrapper.outgoing:hover .message-hover-actions,
+.message-bubble-wrapper.outgoing:focus-within .message-hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.message-hover-action {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--outline-variant);
+  border-radius: 50%;
+  background: white;
+  color: var(--on-surface-variant);
+  box-shadow: 0 3px 10px rgba(27, 28, 28, 0.14);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.message-hover-action:hover {
+  transform: translateY(-1px);
+}
+
+.message-hover-action.edit:hover {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+
+.message-hover-action.delete {
+  color: var(--error);
+}
+
+.message-hover-action.delete:hover {
+  background: rgba(186, 26, 26, 0.1);
+  border-color: var(--error);
+}
+
+.message-hover-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.message-hover-action .material-symbols-outlined {
+  font-size: 1.05rem;
 }
 
 .message-text {

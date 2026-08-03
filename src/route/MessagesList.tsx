@@ -405,9 +405,9 @@ const MessagesList = () => {
     startCoordsRef.current = null;
   };
 
-  const handleDeleteMessage = async () => {
-    if (!menuMessage || !sessionToken) return;
-    const deletedMessageId = menuMessage._id;
+  const handleDeleteMessage = async (messageToDelete = menuMessage) => {
+    if (!messageToDelete || !sessionToken) return;
+    const deletedMessageId = messageToDelete._id;
     setIsDeleting(true);
     try {
       await deleteMessage({ sessionToken, messageId: deletedMessageId });
@@ -426,10 +426,10 @@ const MessagesList = () => {
     }
   };
 
-  const handleStartEdit = () => {
-    if (!menuMessage) return;
-    setEditingId(menuMessage._id);
-    setEditText(decryptedTexts[menuMessage._id] || menuMessage.text);
+  const handleStartEdit = (messageToEdit = menuMessage) => {
+    if (!messageToEdit) return;
+    setEditingId(messageToEdit._id);
+    setEditText(decryptedTexts[messageToEdit._id] || messageToEdit.text);
     setMenuMessage(null);
     setTimeout(() => editInputRef.current?.focus(), 50);
   };
@@ -801,6 +801,39 @@ const MessagesList = () => {
                       style={{ userSelect: 'none' }}
                     >
                       <div className={`message-bubble ${editingId === message._id ? 'editing' : ''}`}>
+                        {message.isMine && editingId !== message._id && (
+                          <div className="message-hover-actions" aria-label="Message actions">
+                            {!message.attachmentUrl && (
+                              <button
+                                type="button"
+                                className="message-hover-action edit"
+                                aria-label="Edit message"
+                                title="Edit message"
+                                onPointerDown={(event) => event.stopPropagation()}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleStartEdit(message);
+                                }}
+                              >
+                                <span className="material-symbols-outlined">edit</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="message-hover-action delete"
+                              aria-label="Delete message"
+                              title="Delete message"
+                              disabled={isDeleting}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleDeleteMessage(message);
+                              }}
+                            >
+                              <span className="material-symbols-outlined">delete</span>
+                            </button>
+                          </div>
+                        )}
                         {editingId === message._id ? (
                           <div className="message-edit-area">
                             <input
