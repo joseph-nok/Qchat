@@ -684,6 +684,9 @@ const MessagesList = () => {
                       <div className="conv-top-row">
                         <div className="conv-name-row">
                           <h3 className="conv-name">{name}</h3>
+                          <span className={`conv-role-tag ${otherUser?.role === 'lecturer' ? 'lecturer-role' : 'student-role'}`}>
+                            {otherUser?.role === 'lecturer' ? 'Lecturer' : 'Student'}
+                          </span>
                           <span className={`conv-institution-tag ${otherUser?.role === 'lecturer' ? 'primary-tag' : 'secondary-tag'}`}>
                             {otherUser?.school ?? 'Academic Network'}
                           </span>
@@ -757,7 +760,12 @@ const MessagesList = () => {
                 </div>
                 <div>
                   <h3 className="chat-drawer-name">{activeRoom.otherUser.fullName}</h3>
-                  <p className="chat-drawer-school">{activeRoom.otherUser.school}</p>
+                  <div className="chat-drawer-meta">
+                    <span className={`chat-drawer-role ${activeRoom.otherUser.role === 'lecturer' ? 'lecturer-role' : 'student-role'}`}>
+                      {activeRoom.otherUser.role === 'lecturer' ? 'Lecturer' : 'Student'}
+                    </span>
+                    <p className="chat-drawer-school">{activeRoom.otherUser.school}</p>
+                  </div>
                 </div>
               </div>
 
