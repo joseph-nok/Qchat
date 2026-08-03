@@ -39,6 +39,17 @@ export default defineSchema({
     title: v.optional(v.string()),
     lastMessageText: v.optional(v.string()),
     lastMessageAt: v.optional(v.number()),
+    bb84Key: v.optional(v.string()),
+    bb84Fingerprint: v.optional(v.string()),
+    bb84ConfirmedUsers: v.optional(v.array(v.id("users"))),
+    bb84DebugInfo: v.optional(
+      v.object({
+        totalBitsSent: v.number(),
+        siftedLength: v.number(),
+        efficiencyPercentage: v.number(),
+        qber: v.number(),
+      })
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_participantKey", ["participantKey"]),
@@ -59,6 +70,8 @@ export default defineSchema({
     roomId: v.id("chatRooms"),
     senderId: v.id("users"),
     text: v.string(),
+    iv: v.optional(v.string()),
+    isEncrypted: v.optional(v.boolean()),
     attachmentStorageId: v.optional(v.id("_storage")),
     attachmentUrl: v.optional(v.string()),
     attachmentName: v.optional(v.string()),

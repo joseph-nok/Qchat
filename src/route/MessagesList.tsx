@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
@@ -9,7 +9,15 @@ import Footer from '../components/Footer';
 import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu } from '../utils/cryptoBridge';
-import { logHashToBlockchain } from '../services/web3Service';
+import { BB84KeyModal } from '../components/BB84KeyModal';
+import {
+  performBB84KeyExchange,
+  encryptTextMessage,
+  decryptTextMessage,
+  encryptFile,
+  decryptFile,
+} from '../services/keyExchange';
+import type { BB84SimulationDetails } from '../lib/bb84';
 import '../route_css/MessagesList.css';
 
 const convexApi = api as any;
@@ -38,6 +46,8 @@ type Room = {
 type ChatMessage = {
   _id: Id<'messages'>;
   text: string;
+  iv?: string;
+  isEncrypted?: boolean;
   createdAt: number;
   isMine: boolean;
   attachmentUrl?: string;
@@ -46,6 +56,17 @@ type ChatMessage = {
   attachmentSize?: number;
   editedAt?: number;
   blockchainTxHash?: string;
+};
+
+type RoomDetails = {
+  _id: Id<'chatRooms'>;
+  title?: string;
+  participantIds: Id<'users'>[];
+  otherUser: ChatUser | null;
+  bb84Key?: string;
+  bb84Fingerprint?: string;
+  bb84ConfirmedUsers?: Id<'users'>[];
+  bb84DebugInfo?: BB84SimulationDetails | { totalBitsSent: number; siftedLength: number; efficiencyPercentage: number; qber: number };
 };
 
 const clampChatDrawerWidth = (width: number) => {
@@ -82,6 +103,11 @@ const MessagesList = () => {
   const editMessage = useMutation(convexApi.qchat.editMessage);
   const updateMessageTxHash = useMutation(convexApi.qchat.updateMessageTxHash);
 
+  // BB84 Convex mutations
+  const initiateBB84KeyExchange = useMutation(convexApi.qchat.initiateBB84KeyExchange);
+  const confirmBB84KeyExchange = useMutation(convexApi.qchat.confirmBB84KeyExchange);
+  const resetBB84KeyExchange = useMutation(convexApi.qchat.resetBB84KeyExchange);
+
   const requestedRoomId = searchParams.get('roomId') as Id<'chatRooms'> | null;
   const [activeRoomId, setActiveRoomId] = useState<Id<'chatRooms'> | null>(requestedRoomId);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,6 +120,12 @@ const MessagesList = () => {
   const [isResizingChat, setIsResizingChat] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // BB84 & AES Decryption state
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [isSimulatingBB84, setIsSimulatingBB84] = useState(false);
+  const [decryptedTexts, setDecryptedTexts] = useState<Record<string, string>>({});
+  const [decryptingFileId, setDecryptingFileId] = useState<string | null>(null);
+
   // Long-press / context-menu state
   const [menuMessage, setMenuMessage] = useState<ChatMessage | null>(null);
   const [editingId, setEditingId] = useState<Id<'messages'> | null>(null);
@@ -102,6 +134,11 @@ const MessagesList = () => {
   const [isEditing, setIsEditing] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  const roomDetails = useQuery(
+    convexApi.qchat.getRoomDetails,
+    sessionToken && activeRoomId ? { sessionToken, roomId: activeRoomId } : 'skip',
+  ) as RoomDetails | null | undefined;
 
   const messages = useQuery(
     convexApi.qchat.getMessages,
@@ -124,6 +161,63 @@ const MessagesList = () => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeRoomId, messages?.length]);
+
+  // Automated BB84 key simulation trigger when active room has no key yet
+  useEffect(() => {
+    if (!sessionToken || !activeRoomId || !roomDetails) return;
+
+    if (!roomDetails.bb84Key && !isSimulatingBB84) {
+      setIsSimulatingBB84(true);
+      void (async () => {
+        try {
+          console.log('[BB84] Initiating automated quantum key exchange simulation...');
+          const result = await performBB84KeyExchange();
+          await initiateBB84KeyExchange({
+            sessionToken,
+            roomId: activeRoomId,
+            bb84Key: result.sharedKeyHex,
+            bb84Fingerprint: result.fingerprint,
+            debugInfo: result.details,
+          });
+          setShowKeyModal(true);
+        } catch (err) {
+          console.error('Failed to run BB84 key exchange:', err);
+        } finally {
+          setIsSimulatingBB84(false);
+        }
+      })();
+    }
+  }, [activeRoomId, initiateBB84KeyExchange, isSimulatingBB84, roomDetails, sessionToken]);
+
+  // Open modal if current user hasn't confirmed fingerprint yet
+  useEffect(() => {
+    if (roomDetails?.bb84Fingerprint && currentUser?._id) {
+      const isConfirmed = roomDetails.bb84ConfirmedUsers?.includes(currentUser._id);
+      if (!isConfirmed) {
+        setShowKeyModal(true);
+      }
+    }
+  }, [currentUser?._id, roomDetails?.bb84ConfirmedUsers, roomDetails?.bb84Fingerprint]);
+
+  // Decrypt encrypted text messages client-side using Web Crypto AES-GCM
+  useEffect(() => {
+    if (!messages || !roomDetails?.bb84Key) return;
+
+    const rawKey = roomDetails.bb84Key;
+    messages.forEach((msg) => {
+      if (msg.isEncrypted && msg.iv && msg.text && !decryptedTexts[msg._id]) {
+        void (async () => {
+          try {
+            const plain = await decryptTextMessage(msg.text, msg.iv!, rawKey);
+            setDecryptedTexts((prev) => ({ ...prev, [msg._id]: plain }));
+          } catch (err) {
+            console.error(`Failed to decrypt message ${msg._id}:`, err);
+            setDecryptedTexts((prev) => ({ ...prev, [msg._id]: '⚠️ [Decryption Failed: Key mismatch]' }));
+          }
+        })();
+      }
+    });
+  }, [decryptedTexts, messages, roomDetails?.bb84Key]);
 
   useEffect(() => {
     if (!isResizingChat) return;
@@ -168,6 +262,13 @@ const MessagesList = () => {
   const userName = currentUser?.fullName ?? 'Academic Member';
   const userRole = currentUser?.role === 'lecturer' ? 'Lecturer' : 'Student';
 
+  const isConfirmedByMe = currentUser?._id
+    ? (roomDetails?.bb84ConfirmedUsers?.includes(currentUser._id) ?? false)
+    : false;
+  const isConfirmedByOther = currentUser?._id
+    ? (roomDetails?.bb84ConfirmedUsers?.some((id) => id !== currentUser._id) ?? false)
+    : false;
+
   const handleSelectRoom = (roomId: Id<'chatRooms'>) => {
     setActiveRoomId(roomId);
     setSearchParams({ roomId });
@@ -178,6 +279,70 @@ const MessagesList = () => {
     setSearchParams({});
     setMenuMessage(null);
     setEditingId(null);
+    setShowKeyModal(false);
+  };
+
+  const handleConfirmFingerprint = async () => {
+    if (!sessionToken || !activeRoomId) return;
+    try {
+      await confirmBB84KeyExchange({ sessionToken, roomId: activeRoomId });
+      setShowKeyModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not confirm key.');
+    }
+  };
+
+  const handleRegenerateKey = async () => {
+    if (!sessionToken || !activeRoomId) return;
+    setIsSimulatingBB84(true);
+    try {
+      await resetBB84KeyExchange({ sessionToken, roomId: activeRoomId });
+      const result = await performBB84KeyExchange();
+      await initiateBB84KeyExchange({
+        sessionToken,
+        roomId: activeRoomId,
+        bb84Key: result.sharedKeyHex,
+        bb84Fingerprint: result.fingerprint,
+        debugInfo: result.details,
+      });
+      setShowKeyModal(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not re-run key exchange.');
+    } finally {
+      setIsSimulatingBB84(false);
+    }
+  };
+
+  const handleDownloadDecryptedFile = async (message: ChatMessage) => {
+    if (!message.attachmentUrl || !message.iv || !roomDetails?.bb84Key) return;
+
+    setDecryptingFileId(message._id);
+    try {
+      const response = await fetch(message.attachmentUrl);
+      const encryptedBlob = await response.blob();
+
+      const decryptedFile = await decryptFile(
+        encryptedBlob,
+        message.iv,
+        roomDetails.bb84Key,
+        message.attachmentName || 'decrypted-file',
+        message.attachmentType || 'application/octet-stream'
+      );
+
+      const objectUrl = URL.createObjectURL(decryptedFile);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = decryptedFile.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('Failed to decrypt attachment:', err);
+      alert('Failed to decrypt attachment. Shared key mismatch or corrupted payload.');
+    } finally {
+      setDecryptingFileId(null);
+    }
   };
 
   const startCoordsRef = useRef<{ x: number; y: number } | null>(null);
@@ -188,7 +353,7 @@ const MessagesList = () => {
     startCoordsRef.current = { x: event.clientX, y: event.clientY };
     longPressTimerRef.current = setTimeout(() => {
       setMenuMessage(message);
-    }, 2000); // 2 seconds
+    }, 2000);
   };
 
   const handlePointerMove = (event: React.PointerEvent) => {
@@ -218,7 +383,6 @@ const MessagesList = () => {
     try {
       await deleteMessage({ sessionToken, messageId: deletedMessageId });
       
-      // Anchor the deletion/revocation block to Besu for chronological audit trail
       relayHashToBesu("RECORD_MESSAGE", `${deletedMessageId}-delete-${Date.now()}`, "MESSAGE_DELETED", {
         senderId: currentUser?._id,
         receiverId: activeRoom?.otherUser?._id,
@@ -236,7 +400,7 @@ const MessagesList = () => {
   const handleStartEdit = () => {
     if (!menuMessage) return;
     setEditingId(menuMessage._id);
-    setEditText(menuMessage.text);
+    setEditText(decryptedTexts[menuMessage._id] || menuMessage.text);
     setMenuMessage(null);
     setTimeout(() => editInputRef.current?.focus(), 50);
   };
@@ -244,13 +408,28 @@ const MessagesList = () => {
   const handleSaveEdit = async () => {
     if (!editingId || !sessionToken) return;
     const editedMessageId = editingId;
-    const messageTextToAnchor = editText;
+    let messageTextToStore = editText;
+    let ivToStore: string | undefined;
+    let isEncrypted = false;
+
+    if (roomDetails?.bb84Key) {
+      const encrypted = await encryptTextMessage(editText, roomDetails.bb84Key);
+      messageTextToStore = encrypted.ciphertext;
+      ivToStore = encrypted.iv;
+      isEncrypted = true;
+    }
+
     setIsEditing(true);
     try {
-      await editMessage({ sessionToken, messageId: editedMessageId, text: messageTextToAnchor });
+      await editMessage({
+        sessionToken,
+        messageId: editedMessageId,
+        text: messageTextToStore,
+        ...(ivToStore ? { iv: ivToStore } : {}),
+        isEncrypted,
+      });
       
-      // Anchor the edit block to Besu for chronological audit trail
-      relayHashToBesu("RECORD_MESSAGE", `${editedMessageId}-edit-${Date.now()}`, messageTextToAnchor, {
+      relayHashToBesu("RECORD_MESSAGE", `${editedMessageId}-edit-${Date.now()}`, messageTextToStore, {
         senderId: currentUser?._id,
         receiverId: activeRoom?.otherUser?._id,
       })
@@ -259,6 +438,10 @@ const MessagesList = () => {
           void updateMessageTxHash({ sessionToken, messageId: editedMessageId, txHash });
         })
         .catch((err) => console.error("[Blockchain Sync] Failed to anchor message edit to Besu:", err));
+
+      if (isEncrypted) {
+        setDecryptedTexts((prev) => ({ ...prev, [editedMessageId]: editText }));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not edit message.');
     } finally {
@@ -288,48 +471,64 @@ const MessagesList = () => {
     if (!sessionToken || !activeRoomId || isSending) return;
     if (!newMessage.trim() && !selectedFile) return;
 
-    const messageTextToAnchor = newMessage;
+    if (!roomDetails?.bb84Key || !isConfirmedByMe) {
+      setShowKeyModal(true);
+      setError('Please confirm the BB84 Quantum Key fingerprint before sending messages.');
+      return;
+    }
+
     setIsSending(true);
     setError('');
     try {
-      // 1. Read private key from localStorage
-      const privateKeyData = localStorage.getItem('qchat_private_identity_key');
-      if (!privateKeyData) {
-        console.warn('Private identity key missing from local storage.');
+      const rawKey = roomDetails.bb84Key;
+      let textToSend = newMessage;
+      let ivToSend: string | undefined;
+      let isEncrypted = false;
+      let attachmentUploadParams = {};
+
+      // 1. AES-GCM Encrypt Text Payload with BB84 Shared Secret Key
+      if (newMessage.trim()) {
+        const encrypted = await encryptTextMessage(newMessage.trim(), rawKey);
+        textToSend = encrypted.ciphertext;
+        ivToSend = encrypted.iv;
+        isEncrypted = true;
       }
 
-      // 2. Calculate client-side SHA-256 fingerprint hash of message text payload
-      const msgUint8 = new TextEncoder().encode(messageTextToAnchor);
-      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
-      const calculatedHash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
+      // 2. AES-GCM Encrypt Attachment File Blob
+      if (selectedFile) {
+        const encryptedFileResult = await encryptFile(selectedFile, rawKey);
+        ivToSend = encryptedFileResult.iv;
+        isEncrypted = true;
 
-      // 3. Register fingerprint on local Besu node
-      try {
-        await logHashToBlockchain(calculatedHash);
-      } catch (err) {
-        console.error('Besu node registration error:', err);
+        const fileToUpload = new File([encryptedFileResult.encryptedBlob], selectedFile.name, {
+          type: selectedFile.type,
+        });
+
+        attachmentUploadParams = await uploadAttachment(fileToUpload, generateUploadUrl);
       }
 
-      const attachment = selectedFile
-        ? await uploadAttachment(selectedFile, generateUploadUrl)
-        : {};
-
+      // 3. Send Ciphertext and IV to Convex backend
       const result = await sendMessage({
         sessionToken,
         roomId: activeRoomId,
-        text: newMessage,
-        ...attachment,
+        text: textToSend,
+        ...(ivToSend ? { iv: ivToSend } : {}),
+        isEncrypted,
+        ...attachmentUploadParams,
       });
 
-      // Asynchronously relay the message SHA-256 hash to Besu network using the Convex message ID as anchor
-      relayHashToBesu("RECORD_MESSAGE", result.messageId, messageTextToAnchor, {
+      // Cache decrypted text locally for smooth instant UI response
+      if (newMessage.trim()) {
+        setDecryptedTexts((prev) => ({ ...prev, [result.messageId]: newMessage.trim() }));
+      }
+
+      // 4. Relay SHA-256 hash of Ciphertext payload to Besu private blockchain
+      relayHashToBesu("RECORD_MESSAGE", result.messageId, textToSend, {
         senderId: currentUser?._id,
         receiverId: activeRoom?.otherUser?._id,
       })
         .then((txHash) => {
-          console.log(`[Blockchain Sync] DM anchored to Besu. Tx: ${txHash}`);
+          console.log(`[Blockchain Sync] Encrypted DM anchored to Besu. Tx: ${txHash}`);
           void updateMessageTxHash({ sessionToken, messageId: result.messageId, txHash });
         })
         .catch((err) => console.error("[Blockchain Sync] Failed to anchor DM hash to Besu:", err));
@@ -351,82 +550,96 @@ const MessagesList = () => {
     );
   }
 
-  if (!sessionToken || !currentUser) return null;
-
   return (
-    <div className="dashboard-layout" style={{ background: 'var(--surface)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <AppHeader userName={userName} userRole={userRole} profileImage={currentUser.avatarUrl} />
-      <Sidebar />
+    <div className="messages-layout-page">
+      <AppHeader userName={userName} userRole={userRole} />
 
-      <main className="app-main">
-        <div className="app-main-inner">
-          <div className="page-header">
+      <main className="messages-main-container">
+        <Sidebar activeTab="messages" />
+
+        <div className="messages-content-area">
+          <div className="messages-header">
             <div>
-              <h1 className="page-title">Messages</h1>
-              {/* <p className="page-subtitle">Live conversations stored and synced through Convex.</p> */}
+              <h1 className="messages-title">Encrypted Messages</h1>
+              <p className="messages-subtitle">Quantum-Secured BB84 Communications & Verification</p>
             </div>
-          </div>
-
-          <div className="filters-bar">
-            <button className={`filter-tag ${selectedFilter === 'all' ? 'active' : ''}`} onClick={() => setSelectedFilter('all')}>
-              All Messages
-            </button>
-            <button className={`filter-tag ${selectedFilter === 'unread' ? 'active' : ''}`} onClick={() => setSelectedFilter('unread')}>
-              Unread
-            </button>
-          </div>
-
-          <div className="search-wrapper">
-            <span className="material-symbols-outlined search-icon">search</span>
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search conversations by name, school, or content..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
           </div>
 
           {error && (
-            <div className="explore-toast" style={{ borderColor: 'var(--error)', color: 'var(--error)', marginBottom: '1rem' }}>
+            <div className="error-banner" style={{ background: '#fee2e2', color: '#b91c1c', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontWeight: 600 }}>
               {error}
             </div>
           )}
+
+          <div className="messages-filter-bar">
+            <div className="messages-search-wrapper">
+              <span className="material-symbols-outlined search-icon">search</span>
+              <input
+                type="text"
+                placeholder="Search conversations, members, or universities..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="messages-search-input"
+              />
+              {searchQuery && (
+                <button className="clear-search-btn" onClick={() => setSearchQuery('')}>
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              )}
+            </div>
+
+            <div className="filter-pill-group">
+              <button
+                className={`filter-pill ${selectedFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setSelectedFilter('all')}
+              >
+                All Messages
+              </button>
+              <button
+                className={`filter-pill ${selectedFilter === 'unread' ? 'active' : ''}`}
+                onClick={() => setSelectedFilter('unread')}
+              >
+                Unread
+              </button>
+            </div>
+          </div>
 
           <div className="conversations-list">
             {rooms === undefined ? (
               <div className="no-conversations">
                 <span className="material-symbols-outlined no-conv-icon">hourglass_top</span>
-                <p>Loading conversations...</p>
+                <p>Loading encrypted messages...</p>
               </div>
             ) : filteredRooms.length > 0 ? (
               filteredRooms.map((room) => {
-                const otherUser = room.otherUser;
+                const isActive = room._id === activeRoomId;
                 const read = room.unread === 0;
-                const name = otherUser?.fullName ?? 'Unknown member';
-                const avatar = otherUser?.avatarUrl ?? '';
+                const otherUser = room.otherUser;
+                const name = otherUser?.fullName ?? 'Academic Peer';
+                const initials = getInitials(name);
 
                 return (
                   <div
                     key={room._id}
+                    className={`conversation-card ${isActive ? 'active-room' : ''} ${!read ? 'unread-room' : ''}`}
                     onClick={() => handleSelectRoom(room._id)}
-                    className={`conv-card ${room._id === activeRoomId ? 'active-card' : ''} ${read ? 'read' : 'unread'}`}
-                    style={{ cursor: 'pointer' }}
                   >
-                    <div className="conv-avatar-wrapper">
+                    <div className="conv-avatar-container">
                       <div className="conv-avatar">
-                        {avatar ? <img src={avatar} alt={`${name} Avatar`} /> : <span className="conv-avatar-initials">{getInitials(name)}</span>}
+                        {otherUser?.avatarUrl ? (
+                          <img src={otherUser.avatarUrl} alt={name} />
+                        ) : (
+                          <span className="conv-avatar-initials">{initials}</span>
+                        )}
                       </div>
                       {otherUser?.isVerified && (
-                        <div className="conv-verified-badge">
-                          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1", fontSize: '0.625rem' }}>
-                            verified
-                          </span>
-                        </div>
+                        <span className="conv-verified-badge material-symbols-outlined" title="Verified University Identity">
+                          verified
+                        </span>
                       )}
                     </div>
 
-                    <div className="conv-body">
+                    <div className="conv-details">
                       <div className="conv-top-row">
                         <div className="conv-name-row">
                           <h3 className="conv-name">{name}</h3>
@@ -506,7 +719,19 @@ const MessagesList = () => {
                   <p className="chat-drawer-school">{activeRoom.otherUser.school}</p>
                 </div>
               </div>
-              
+
+              {/* BB84 Quantum Status Badge in Drawer Header */}
+              {roomDetails?.bb84Fingerprint && (
+                <button
+                  className={`chat-bb84-key-badge ${isConfirmedByMe ? 'confirmed' : 'pending'}`}
+                  onClick={() => setShowKeyModal(true)}
+                  title="View BB84 Key Fingerprint & Educational Debug Info"
+                >
+                  <span className="key-icon">⚛️</span>
+                  <span className="key-fp">{roomDetails.bb84Fingerprint}</span>
+                  <span className="key-status">{isConfirmedByMe ? '✓' : '⚠️ Confirm'}</span>
+                </button>
+              )}
             </div>
 
             <div className="chat-drawer-messages">
@@ -516,78 +741,123 @@ const MessagesList = () => {
                   <p>Loading messages...</p>
                 </div>
               ) : messages.length > 0 ? (
-                messages.map((message) => (
-                  <div
-                    key={message._id}
-                    className={`message-bubble-wrapper ${message.isMine ? 'outgoing' : 'incoming'}`}
-                    onPointerDown={(e) => handlePointerDown(e, message)}
-                    onPointerUp={handlePointerUp}
-                    onPointerLeave={handlePointerUp}
-                    onPointerCancel={handlePointerUp}
-                    onPointerMove={handlePointerMove}
-                    onContextMenu={(e) => { if (message.isMine) { e.preventDefault(); setMenuMessage(message); } }}
-                    style={{ userSelect: 'none' }}
-                  >
-                    <div className={`message-bubble ${editingId === message._id ? 'editing' : ''}`}>
-                      {editingId === message._id ? (
-                        <div className="message-edit-area">
-                          <input
-                            ref={editInputRef}
-                            className="message-edit-input"
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') void handleSaveEdit();
-                              if (e.key === 'Escape') handleCancelEdit();
-                            }}
-                          />
-                          <div className="message-edit-actions">
-                            <button type="button" className="msg-action-cancel" onClick={handleCancelEdit}>
-                              <span className="material-symbols-outlined">close</span>
-                            </button>
-                            <button type="button" className="msg-action-save" onClick={() => void handleSaveEdit()} disabled={isEditing || !editText.trim()}>
-                              <span className="material-symbols-outlined">{isEditing ? 'hourglass_top' : 'check'}</span>
-                            </button>
+                messages.map((message) => {
+                  const isEncrypted = message.isEncrypted;
+                  const decryptedText = isEncrypted
+                    ? (decryptedTexts[message._id] || '🔒 [Decrypting message...]')
+                    : message.text;
+
+                  return (
+                    <div
+                      key={message._id}
+                      className={`message-bubble-wrapper ${message.isMine ? 'outgoing' : 'incoming'}`}
+                      onPointerDown={(e) => handlePointerDown(e, message)}
+                      onPointerUp={handlePointerUp}
+                      onPointerLeave={handlePointerUp}
+                      onPointerCancel={handlePointerUp}
+                      onPointerMove={handlePointerMove}
+                      onContextMenu={(e) => { if (message.isMine) { e.preventDefault(); setMenuMessage(message); } }}
+                      style={{ userSelect: 'none' }}
+                    >
+                      <div className={`message-bubble ${editingId === message._id ? 'editing' : ''}`}>
+                        {editingId === message._id ? (
+                          <div className="message-edit-area">
+                            <input
+                              ref={editInputRef}
+                              className="message-edit-input"
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') void handleSaveEdit();
+                                if (e.key === 'Escape') handleCancelEdit();
+                              }}
+                            />
+                            <div className="message-edit-actions">
+                              <button type="button" className="msg-action-cancel" onClick={handleCancelEdit}>
+                                <span className="material-symbols-outlined">close</span>
+                              </button>
+                              <button type="button" className="msg-action-save" onClick={() => void handleSaveEdit()} disabled={isEditing || !editText.trim()}>
+                                <span className="material-symbols-outlined">{isEditing ? 'hourglass_top' : 'check'}</span>
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <>
-                          {message.text && <p className="message-text">{message.text}</p>}
-                          <AttachmentLink attachment={message} compact />
-                          <span className="message-time" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                            {message.editedAt ? 'edited · ' : ''}{formatTime(message.createdAt)}
-                            {message.blockchainTxHash ? (
-                              <span 
-                                className="material-symbols-outlined onchain-tick" 
-                                style={{ 
-                                  fontSize: '0.85rem', 
-                                  color: '#00c853', // Emerald green
-                                  marginLeft: '0.25rem', 
-                                  cursor: 'help'
-                                }}
-                                title={`Anchored on Hyperledger Besu Blockchain. Tx: ${message.blockchainTxHash}`}
-                              >
-                                link
-                              </span>
-                            ) : (
-                              <span 
-                                className="material-symbols-outlined onchain-tick" 
-                                style={{ 
-                                  fontSize: '0.85rem', 
-                                  color: 'var(--outline)', 
-                                  marginLeft: '0.25rem'
-                                }}
-                                title="Saved to Convex, anchoring to Besu..."
-                              >
-                                check
-                              </span>
+                        ) : (
+                          <>
+                            {decryptedText && <p className="message-text">{decryptedText}</p>}
+                            
+                            {/* Attachment handling */}
+                            {message.attachmentUrl && (
+                              isEncrypted ? (
+                                <div className="encrypted-attachment-box" style={{ margin: '0.4rem 0' }}>
+                                  <button
+                                    className="msg-action-cancel"
+                                    onClick={() => void handleDownloadDecryptedFile(message)}
+                                    disabled={decryptingFileId === message._id}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.4rem',
+                                      padding: '0.4rem 0.8rem',
+                                      borderRadius: '6px',
+                                      background: '#0284c7',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '0.82rem',
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>
+                                      {decryptingFileId === message._id ? 'hourglass_top' : 'lock_open'}
+                                    </span>
+                                    {decryptingFileId === message._id ? 'Decrypting File...' : `Decrypt & Save ${message.attachmentName || 'Attachment'}`}
+                                  </button>
+                                </div>
+                              ) : (
+                                <AttachmentLink attachment={message} compact />
+                              )
                             )}
-                          </span>
-                        </>
-                      )}
+
+                            <span className="message-time" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              {isEncrypted && (
+                                <span style={{ fontSize: '0.7rem', color: '#0284c7', marginRight: '0.4rem', fontWeight: 600 }}>
+                                  🔒 AES-256
+                                </span>
+                              )}
+                              {message.editedAt ? 'edited · ' : ''}{formatTime(message.createdAt)}
+                              {message.blockchainTxHash ? (
+                                <span 
+                                  className="material-symbols-outlined onchain-tick" 
+                                  style={{ 
+                                    fontSize: '0.85rem', 
+                                    color: '#00c853',
+                                    marginLeft: '0.25rem', 
+                                    cursor: 'help'
+                                  }}
+                                  title={`Anchored on Hyperledger Besu Blockchain. Tx: ${message.blockchainTxHash}`}
+                                >
+                                  link
+                                </span>
+                              ) : (
+                                <span 
+                                  className="material-symbols-outlined onchain-tick" 
+                                  style={{ 
+                                    fontSize: '0.85rem', 
+                                    color: 'var(--outline)', 
+                                    marginLeft: '0.25rem'
+                                  }}
+                                  title="Saved to Convex, anchoring to Besu..."
+                                >
+                                  check
+                                </span>
+                              )}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="no-conversations">
                   <span className="material-symbols-outlined no-conv-icon">forum</span>
@@ -597,21 +867,48 @@ const MessagesList = () => {
               <div ref={chatEndRef} />
             </div>
 
+            {!isConfirmedByMe && (
+              <div className="key-unconfirmed-warning" style={{ background: '#fffbe3', borderTop: '1px solid #fde68a', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', textAlign: 'center', fontWeight: 600 }}>
+                ⚠️ Confirm the BB84 Fingerprint to enable sending encrypted messages.
+                <button
+                  onClick={() => setShowKeyModal(true)}
+                  style={{ marginLeft: '0.5rem', textDecoration: 'underline', background: 'none', border: 'none', color: '#0284c7', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  View Fingerprint
+                </button>
+              </div>
+            )}
+
             <form onSubmit={(event) => void handleSendMessage(event)} className="chat-drawer-input-area">
               <AttachmentPicker selectedFile={selectedFile} onFileChange={handleSelectedFile} onClear={() => setSelectedFile(null)} />
               <input
                 type="text"
-                placeholder="Type your secure message..."
+                placeholder={isConfirmedByMe ? "Type your encrypted message..." : "Confirm BB84 fingerprint to chat..."}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="chat-drawer-input"
+                disabled={!isConfirmedByMe}
               />
-              <button type="submit" className="chat-drawer-send-btn" disabled={isSending || (!newMessage.trim() && !selectedFile)}>
+              <button type="submit" className="chat-drawer-send-btn" disabled={isSending || !isConfirmedByMe || (!newMessage.trim() && !selectedFile)}>
                 <span className="material-symbols-outlined">{isSending ? 'hourglass_top' : 'send'}</span>
               </button>
             </form>
           </div>
         </div>
+      )}
+
+      {/* ===== BB84 KEY CONFIRMATION & EDUCATIONAL MODAL ===== */}
+      {showKeyModal && roomDetails?.bb84Fingerprint && (
+        <BB84KeyModal
+          fingerprint={roomDetails.bb84Fingerprint}
+          isConfirmedByMe={isConfirmedByMe}
+          isConfirmedByOther={isConfirmedByOther}
+          otherUserName={activeRoom?.otherUser?.fullName || 'Academic Peer'}
+          debugInfo={roomDetails.bb84DebugInfo}
+          onConfirm={() => void handleConfirmFingerprint()}
+          onRegenerateKey={() => void handleRegenerateKey()}
+          onClose={() => setShowKeyModal(false)}
+        />
       )}
 
       {/* ===== MESSAGE CONTEXT MENU ===== */}
@@ -629,7 +926,7 @@ const MessagesList = () => {
                 {menuMessage.attachmentUrl ? 'attach_file' : 'chat_bubble'}
               </span>
               <span className="msg-context-preview-text">
-                {menuMessage.attachmentName || menuMessage.text || 'Message'}
+                {menuMessage.attachmentName || decryptedTexts[menuMessage._id] || menuMessage.text || 'Message'}
               </span>
             </div>
             {!menuMessage.attachmentUrl && (

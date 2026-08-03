@@ -1,0 +1,357 @@
+.bb84-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.bb84-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  max-width: 680px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.bb84-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.bb84-quantum-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #38bdf8;
+}
+
+.bb84-atom-icon {
+  font-size: 1.3rem;
+}
+
+.bb84-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.bb84-close-btn:hover {
+  color: #ffffff;
+  background: #1e293b;
+}
+
+.bb84-modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.bb84-intro-text {
+  font-size: 0.95rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.bb84-fingerprint-box {
+  background: #0f172a;
+  border: 2px solid #38bdf8;
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bb84-fingerprint-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.bb84-fingerprint-code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: #38bdf8;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.bb84-copy-btn {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bb84-copy-btn:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.bb84-status-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.bb84-status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.bb84-status-item.confirmed {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.bb84-status-item.pending {
+  background-color: #fffbebfb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.bb84-debug-toggle-bar {
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 0.75rem;
+}
+
+.bb84-toggle-debug-btn {
+  background: transparent;
+  border: none;
+  color: #0284c7;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.bb84-toggle-debug-btn:hover {
+  color: #0369a1;
+  text-decoration: underline;
+}
+
+.bb84-debug-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.bb84-educational-explainer {
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.bb84-educational-explainer h4 {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: #0f172a;
+}
+
+.bb84-educational-explainer ol {
+  padding-left: 1.2rem;
+  line-height: 1.5;
+}
+
+.bb84-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.bb84-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+.bb84-sample-table-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bb84-sample-table-wrapper h5 {
+  font-size: 0.85rem;
+  color: #475569;
+  margin: 0;
+}
+
+.bb84-sample-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.bb84-sample-table th {
+  background: #f1f5f9;
+  padding: 0.5rem;
+  text-align: center;
+  color: #475569;
+  font-weight: 600;
+}
+
+.bb84-sample-table td {
+  padding: 0.4rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.basis-tag {
+  display: inline-block;
+  background: #e2e8f0;
+  color: #1e293b;
+  font-weight: bold;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.match-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.match-badge.yes {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.match-badge.no {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.bb84-modal-footer {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fafafa;
+}
+
+.bb84-rekey-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bb84-rekey-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.bb84-confirm-btn {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 0.65rem 1.4rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.3);
+}
+
+.bb84-confirm-btn:hover {
+  background: #0369a1;
+}
+
+.bb84-confirmed-banner {
+  color: #166534;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: #f0fdf4;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid #bbf7d0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}

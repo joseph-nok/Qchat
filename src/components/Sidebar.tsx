@@ -4,7 +4,11 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { clearSessionToken } from '../lib/session';
 import '../route_css/MessagesList.css';
 
-const Sidebar = () => {
+interface SidebarProps {
+  activeTab?: string;
+}
+
+const Sidebar = (_props: SidebarProps) => {
   const location = useLocation();
   const { sessionToken } = useAuth();
   const [isOpen, setIsOpen] = useState(false);

@@ -411,6 +411,8 @@ export const getMessages = query({
       .map((message) => ({
         _id: message._id,
         text: message.text,
+        iv: message.iv,
+        isEncrypted: message.isEncrypted,
         createdAt: message.createdAt,
         senderId: message.senderId,
         isMine: message.senderId === currentUser._id,
@@ -422,6 +424,122 @@ export const getMessages = query({
         editedAt: message.editedAt,
         blockchainTxHash: message.blockchainTxHash,
       }));
+  },
+});
+
+export const getRoomDetails = query({
+  args: {
+    sessionToken: v.string(),
+    roomId: v.id("chatRooms"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getUserBySessionToken(ctx, args.sessionToken);
+    if (!currentUser) return null;
+
+    const membership = await getMembership(ctx, args.roomId, currentUser._id);
+    if (!membership) return null;
+
+    const room = await ctx.db.get(args.roomId);
+    if (!room) return null;
+
+    const otherUserId = room.participantIds.find((id) => id !== currentUser._id);
+    const otherUser = otherUserId ? await ctx.db.get(otherUserId) : null;
+
+    return {
+      _id: room._id,
+      title: room.title,
+      participantIds: room.participantIds,
+      otherUser: otherUser ? publicUser(otherUser) : null,
+      bb84Key: room.bb84Key,
+      bb84Fingerprint: room.bb84Fingerprint,
+      bb84ConfirmedUsers: room.bb84ConfirmedUsers ?? [],
+      bb84DebugInfo: room.bb84DebugInfo,
+    };
+  },
+});
+
+export const initiateBB84KeyExchange = mutation({
+  args: {
+    sessionToken: v.string(),
+    roomId: v.id("chatRooms"),
+    bb84Key: v.string(),
+    bb84Fingerprint: v.string(),
+    debugInfo: v.optional(
+      v.object({
+        totalBitsSent: v.number(),
+        siftedLength: v.number(),
+        efficiencyPercentage: v.number(),
+        qber: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const room = await ctx.db.get(args.roomId);
+    const membership = await getMembership(ctx, args.roomId, currentUser._id);
+    if (!room || !membership) {
+      throw new Error("You do not have access to this room.");
+    }
+
+    await ctx.db.patch(args.roomId, {
+      bb84Key: args.bb84Key,
+      bb84Fingerprint: args.bb84Fingerprint,
+      bb84ConfirmedUsers: [currentUser._id],
+      bb84DebugInfo: args.debugInfo,
+      updatedAt: Date.now(),
+    });
+
+    return { ok: true };
+  },
+});
+
+export const confirmBB84KeyExchange = mutation({
+  args: {
+    sessionToken: v.string(),
+    roomId: v.id("chatRooms"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const room = await ctx.db.get(args.roomId);
+    const membership = await getMembership(ctx, args.roomId, currentUser._id);
+    if (!room || !membership) {
+      throw new Error("You do not have access to this room.");
+    }
+
+    const currentConfirmed = room.bb84ConfirmedUsers ?? [];
+    if (!currentConfirmed.includes(currentUser._id)) {
+      await ctx.db.patch(args.roomId, {
+        bb84ConfirmedUsers: [...currentConfirmed, currentUser._id],
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { ok: true };
+  },
+});
+
+export const resetBB84KeyExchange = mutation({
+  args: {
+    sessionToken: v.string(),
+    roomId: v.id("chatRooms"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const room = await ctx.db.get(args.roomId);
+    const membership = await getMembership(ctx, args.roomId, currentUser._id);
+    if (!room || !membership) {
+      throw new Error("You do not have access to this room.");
+    }
+
+    await ctx.db.patch(args.roomId, {
+      bb84Key: undefined,
+      bb84Fingerprint: undefined,
+      bb84ConfirmedUsers: [],
+      bb84DebugInfo: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { ok: true };
   },
 });
 
@@ -558,6 +676,8 @@ export const sendMessage = mutation({
     sessionToken: v.string(),
     roomId: v.id("chatRooms"),
     text: v.string(),
+    iv: v.optional(v.string()),
+    isEncrypted: v.optional(v.boolean()),
     attachmentStorageId: v.optional(v.id("_storage")),
     attachmentName: v.optional(v.string()),
     attachmentType: v.optional(v.string()),
@@ -580,11 +700,16 @@ export const sendMessage = mutation({
       ? (await ctx.storage.getUrl(args.attachmentStorageId)) ?? undefined
       : undefined;
     const createdAt = Date.now();
-    const preview = text || (args.attachmentName ? `Sent ${args.attachmentName}` : "Sent an attachment");
+    const preview = args.isEncrypted
+      ? (args.attachmentName ? `🔒 Encrypted ${args.attachmentName}` : "🔒 Encrypted message")
+      : (text || (args.attachmentName ? `Sent ${args.attachmentName}` : "Sent an attachment"));
+
     const messageId = await ctx.db.insert("messages", {
       roomId: args.roomId,
       senderId: currentUser._id,
       text,
+      ...(args.iv ? { iv: args.iv } : {}),
+      ...(args.isEncrypted !== undefined ? { isEncrypted: args.isEncrypted } : {}),
       ...(args.attachmentStorageId ? { attachmentStorageId: args.attachmentStorageId } : {}),
       ...(attachmentUrl ? { attachmentUrl } : {}),
       ...(args.attachmentName ? { attachmentName: args.attachmentName } : {}),
@@ -881,6 +1006,8 @@ export const editMessage = mutation({
     sessionToken: v.string(),
     messageId: v.id("messages"),
     text: v.string(),
+    iv: v.optional(v.string()),
+    isEncrypted: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const currentUser = await requireUser(ctx, args.sessionToken);
@@ -900,6 +1027,8 @@ export const editMessage = mutation({
     }
     await ctx.db.patch(args.messageId, {
       text: newText,
+      ...(args.iv ? { iv: args.iv } : {}),
+      ...(args.isEncrypted !== undefined ? { isEncrypted: args.isEncrypted } : {}),
       editedAt: Date.now(),
     });
     return { ok: true };
