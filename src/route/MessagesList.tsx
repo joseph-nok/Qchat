@@ -123,6 +123,8 @@ const MessagesList = () => {
   // BB84 & AES Decryption state
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [isSimulatingBB84, setIsSimulatingBB84] = useState(false);
+  // Full simulation details kept in local state only (never sent to Convex) for educational debug view
+  const [localBB84Details, setLocalBB84Details] = useState<BB84SimulationDetails | null>(null);
   const [decryptedTexts, setDecryptedTexts] = useState<Record<string, string>>({});
   const [decryptingFileId, setDecryptingFileId] = useState<string | null>(null);
 
@@ -172,12 +174,20 @@ const MessagesList = () => {
         try {
           console.log('[BB84] Initiating automated quantum key exchange simulation...');
           const result = await performBB84KeyExchange();
+          // Store full simulation details locally for the educational debug modal
+          setLocalBB84Details(result.details);
+          // Send only the 4 summary fields to Convex (Convex validator rejects extra fields)
           await initiateBB84KeyExchange({
             sessionToken,
             roomId: activeRoomId,
             bb84Key: result.sharedKeyHex,
             bb84Fingerprint: result.fingerprint,
-            debugInfo: result.details,
+            debugInfo: {
+              totalBitsSent: result.details.totalBitsSent,
+              siftedLength: result.details.siftedLength,
+              efficiencyPercentage: result.details.efficiencyPercentage,
+              qber: result.details.qber,
+            },
           });
           setShowKeyModal(true);
         } catch (err) {
@@ -298,12 +308,20 @@ const MessagesList = () => {
     try {
       await resetBB84KeyExchange({ sessionToken, roomId: activeRoomId });
       const result = await performBB84KeyExchange();
+      // Update local full details for the debug view
+      setLocalBB84Details(result.details);
+      // Send only summary stats to Convex
       await initiateBB84KeyExchange({
         sessionToken,
         roomId: activeRoomId,
         bb84Key: result.sharedKeyHex,
         bb84Fingerprint: result.fingerprint,
-        debugInfo: result.details,
+        debugInfo: {
+          totalBitsSent: result.details.totalBitsSent,
+          siftedLength: result.details.siftedLength,
+          efficiencyPercentage: result.details.efficiencyPercentage,
+          qber: result.details.qber,
+        },
       });
       setShowKeyModal(true);
     } catch (err) {
@@ -904,7 +922,7 @@ const MessagesList = () => {
           isConfirmedByMe={isConfirmedByMe}
           isConfirmedByOther={isConfirmedByOther}
           otherUserName={activeRoom?.otherUser?.fullName || 'Academic Peer'}
-          debugInfo={roomDetails.bb84DebugInfo}
+          debugInfo={localBB84Details ?? roomDetails.bb84DebugInfo}
           onConfirm={() => void handleConfirmFingerprint()}
           onRegenerateKey={() => void handleRegenerateKey()}
           onClose={() => setShowKeyModal(false)}
