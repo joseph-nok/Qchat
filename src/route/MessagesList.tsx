@@ -569,17 +569,16 @@ const MessagesList = () => {
   }
 
   return (
-    <div className="messages-layout-page">
+    <div className="dashboard-layout" style={{ background: 'var(--surface)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <AppHeader userName={userName} userRole={userRole} />
+      <Sidebar activeTab="messages" />
 
-      <main className="messages-main-container">
-        <Sidebar activeTab="messages" />
-
-        <div className="messages-content-area">
-          <div className="messages-header">
+      <main className="app-main">
+        <div className="app-main-inner">
+          <div className="page-header">
             <div>
-              <h1 className="messages-title">Encrypted Messages</h1>
-              <p className="messages-subtitle">Quantum-Secured BB84 Communications & Verification</p>
+              <h1 className="page-title">Encrypted Messages</h1>
+              <p className="page-subtitle">Quantum-Secured BB84 Communications & Verification</p>
             </div>
           </div>
 
@@ -589,37 +588,42 @@ const MessagesList = () => {
             </div>
           )}
 
-          <div className="messages-filter-bar">
-            <div className="messages-search-wrapper">
-              <span className="material-symbols-outlined search-icon">search</span>
-              <input
-                type="text"
-                placeholder="Search conversations, members, or universities..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="messages-search-input"
-              />
-              {searchQuery && (
-                <button className="clear-search-btn" onClick={() => setSearchQuery('')}>
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              )}
-            </div>
+          <div className="search-wrapper">
+            <span className="material-symbols-outlined search-icon">search</span>
+            <input
+              type="text"
+              placeholder="Search conversations, members, or universities..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="explore-clear-btn"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            )}
+          </div>
 
-            <div className="filter-pill-group">
-              <button
-                className={`filter-pill ${selectedFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setSelectedFilter('all')}
-              >
-                All Messages
-              </button>
-              <button
-                className={`filter-pill ${selectedFilter === 'unread' ? 'active' : ''}`}
-                onClick={() => setSelectedFilter('unread')}
-              >
-                Unread
-              </button>
-            </div>
+          <div className="filters-bar">
+            <button
+              type="button"
+              className={`filter-tag ${selectedFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setSelectedFilter('all')}
+            >
+              All Messages
+            </button>
+            <button
+              type="button"
+              className={`filter-tag ${selectedFilter === 'unread' ? 'active' : ''}`}
+              onClick={() => setSelectedFilter('unread')}
+            >
+              Unread
+            </button>
           </div>
 
           <div className="conversations-list">
@@ -639,10 +643,18 @@ const MessagesList = () => {
                 return (
                   <div
                     key={room._id}
-                    className={`conversation-card ${isActive ? 'active-room' : ''} ${!read ? 'unread-room' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    className={`conv-card ${isActive ? 'active-card' : ''} ${read ? 'read' : 'unread'}`}
                     onClick={() => handleSelectRoom(room._id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectRoom(room._id);
+                      }
+                    }}
                   >
-                    <div className="conv-avatar-container">
+                    <div className="conv-avatar-wrapper">
                       <div className="conv-avatar">
                         {otherUser?.avatarUrl ? (
                           <img src={otherUser.avatarUrl} alt={name} />
@@ -657,7 +669,7 @@ const MessagesList = () => {
                       )}
                     </div>
 
-                    <div className="conv-details">
+                    <div className="conv-body">
                       <div className="conv-top-row">
                         <div className="conv-name-row">
                           <h3 className="conv-name">{name}</h3>
