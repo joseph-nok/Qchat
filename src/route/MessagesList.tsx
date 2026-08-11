@@ -694,7 +694,9 @@ const MessagesList = () => {
                       </div>
 
                       <div className="conv-bottom-row">
-                        <p className={`conv-preview ${read ? 'read-preview' : 'unread-preview'}`}>{room.preview}</p>
+                        {room.preview !== '🔒 Encrypted message' && !room.preview.startsWith('🔒 Encrypted ') && (
+                          <p className={`conv-preview ${read ? 'read-preview' : 'unread-preview'}`}>{room.preview}</p>
+                        )}
                         {room.unread > 0 && (
                           <div className="unread-badge">
                             <span>{room.unread}</span>

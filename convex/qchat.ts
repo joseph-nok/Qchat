@@ -802,8 +802,10 @@ export const sendMessage = mutation({
       ? (await ctx.storage.getUrl(args.attachmentStorageId)) ?? undefined
       : undefined;
     const createdAt = Date.now();
+    // Encrypted content is decrypted client-side, so do not expose a test
+    // placeholder as the conversation preview.
     const preview = args.isEncrypted
-      ? (args.attachmentName ? `🔒 Encrypted ${args.attachmentName}` : "🔒 Encrypted message")
+      ? ""
       : (text || (args.attachmentName ? `Sent ${args.attachmentName}` : "Sent an attachment"));
 
     const messageId = await ctx.db.insert("messages", {
