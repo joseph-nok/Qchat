@@ -43,17 +43,7 @@ const LandingPage = () => {
                   alt="Modern University Architecture"
                   className="main-image"
                 />
-                <div className="glass-card">
-                  <div className="glass-card-icon">
-                    <span className="material-symbols-outlined"></span>
-                  </div>
-                  <div className="glass-card-text">
-                    <p className="glass-title">Web3 Integration.</p>
-                    <p className="glass-subtitle">
-                      Institutional Credentials Required.
-                    </p>
-                  </div>
-                </div>
+                
               </div>
               <div className="blob blob-1"></div>
               <div className="blob blob-2"></div>
@@ -97,32 +87,8 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* Trust Section */}
-        <section className="trust-section">
-          <div className="trust-container">
-            <h2 className="trust-title">
-              Trusted by students and lecturers across Ghana
-            </h2>
-            <div className="trust-logos">
-              <div className="trust-logo">
-                <div className="logo-circle secondary">UENR</div>
-                <span className="logo-text-bold">Sunyani</span>
-              </div>
-              <div className="trust-logo">
-                <div className="logo-circle primary">UG</div>
-                <span className="logo-text-bold">Legon</span>
-              </div>
-              <div className="trust-logo">
-                <div className="logo-circle tertiary">KNUST</div>
-                <span className="logo-text-bold">Kumasi</span>
-              </div>
-              <div className="trust-logo">
-                <div className="logo-circle secondary">UCC</div>
-                <span className="logo-text-bold">Cape Coast</span>
-              </div>
-            </div>
-          </div>
-        </section>
+      
+       
       </main>
 
       <Footer />

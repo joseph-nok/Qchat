@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
@@ -20,30 +20,30 @@ type RegisterErrorsRecord = {
   form?: string;
 };
 
-const GHANA_INSTITUTIONS = [
-  'University of Energy and Natural Resources (UENR)',
-  'University of Ghana (UG)',
-  'Kwame Nkrumah University of Science and Technology (KNUST)',
-  'University of Cape Coast (UCC)',
-  'University for Development Studies (UDS)',
-  'Ghana Institute of Management and Public Administration (GIMPA)',
-  'Ashesi University',
-  'Central University',
-  'Wisconsin International University College',
-  'Valley View University',
-  'Ghana Communication Technology University (GCTU)',
-  'Accra Technical University',
-  'Kumasi Technical University',
-  'Ho Technical University',
-  'Sunyani Technical University',
-  'Takoradi Technical University',
-  'Cape Coast Technical University',
-  'Bolgatanga Technical University',
-  'Wa Technical University',
-  'University of Professional Studies, Accra (UPSA)',
-  'Ghana Institute of Journalism (GIJ)',
-  'SD Dombo University of Business and Integrated Development Studies',
-];
+// const GHANA_INSTITUTIONS = [
+//   'University of Energy and Natural Resources (UENR)',
+//   'University of Ghana (UG)',
+//   'Kwame Nkrumah University of Science and Technology (KNUST)',
+//   'University of Cape Coast (UCC)',
+//   'University for Development Studies (UDS)',
+//   'Ghana Institute of Management and Public Administration (GIMPA)',
+//   'Ashesi University',
+//   'Central University',
+//   'Wisconsin International University College',
+//   'Valley View University',
+//   'Ghana Communication Technology University (GCTU)',
+//   'Accra Technical University',
+//   'Kumasi Technical University',
+//   'Ho Technical University',
+//   'Sunyani Technical University',
+//   'Takoradi Technical University',
+//   'Cape Coast Technical University',
+//   'Bolgatanga Technical University',
+//   'Wa Technical University',
+//   'University of Professional Studies, Accra (UPSA)',
+//   'Ghana Institute of Journalism (GIJ)',
+//   'SD Dombo University of Business and Integrated Development Studies',
+// ];
 
 const Register = () => {
   const navigate = useNavigate();
@@ -51,7 +51,7 @@ const Register = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [institution, setInstitution] = useState('');
+  const [institution, setInstitution] = useState('University of Energy and Natural Resources (UENR)');
   const [idNumber, setIdNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -59,28 +59,28 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorsRecord, setErrorsRecord] = useState<RegisterErrorsRecord>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showInstitutionDropdown, setShowInstitutionDropdown] = useState(false);
-  const institutionRef = useRef<HTMLDivElement>(null);
+  // const [showInstitutionDropdown, setShowInstitutionDropdown] = useState(false);
+  // const institutionRef = useRef<HTMLDivElement>(null);
   const registerUser = useMutation(convexApi.qchat.registerUser);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (institutionRef.current && !institutionRef.current.contains(e.target as Node)) {
-        setShowInstitutionDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Close dropdown when clicking outside (commented out as dropdown is disabled)
+  // useEffect(() => {
+  //   const handleClickOutside = (e: MouseEvent) => {
+  //     if (institutionRef.current && !institutionRef.current.contains(e.target as Node)) {
+  //       setShowInstitutionDropdown(false);
+  //     }
+  //   };
+  //   document.addEventListener('mousedown', handleClickOutside);
+  //   return () => document.removeEventListener('mousedown', handleClickOutside);
+  // }, []);
 
-  const filteredInstitutions = GHANA_INSTITUTIONS.filter(inst =>
-    inst.toLowerCase().includes(institution.toLowerCase())
-  );
+  // const filteredInstitutions = GHANA_INSTITUTIONS.filter(inst =>
+  //   inst.toLowerCase().includes(institution.toLowerCase())
+  // );
 
   // Dynamic Label and Placeholder settings
   const idLabel = role === 'student' ? 'Student ID Number' : 'Staff ID Number';
-  const idPlaceholder = role === 'student' ? 'UEB1234567' : 'STF1234567';
+  const idPlaceholder = 'UEB1234567';
 
   // Real-time password strength calculation
   const getPasswordStrength = (pwd: string) => {
@@ -125,52 +125,59 @@ const Register = () => {
   const runFrontendValidation = (): RegisterErrorsRecord | null => {
     const errors: RegisterErrorsRecord = {};
     const trimmedEmail = email.trim();
+    const trimmedInstitution = institution.trim();
+    const trimmedIdNumber = idNumber.trim();
 
-    if (!firstName.trim()) errors.firstName = 'Enter your first name.';
-    if (!lastName.trim()) errors.lastName = 'Enter your last name.';
+    if (!firstName.trim()) errors.firstName = "Enter your first name.";
+    if (!lastName.trim()) errors.lastName = "Enter your last name.";
 
     if (!trimmedEmail) {
-      errors.email = 'Enter your institutional email address.';
-    } else if (!trimmedEmail.includes('@')) {
-      errors.email = 'Enter a valid email address that includes @.';
+      errors.email = "Enter your institutional email address.";
+    } else if (!trimmedEmail.includes("@")) {
+      errors.email = "Enter a valid email address that includes @.";
+    } else {
+      const allowedDomains = ["@uenr.edu.gh", "@uner.edu.gh"];
+      const hasAllowedDomain = allowedDomains.some((domain) =>
+        trimmedEmail.toLowerCase().endsWith(domain)
+      );
+      if (!hasAllowedDomain) {
+        errors.email = "Only @uenr.edu.gh email addresses are accepted for University of Energy and Natural Resources (UENR).";
+      }
     }
 
-    if (!institution.trim()) errors.institution = 'Enter or select your institution.';
-    if (!idNumber.trim()) {
-      errors.idNumber = `Enter your ${role === 'student' ? 'student ID number' : 'staff ID number'}.`;
+    if (!trimmedInstitution) {
+      errors.institution = "Enter your institution.";
+    } else {
+      const isUENR =
+        trimmedInstitution.toLowerCase().includes("uenr") ||
+        trimmedInstitution.toLowerCase().includes("uner") ||
+        trimmedInstitution.toLowerCase().includes("university of energy and natural resources");
+      if (!isUENR) {
+        errors.institution = "Only University of Energy and Natural Resources (UENR) is accepted.";
+      }
     }
-    if (!password) errors.password = 'Enter a password.';
-    if (!confirmPassword) errors.confirmPassword = 'Confirm your password.';
+
+    if (!trimmedIdNumber) {
+      errors.idNumber = `Enter your ${role === "student" ? "student ID number" : "staff ID number"}.`;
+    } else if (!trimmedIdNumber.toUpperCase().startsWith("UEB")) {
+      errors.idNumber = 'Index number must start with "UEB" (e.g. UEB1234567).';
+    }
+
+    if (!password) errors.password = "Enter a password.";
+    if (!confirmPassword) errors.confirmPassword = "Confirm your password.";
+
+    if (password && confirmPassword && password !== confirmPassword) {
+      errors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (password && password.length < 8) {
+      errors.password = "Password must be at least 8 characters long.";
+    } else if (password && strength.score < 2) {
+      errors.password = "Password is too weak. Please choose a stronger password.";
+    }
 
     if (Object.keys(errors).length > 0) {
       return errors;
-    }
-
-    const allowedDomains = ['@uenr.edu.gh', '@ug.edu.gh', '@knust.edu.gh', '@ucom.edu.gh', '@ucc.edu.gh'];
-    const hasAllowedDomain = allowedDomains.some((domain) => trimmedEmail.toLowerCase().endsWith(domain));
-    if (!hasAllowedDomain) {
-      return { email: 'Please use a valid institutional email address (e.g. @uenr.edu.gh, @ug.edu.gh, or @knust.edu.gh).' };
-    }
-
-    if (role === 'student') {
-      const studentIdPattern = /^UEB\d{7}$/i;
-      if (!studentIdPattern.test(idNumber)) {
-        return { idNumber: 'Student ID Number must start with "UEB" followed by exactly 7 digits (e.g. UEB1234567).' };
-      }
-    } else if (idNumber.trim().length < 5) {
-      return { idNumber: 'Staff ID Number must be at least 5 characters long.' };
-    }
-
-    if (password !== confirmPassword) {
-      return { confirmPassword: 'Passwords do not match.' };
-    }
-
-    if (password.length < 8) {
-      return { password: 'Password must be at least 8 characters long.' };
-    }
-
-    if (strength.score < 2) {
-      return { password: 'Password is too weak. Please choose a stronger password.' };
     }
 
     return null;
@@ -360,11 +367,11 @@ const Register = () => {
                   aria-invalid={Boolean(errorsRecord.email)}
                   aria-describedby={errorsRecord.email ? 'register-email-error' : undefined}
                 />
-                <p className="auth-input-hint">Please use your official @uenr.edu.gh, @ug.edu.gh, or @knust.edu.gh email address.</p>
+                <p className="auth-input-hint">Please use your official @uenr.edu.gh</p>
                 {errorsRecord.email && <p className="auth-field-error" id="register-email-error">{errorsRecord.email}</p>}
               </div>
 
-              <div className="auth-field-group" ref={institutionRef}>
+              <div className="auth-field-group">
                 <label className="auth-label" htmlFor="institution">Institution</label>
                 <div className="institution-combobox-wrapper">
                   <div className="auth-input-wrapper">
@@ -373,29 +380,29 @@ const Register = () => {
                       type="text"
                       id="institution"
                       className={`auth-input ${errorsRecord.institution ? 'error' : ''}`}
-                      style={{ paddingLeft: '2.75rem', paddingRight: '2.5rem', borderRadius: '0.75rem', border: 'none' }}
-                      placeholder="Search or enter your institution..."
+                      style={{ paddingLeft: '2.75rem', paddingRight: '1rem', borderRadius: '0.75rem', border: 'none' }}
+                      placeholder="University of Energy and Natural Resources (UENR)"
                       value={institution}
                       onChange={(e) => {
                         setInstitution(e.target.value);
                         clearFieldError('institution');
-                        setShowInstitutionDropdown(true);
                       }}
-                      onFocus={() => setShowInstitutionDropdown(true)}
                       autoComplete="off"
                       aria-invalid={Boolean(errorsRecord.institution)}
                       aria-describedby={errorsRecord.institution ? 'register-institution-error' : undefined}
                     />
-                    <span
+                    {/* Dropdown toggle icon commented out */}
+                    {/* <span
                       className="material-symbols-outlined auth-select-icon"
                       style={{ cursor: 'pointer' }}
                       onClick={() => setShowInstitutionDropdown(v => !v)}
                     >
                       {showInstitutionDropdown ? 'expand_less' : 'expand_more'}
-                    </span>
+                    </span> */}
                   </div>
 
-                  {showInstitutionDropdown && (
+                  {/* Institution dropdown commented out — focusing on UENR only */}
+                  {/* {showInstitutionDropdown && (
                     <div className="institution-dropdown">
                       {filteredInstitutions.length > 0 ? (
                         filteredInstitutions.map((inst) => (
@@ -420,9 +427,8 @@ const Register = () => {
                         </div>
                       )}
                     </div>
-                  )}
+                  )} */}
                 </div>
-                <p className="auth-input-hint">Type to search — if your school isn&apos;t listed, just continue with what you entered.</p>
                 {errorsRecord.institution && <p className="auth-field-error" id="register-institution-error">{errorsRecord.institution}</p>}
               </div>
 

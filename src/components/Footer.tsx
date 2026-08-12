@@ -14,7 +14,7 @@ const Footer = () => {
         </nav>
         <div className="footer-divider"></div>
         <div className="footer-bottom">
-          <p className="copyright">© 2026 Ghana Education Connect. All academic credentials verified through trusted institutions.</p>
+          <p className="copyright">© 2026 Ghana Education Connect.</p>
           {/* <div className="social-links">
               <span className="material-symbols-outlined">social_leaderboard</span>
               <span className="material-symbols-outlined">language</span>
