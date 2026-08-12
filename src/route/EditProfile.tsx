@@ -14,20 +14,23 @@ import '../route_css/EditProfile.css';
 
 const convexApi = api as any;
 
-const GHANA_INSTITUTIONS = [
-  'University of Energy and Natural Resources (UENR)',
-  'University of Ghana',
-  'KNUST',
-  'University of Cape Coast (UCC)',
-  'Ghana Institute of Management and Public Administration (GIMPA)',
-  'University for Development Studies (UDS)',
-];
+const UENR_INSTITUTION = 'University of Energy and Natural Resources (UENR)';
+
+// const GHANA_INSTITUTIONS = [
+//   'University of Energy and Natural Resources (UENR)',
+//   'University of Ghana',
+//   'KNUST',
+//   'University of Cape Coast (UCC)',
+//   'Ghana Institute of Management and Public Administration (GIMPA)',
+//   'University for Development Studies (UDS)',
+// ];
 
 type ProfileForm = {
   fullName: string;
   bio: string;
   school: string;
   avatarUrl: string;
+  rank?: string;
 };
 
 const getInitials = (name: string) => name
@@ -51,8 +54,9 @@ const EditProfile = () => {
   const [form, setForm] = useState<ProfileForm>({
     fullName: '',
     bio: '',
-    school: GHANA_INSTITUTIONS[0],
+    school: UENR_INSTITUTION,
     avatarUrl: '',
+    rank: '',
   });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -64,11 +68,25 @@ const EditProfile = () => {
 
   useEffect(() => {
     if (!profile) return;
+    const full = profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+    const rankPrefixes = ['Dr', 'Prof', 'Engineer'];
+    let detectedRank = profile.rank || '';
+    let cleanName = full;
+
+    for (const prefix of rankPrefixes) {
+      if (full.startsWith(prefix + ' ')) {
+        if (!detectedRank) detectedRank = prefix;
+        cleanName = full.slice(prefix.length + 1).trim();
+        break;
+      }
+    }
+
     setForm({
-      fullName: profile.fullName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
+      fullName: cleanName,
       bio: profile.bio || '',
-      school: profile.school || profile.institution || GHANA_INSTITUTIONS[0],
+      school: UENR_INSTITUTION,
       avatarUrl: profile.avatarUrl || profile.profileImage || '',
+      rank: detectedRank,
     });
   }, [profile]);
 
@@ -153,9 +171,22 @@ const EditProfile = () => {
         avatarStorageId = uploadResult.storageId;
       }
 
+      const rankPrefixes = ['Dr', 'Prof', 'Engineer'];
+      let baseFullName = form.fullName.trim();
+      for (const prefix of rankPrefixes) {
+        if (baseFullName.startsWith(prefix + ' ')) {
+          baseFullName = baseFullName.slice(prefix.length + 1).trim();
+          break;
+        }
+      }
+
+      const effectiveFullName = (profile?.role === 'lecturer' && form.rank) 
+        ? `${form.rank.trim()} ${baseFullName}` 
+        : baseFullName;
+
       await updateProfile({
         sessionToken,
-        fullName: form.fullName,
+        fullName: effectiveFullName,
         bio: form.bio,
         school: form.school,
         avatarStorageId,
@@ -304,14 +335,34 @@ const EditProfile = () => {
                   </label>
 
                   <label className="edit-field">
-                    <span>School Name</span>
-                    <select value={form.school} onChange={(event) => updateField('school', event.target.value)}>
-                      {GHANA_INSTITUTIONS.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                      ))}
-                    </select>
+                    <span>School / Institution</span>
+                    <input
+                      type="text"
+                      value={UENR_INSTITUTION}
+                      readOnly
+                      disabled
+                      style={{ cursor: 'not-allowed', opacity: 0.75 }}
+                    />
+                    <small>Only University of Energy and Natural Resources (UENR) is accepted.</small>
                   </label>
                 </div>
+
+                {profile?.role === 'lecturer' && (
+                  <div className="edit-form-grid" style={{ marginTop: '1rem' }}>
+                    <label className="edit-field">
+                      <span>Academic Rank (Lecturers Only)</span>
+                      <select
+                        value={form.rank || ''}
+                        onChange={(event) => updateField('rank', event.target.value)}
+                      >
+                        <option value="">None / Select Rank</option>
+                        <option value="Dr">Dr</option>
+                        <option value="Prof">Prof</option>
+                        <option value="Engineer">Engineer</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
 
                 <label className="edit-field">
                   <span>Bio</span>

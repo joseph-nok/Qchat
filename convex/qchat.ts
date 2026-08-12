@@ -50,6 +50,7 @@ const publicUser = (user: Doc<"users">) => {
     school: user.school,
     institution: user.school,
     idNumber: user.idNumber,
+    rank: user.rank ?? "",
     bio: user.bio ?? "",
     avatarStorageId: user.avatarStorageId,
     avatarUrl: user.avatarUrl ?? "",

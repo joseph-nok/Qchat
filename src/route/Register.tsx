@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
@@ -53,14 +53,14 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [institution, setInstitution] = useState('University of Energy and Natural Resources (UENR)');
   const [idNumber, setIdNumber] = useState('');
+  const [rank, setRank] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorsRecord, setErrorsRecord] = useState<RegisterErrorsRecord>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // const [showInstitutionDropdown, setShowInstitutionDropdown] = useState(false);
-  // const institutionRef = useRef<HTMLDivElement>(null);
+  const institutionRef = useRef<HTMLDivElement>(null);
   const registerUser = useMutation(convexApi.qchat.registerUser);
 
   // Close dropdown when clicking outside (commented out as dropdown is disabled)
@@ -80,7 +80,7 @@ const Register = () => {
 
   // Dynamic Label and Placeholder settings
   const idLabel = role === 'student' ? 'Student ID Number' : 'Staff ID Number';
-  const idPlaceholder = 'UEB1234567';
+  const idPlaceholder = role === 'student' ? 'UEB1234567' : 'PS100';
 
   // Real-time password strength calculation
   const getPasswordStrength = (pwd: string) => {
@@ -159,8 +159,15 @@ const Register = () => {
 
     if (!trimmedIdNumber) {
       errors.idNumber = `Enter your ${role === "student" ? "student ID number" : "staff ID number"}.`;
-    } else if (!trimmedIdNumber.toUpperCase().startsWith("UEB")) {
-      errors.idNumber = 'Index number must start with "UEB" (e.g. UEB1234567).';
+    } else if (role === "student") {
+      if (!trimmedIdNumber.toUpperCase().startsWith("UEB")) {
+        errors.idNumber = 'Student ID Number must start with "UEB" (e.g. UEB1234567).';
+      }
+    } else if (role === "lecturer") {
+      const lecturerIdPattern = /^PS\d{3}$/;
+      if (!lecturerIdPattern.test(trimmedIdNumber)) {
+        errors.idNumber = 'Staff ID Number must start with uppercase "PS" followed by exactly 3 digits (e.g. PS100).';
+      }
     }
 
     if (!password) errors.password = "Enter a password.";
@@ -242,10 +249,14 @@ const Register = () => {
       const exportedPrivate = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
       localStorage.setItem("qchat_private_identity_key", JSON.stringify(exportedPrivate));
 
+      const formattedFirstName = (role === 'lecturer' && rank.trim()) 
+        ? `${rank.trim()} ${firstName.trim()}` 
+        : firstName.trim();
+
       // 4. Register user with Convex mutation appending publicKey and hasKeypair
       const user = await registerUser({
-        firstName,
-        lastName,
+        firstName: formattedFirstName,
+        lastName: lastName.trim(),
         email,
         role,
         school: institution,
@@ -371,7 +382,7 @@ const Register = () => {
                 {errorsRecord.email && <p className="auth-field-error" id="register-email-error">{errorsRecord.email}</p>}
               </div>
 
-              <div className="auth-field-group">
+              <div className="auth-field-group" ref={institutionRef}>
                 <label className="auth-label" htmlFor="institution">Institution</label>
                 <div className="institution-combobox-wrapper">
                   <div className="auth-input-wrapper">
@@ -449,6 +460,27 @@ const Register = () => {
                 />
                 {errorsRecord.idNumber && <p className="auth-field-error" id="register-id-number-error">{errorsRecord.idNumber}</p>}
               </div>
+
+              {role === 'lecturer' && (
+                <div className="auth-field-group">
+                  <label className="auth-label" htmlFor="rank">Academic Rank (Optional)</label>
+                  <div className="auth-input-wrapper">
+                    <span className="material-symbols-outlined auth-input-icon" style={{ left: '0.875rem' }}>workspace_premium</span>
+                    <select
+                      id="rank"
+                      className="auth-input"
+                      style={{ paddingLeft: '2.75rem', appearance: 'auto' }}
+                      value={rank}
+                      onChange={(e) => setRank(e.target.value)}
+                    >
+                      <option value="">Select Rank (Optional)</option>
+                      <option value="Dr">Dr</option>
+                      <option value="Prof">Prof</option>
+                      <option value="Engineer">Engineer</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
               <div className="auth-row">
                 <div className="auth-field-group">

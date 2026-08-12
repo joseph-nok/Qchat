@@ -110,6 +110,7 @@ const MessagesList = () => {
 
   const requestedRoomId = searchParams.get('roomId') as Id<'chatRooms'> | null;
   const [activeRoomId, setActiveRoomId] = useState<Id<'chatRooms'> | null>(requestedRoomId);
+  const prevActiveRoomIdRef = useRef<Id<'chatRooms'> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread'>('all');
   const [newMessage, setNewMessage] = useState('');
@@ -197,15 +198,19 @@ const MessagesList = () => {
     }
   }, [activeRoomId, initiateBB84KeyExchange, isSimulatingBB84, roomDetails, sessionToken]);
 
-  // Open modal if current user hasn't confirmed fingerprint yet
+  // Open modal when entering a room: always if unconfirmed, or when switching to a different room
   useEffect(() => {
     if (roomDetails?.bb84Fingerprint && currentUser?._id) {
       const isConfirmed = roomDetails.bb84ConfirmedUsers?.includes(currentUser._id);
       if (!isConfirmed) {
+        // Unconfirmed — must confirm before chatting
+        setShowKeyModal(true);
+      } else if (activeRoomId !== prevActiveRoomIdRef.current && prevActiveRoomIdRef.current !== null) {
+        // Switching to a different room (confirmed before but re-entering) — show fingerprint reminder
         setShowKeyModal(true);
       }
     }
-  }, [currentUser?._id, roomDetails?.bb84ConfirmedUsers, roomDetails?.bb84Fingerprint]);
+  }, [activeRoomId, currentUser?._id, roomDetails?.bb84ConfirmedUsers, roomDetails?.bb84Fingerprint]);
 
   // Decrypt encrypted text messages client-side using Web Crypto AES-GCM
   useEffect(() => {
@@ -278,11 +283,20 @@ const MessagesList = () => {
     : false;
 
   const handleSelectRoom = (roomId: Id<'chatRooms'>) => {
+    const isNewRoom = roomId !== prevActiveRoomIdRef.current;
+    prevActiveRoomIdRef.current = roomId;
     setActiveRoomId(roomId);
     setSearchParams({ roomId });
+    // Always show fingerprint modal when navigating to a room from the rooms list
+    if (isNewRoom) {
+      // The fingerprint modal will be triggered by the useEffect that watches roomDetails
+      // We reset confirmation check so the modal re-evaluates on next roomDetails load
+      setShowKeyModal(false);
+    }
   };
 
   const handleCloseDrawer = () => {
+    prevActiveRoomIdRef.current = null;
     setActiveRoomId(null);
     setSearchParams({});
     setMenuMessage(null);
@@ -770,14 +784,15 @@ const MessagesList = () => {
                 </div>
               </div>
 
-              {/* BB84 Quantum Status Badge in Drawer Header */}
+              {/* BB84 Quantum Key Fingerprint Badge in Drawer Header */}
               {roomDetails?.bb84Fingerprint && (
                 <button
                   className={`chat-bb84-key-badge ${isConfirmedByMe ? 'confirmed' : 'pending'}`}
                   onClick={() => setShowKeyModal(true)}
-                  title="View BB84 Key Fingerprint"
+                  title="View BB84 Quantum Key Fingerprint"
                 >
                   <span className="key-icon">⚛️</span>
+                  <span className="key-label">SHARED KEY FINGERPRINT</span>
                   <span className="key-fp">{roomDetails.bb84Fingerprint}</span>
                   <span className="key-status">{isConfirmedByMe ? '✓' : '⚠️ Confirm'}</span>
                 </button>

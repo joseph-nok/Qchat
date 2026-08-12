@@ -21,6 +21,7 @@ export default defineSchema({
     role: v.union(v.literal("student"), v.literal("lecturer")),
     school: v.string(),
     idNumber: v.optional(v.string()),
+    rank: v.optional(v.string()),
     bio: v.optional(v.string()),
     avatarStorageId: v.optional(v.id("_storage")),
     avatarUrl: v.optional(v.string()),

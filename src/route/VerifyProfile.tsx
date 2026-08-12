@@ -11,14 +11,16 @@ import '../route_css/VerifyProfile.css';
 
 const convexApi = api as any;
 
-const GHANA_INSTITUTIONS = [
-  'University of Energy and Natural Resources (UENR)',
-  'University of Ghana',
-  'KNUST',
-  'University of Cape Coast (UCC)',
-  'Ghana Institute of Management and Public Administration (GIMPA)',
-  'University for Development Studies (UDS)',
-];
+const UENR_INSTITUTION = 'University of Energy and Natural Resources (UENR)';
+
+// const GHANA_INSTITUTIONS = [
+//   'University of Energy and Natural Resources (UENR)',
+//   'University of Ghana',
+//   'KNUST',
+//   'University of Cape Coast (UCC)',
+//   'Ghana Institute of Management and Public Administration (GIMPA)',
+//   'University for Development Studies (UDS)',
+// ];
 
 const DEPARTMENTS = [
   'Computer Science and Engineering',
@@ -60,7 +62,7 @@ const VerifyProfile = () => {
   const submitAcademicVerification = useMutation(convexApi.qchat.submitAcademicVerification);
 
   const [idNumber, setIdNumber] = useState('');
-  const [institution, setInstitution] = useState(GHANA_INSTITUTIONS[0]);
+  const [institution, setInstitution] = useState(UENR_INSTITUTION);
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState('');
@@ -70,7 +72,7 @@ const VerifyProfile = () => {
   useEffect(() => {
     if (!currentUser) return;
     setIdNumber(currentUser.idNumber || '');
-    setInstitution(currentUser.school || GHANA_INSTITUTIONS[0]);
+    setInstitution(UENR_INSTITUTION);
     setSubmitted(currentUser.verificationStatus === 'pending');
   }, [currentUser]);
 
@@ -224,17 +226,20 @@ const VerifyProfile = () => {
                       value={idNumber}
                       disabled={formLocked}
                       onChange={(event) => setIdNumber(event.target.value)}
-                      placeholder={currentUser.role === 'lecturer' ? 'STF1234567' : 'UEB1234567'}
+                      placeholder={currentUser.role === 'lecturer' ? 'PS100' : 'UEB1234567'}
                     />
                   </label>
 
                   <label className="verify-field">
                     <span>Institution</span>
-                    <select value={institution} disabled={formLocked} onChange={(event) => setInstitution(event.target.value)}>
-                      {GHANA_INSTITUTIONS.map((item) => (
-                        <option key={item} value={item}>{item}</option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      value={UENR_INSTITUTION}
+                      readOnly
+                      disabled
+                      style={{ cursor: 'not-allowed', opacity: 0.75 }}
+                    />
+                    <small>Only University of Energy and Natural Resources (UENR) is accepted.</small>
                   </label>
 
                   <label className="verify-field">

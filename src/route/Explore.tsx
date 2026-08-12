@@ -159,7 +159,7 @@ const Explore = () => {
               )}
             </div>
 
-            <select
+            {/* <select
               className="filter-tag active"
               value={schoolFilter}
               onChange={(event) => setSchoolFilter(event.target.value)}
@@ -170,7 +170,7 @@ const Explore = () => {
                   {school === 'all' ? 'All Schools' : school}
                 </option>
               ))}
-            </select>
+            </select> */}
           </div>
 
           <p className="explore-result-count">
