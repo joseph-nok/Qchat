@@ -46,13 +46,13 @@ export async function generateAndStoreKeyPair(userId: string): Promise<string> {
   // Generate keypair
   const keyPair = await window.crypto.subtle.generateKey(
     {
-      name: "RSASSA-PKCS1-v1_5",
+      name: "RSA-OAEP",
       modulusLength: 2048,
       publicExponent: new Uint8Array([1, 0, 1]),
       hash: "SHA-256",
     },
-    false, // Private key will be non-extractable, public key remains extractable
-    ["sign", "verify"]
+    true, // Extractable public key and private key object
+    ["encrypt", "decrypt"]
   );
 
   // Export public key in SPKI format
@@ -66,7 +66,7 @@ export async function generateAndStoreKeyPair(userId: string): Promise<string> {
     String.fromCharCode(...new Uint8Array(exportedPublic))
   );
 
-  // Save the non-extractable private key natively into IndexedDB
+  // Save the private key natively into IndexedDB indexed by userId
   await savePrivateKeyToIndexedDB(userId, keyPair.privateKey);
 
   return publicBase64;

@@ -114,6 +114,7 @@ const Login = () => {
     try {
       const user = await loginUser({ email, password, role });
       saveSessionToken(user.sessionToken);
+      localStorage.setItem("qchat_active_user_id", user._id);
       navigate('/messages');
     } catch (error) {
       applyBackendError(error);

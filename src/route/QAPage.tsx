@@ -8,7 +8,7 @@ import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
-import { relayHashToBesu } from '../utils/cryptoBridge';
+import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
 import { logHashToBlockchain } from '../services/web3Service';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
@@ -157,10 +157,11 @@ const QAPage = () => {
     setIsSubmitting(true);
     setError('');
     try {
-      // 1. Read private key from localStorage
-      const privateKeyData = localStorage.getItem('qchat_private_identity_key');
-      if (!privateKeyData) {
-        console.warn('Private identity key missing from local storage.');
+      // 1. Retrieve user-isolated private key from IndexedDB
+      const activeUserId = currentUser?._id || localStorage.getItem('qchat_active_user_id');
+      const privateKey = activeUserId ? await getPrivateKeyFromIndexedDB(activeUserId) : null;
+      if (!privateKey) {
+        console.warn('Private identity key missing from IndexedDB vault.');
       }
 
       // 2. Calculate client-side SHA-256 fingerprint hash of post text payload
@@ -216,10 +217,11 @@ const QAPage = () => {
     setIsSubmitting(true);
     setError('');
     try {
-      // 1. Read private key from localStorage
-      const privateKeyData = localStorage.getItem('qchat_private_identity_key');
-      if (!privateKeyData) {
-        console.warn('Private identity key missing from local storage.');
+      // 1. Retrieve user-isolated private key from IndexedDB
+      const activeUserId = currentUser?._id || localStorage.getItem('qchat_active_user_id');
+      const privateKey = activeUserId ? await getPrivateKeyFromIndexedDB(activeUserId) : null;
+      if (!privateKey) {
+        console.warn('Private identity key missing from IndexedDB vault.');
       }
 
       // 2. Calculate client-side SHA-256 fingerprint hash of reply text payload

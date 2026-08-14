@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { savePrivateKeyToIndexedDB } from "../utils/cryptoBridge";
 
 // 1. Pull the local variables securely from your Vite configurations
 const BESU_RPC_URL =
@@ -68,7 +69,7 @@ export async function logHashToBlockchain(
  * Natively generates a secure asymmetric keypair inside the browser context
  * Returns the exportable public key string to anchor to the database profile
  */
-export async function generateClientIdentityKeys(): Promise<string> {
+export async function generateClientIdentityKeys(userId?: string): Promise<string> {
   if (!window.crypto || !window.crypto.subtle) {
     throw new Error("Web Crypto API is unavailable. Ensure your origin is running on http://localhost.");
   }
@@ -81,7 +82,7 @@ export async function generateClientIdentityKeys(): Promise<string> {
       publicExponent: new Uint8Array([1, 0, 1]), // Standard 65537 exponent configuration
       hash: "SHA-256",
     },
-    true, // Must be exportable to split out the public verification component
+    true,
     ["encrypt", "decrypt"]
   );
 
@@ -89,8 +90,11 @@ export async function generateClientIdentityKeys(): Promise<string> {
   const exportedPublicRaw = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
   const base64PublicKey = btoa(String.fromCharCode(...new Uint8Array(exportedPublicRaw)));
 
-  // 3. SECURELY save the Private Key inside the user's specific local browser memory cache
-  localStorage.setItem("qchat_private_identity_key", JSON.stringify(keyPair.privateKey));
+  // 3. SECURELY save the Private Key into IndexedDB for the active user
+  const targetUserId = userId || localStorage.getItem("qchat_active_user_id");
+  if (targetUserId) {
+    await savePrivateKeyToIndexedDB(targetUserId, keyPair.privateKey);
+  }
 
   return base64PublicKey;
 }

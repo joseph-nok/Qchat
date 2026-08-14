@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Id } from "../convex/_generated/dataModel";
 import { generateClientIdentityKeys } from "./services/web3Service";
+import { getPrivateKeyFromIndexedDB } from "./utils/cryptoBridge";
+import { getSessionToken } from "./lib/session";
 
 import LandingPage from "./route/LandingPage";
 import Login from "./route/Login";
@@ -18,15 +20,29 @@ import Admin from "./route/Admin";
 import AdminLogin from "./route/AdminLogin";
 
 function App() {
-  // Replace this with your real auth source (Clerk, Convex auth, context, etc.)
-  const currentUserId = localStorage.getItem("qchat_active_user_id") || null;
+  const [activeUserId, setActiveUserId] = useState<string | null>(
+    () => localStorage.getItem("qchat_active_user_id")
+  );
+
+  const sessionToken = getSessionToken();
+  const me = useQuery(api.users.getMe, sessionToken ? { sessionToken } : "skip");
+
+  useEffect(() => {
+    if (me?._id) {
+      localStorage.setItem("qchat_active_user_id", me._id);
+      setActiveUserId(me._id);
+    } else if (!sessionToken) {
+      localStorage.removeItem("qchat_active_user_id");
+      setActiveUserId(null);
+    }
+  }, [me, sessionToken]);
 
   return (
     <BrowserRouter>
       {/* Background worker – only runs when a user is logged in */}
-      {currentUserId && (
+      {activeUserId && (
         <CryptographicLoginGatekeeper
-          currentUserId={currentUserId as Id<"users">}
+          currentUserId={activeUserId as Id<"users">}
         />
       )}
 
@@ -57,14 +73,18 @@ export function CryptographicLoginGatekeeper({
 
   useEffect(() => {
     async function enforceIdentityKeys() {
-      if (userProfile && !userProfile.hasKeypair) {
-        console.log(
-          `%c[Crypto Guard] Initializing secure key generation for: ${userProfile.fullName}`,
-          "color: #3b82f6; font-weight: bold;",
-        );
+      if (!userProfile) return;
 
-        try {
-          const exportedPublicKeyString = await generateClientIdentityKeys();
+      try {
+        const existingKey = await getPrivateKeyFromIndexedDB(currentUserId);
+
+        if (!existingKey || !userProfile.hasKeypair) {
+          console.log(
+            `%c[Crypto Guard] Initializing secure key generation for: ${userProfile.fullName}`,
+            "color: #3b82f6; font-weight: bold;"
+          );
+
+          const exportedPublicKeyString = await generateClientIdentityKeys(currentUserId);
 
           await updateProfileKeys({
             id: currentUserId,
@@ -73,12 +93,12 @@ export function CryptographicLoginGatekeeper({
           });
 
           console.log(
-            `%c[Crypto Guard] Success! Identity keys established and pinned to DB.`,
-            "color: #10b981; font-weight: bold;",
+            `%c[Crypto Guard] Success! Identity keys established for ${userProfile.fullName} and saved to IndexedDB & DB.`,
+            "color: #10b981; font-weight: bold;"
           );
-        } catch (err) {
-          console.error("Cryptographic registration process stalled:", err);
         }
+      } catch (err) {
+        console.error("Cryptographic registration process stalled:", err);
       }
     }
 

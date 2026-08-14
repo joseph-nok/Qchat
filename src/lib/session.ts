@@ -15,6 +15,7 @@ export const saveSessionToken = (sessionToken: string) => {
 
 export const clearSessionToken = () => {
   document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  localStorage.removeItem('qchat_active_user_id');
   window.dispatchEvent(new Event(SESSION_EVENT));
 };
 

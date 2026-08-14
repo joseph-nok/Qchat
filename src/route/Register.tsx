@@ -245,15 +245,11 @@ const Register = () => {
       const exportedPublic = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
       const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
 
-      // 3. Save Private Key object into browser's localStorage as 'qchat_private_identity_key'
-      const exportedPrivate = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
-      localStorage.setItem("qchat_private_identity_key", JSON.stringify(exportedPrivate));
-
       const formattedFirstName = (role === 'lecturer' && rank.trim()) 
         ? `${rank.trim()} ${firstName.trim()}` 
         : firstName.trim();
 
-      // 4. Register user with Convex mutation appending publicKey and hasKeypair
+      // 3. Register user with Convex mutation appending publicKey and hasKeypair
       const user = await registerUser({
         firstName: formattedFirstName,
         lastName: lastName.trim(),
@@ -266,7 +262,7 @@ const Register = () => {
         hasKeypair: true,
       });
 
-      // Save to local vault in IndexedDB as well for persistent storage
+      // 4. Save to local vault in IndexedDB indexed by user._id for persistent user-isolated storage
       await savePrivateKeyToIndexedDB(user._id, keyPair.privateKey);
 
       // Asynchronously trigger Besu network approval trigger
@@ -275,6 +271,7 @@ const Register = () => {
         .catch((err) => console.error("[Blockchain Sync] Failed to approve user on Besu:", err));
 
       saveSessionToken(user.sessionToken);
+      localStorage.setItem("qchat_active_user_id", user._id);
       navigate('/messages');
     } catch (error) {
       applyBackendError(error);
