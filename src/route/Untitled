@@ -1,0 +1,31 @@
+[{
+	"resource": "/home/demore/Desktop/Qchat/src/route/Explore.tsx",
+	"owner": "typescript",
+	"code": "6133",
+	"severity": 4,
+	"message": "'setSchoolFilter' is declared but its value is never read.",
+	"source": "ts",
+	"startLineNumber": 59,
+	"startColumn": 24,
+	"endLineNumber": 59,
+	"endColumn": 39,
+	"tags": [
+		1
+	],
+	"modelVersionId": 1
+},{
+	"resource": "/home/demore/Desktop/Qchat/src/route/Explore.tsx",
+	"owner": "typescript",
+	"code": "6133",
+	"severity": 4,
+	"message": "'schools' is declared but its value is never read.",
+	"source": "ts",
+	"startLineNumber": 63,
+	"startColumn": 9,
+	"endLineNumber": 63,
+	"endColumn": 16,
+	"tags": [
+		1
+	],
+	"modelVersionId": 1
+}]
