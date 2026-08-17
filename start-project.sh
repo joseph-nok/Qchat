@@ -37,17 +37,21 @@ while ! curl -s -X POST --data '{"jsonrpc":"2.0","method":"web3_clientVersion","
 done
 echo "✅ Besu Ledger engine is listening perfectly!"
 
-# 3. Open a separate window to show real-time Hyperledger logs to your supervisors
-echo "📋 Opening real-time Ledger Log Viewer..."
+# 3. Open a separate window to show real-time transaction monitor to your supervisors
+echo "📋 Opening real-time Blockchain Transaction Monitor..."
 if command -v ptyxis &> /dev/null; then
     # Linux / Fedora Environment
-    ptyxis --title="Hyperledger Besu Live Blocks" -- bash -c "podman logs -f besu-local; exec bash" &
+    ptyxis --title="Hyperledger Besu Live Transactions" -- bash -c "pnpm blockchain:monitor; exec bash" &
+elif command -v gnome-terminal &> /dev/null; then
+    gnome-terminal --title="Hyperledger Besu Live Transactions" -- bash -c "pnpm blockchain:monitor; exec bash" &
+elif command -v xterm &> /dev/null; then
+    xterm -T "Hyperledger Besu Live Transactions" -e "pnpm blockchain:monitor; exec bash" &
 elif command -v cmd.exe &> /dev/null; then
     # Windows / Git Bash Environment
-    cmd.exe /c start "Hyperledger Besu Live Blocks" cmd.exe /k "podman logs -f besu-local"
+    cmd.exe /c start "Hyperledger Besu Live Transactions" cmd.exe /k "pnpm blockchain:monitor"
 else
     # Generic Unix Fallback
-    start "Hyperledger Besu Live Blocks" podman logs -f besu-local &
+    pnpm blockchain:monitor &
 fi
 
 # 4. Fire up the Vite development frontend interface

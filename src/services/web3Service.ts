@@ -13,8 +13,10 @@ const SYSTEM_PRIVATE_KEY =
 
 // 2. The Human-Readable ABI matching your Solidity contract layout
 const CONTRACT_ABI = [
-  "function registerMessageHash(bytes32 _hash) public",
-  "function verifyMessageHash(bytes32 _hash) public view returns (bool, uint256, address)",
+  "function recordHash(string messageId, bytes32 messageHash, address sender, address receiver) external",
+  "function verifyHash(string messageId) external view returns (bytes32)",
+  "function verifyUser(address userAddress, string role) external",
+  "function getUserRole(address userAddress) external view returns (string)",
 ];
 
 /**
@@ -45,8 +47,11 @@ export async function logHashToBlockchain(
 
     console.log(`📡 Dispatching hash registration: ${cleanHash}`);
 
+    const msgId = `qa-hash-${Date.now()}`;
+    const zeroAddr = ethers.ZeroAddress;
+
     // Call the contract method with zero gas pricing requirements
-    const tx = await contract.registerMessageHash(cleanHash, {
+    const tx = await contract.recordHash(msgId, cleanHash, systemWallet.address, zeroAddr, {
       gasLimit: 500000,
       gasPrice: 0,
     });

@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "blockchain:monitor": "tsx blockchain/monitor.ts",
+    "blockchain:show": "tsx blockchain/show-chain.ts",
+    "blockchain:logs": "cat blockchain/data/transactions_log.json"
   },
   "dependencies": {
     "convex": "^1.40.0",
@@ -29,6 +32,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
+    "tsx": "^4.19.2",
     "vite": "^8.0.10"
   }
 }
