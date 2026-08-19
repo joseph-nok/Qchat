@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { useMutation } from 'convex/react';
+import { useAction, useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
 import { isNetworkError, toErrorText } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import { savePrivateKeyToIndexedDB, relayHashToBesu } from '../utils/cryptoBridge';
+import ReCaptcha, { ReCaptchaRef } from '../components/ReCaptcha';
 import '../route_css/Register.css';
 
 const convexApi = api as any;
@@ -17,6 +18,7 @@ type RegisterErrorsRecord = {
   idNumber?: string;
   password?: string;
   confirmPassword?: string;
+  recaptcha?: string;
   form?: string;
 };
 
@@ -58,10 +60,14 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState('');
   const [errorsRecord, setErrorsRecord] = useState<RegisterErrorsRecord>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const institutionRef = useRef<HTMLDivElement>(null);
+  const recaptchaRef = useRef<ReCaptchaRef>(null);
+
   const registerUser = useMutation(convexApi.qchat.registerUser);
+  const registerUserWithRecaptcha = useAction(convexApi.recaptcha.registerUserWithRecaptcha);
 
   // Close dropdown when clicking outside (commented out as dropdown is disabled)
   // useEffect(() => {
@@ -183,6 +189,10 @@ const Register = () => {
       errors.password = "Password is too weak. Please choose a stronger password.";
     }
 
+    if (!recaptchaToken) {
+      errors.recaptcha = "Please complete the reCAPTCHA verification.";
+    }
+
     if (Object.keys(errors).length > 0) {
       return errors;
     }
@@ -198,6 +208,11 @@ const Register = () => {
     }
 
     const errorText = toErrorText(error);
+
+    if (errorText.includes('reCAPTCHA') || errorText.includes('captcha')) {
+      setErrorsRecord({ recaptcha: 'reCAPTCHA verification failed. Please complete the check again.' });
+      return;
+    }
 
     if (errorText.includes('index') || errorText.includes('match')) {
       setErrorsRecord({ idNumber: 'This ID number is already registered with another account.' });
@@ -249,18 +264,34 @@ const Register = () => {
         ? `${rank.trim()} ${firstName.trim()}` 
         : firstName.trim();
 
-      // 3. Register user with Convex mutation appending publicKey and hasKeypair
-      const user = await registerUser({
-        firstName: formattedFirstName,
-        lastName: lastName.trim(),
-        email,
-        role,
-        school: institution,
-        idNumber,
-        password,
-        publicKey: publicKeyBase64,
-        hasKeypair: true,
-      });
+      // 3. Register user with Convex action (verifying reCAPTCHA) or fallback to mutation
+      let user;
+      if (registerUserWithRecaptcha) {
+        user = await registerUserWithRecaptcha({
+          firstName: formattedFirstName,
+          lastName: lastName.trim(),
+          email,
+          role,
+          school: institution,
+          idNumber,
+          password,
+          publicKey: publicKeyBase64,
+          hasKeypair: true,
+          recaptchaToken,
+        });
+      } else {
+        user = await registerUser({
+          firstName: formattedFirstName,
+          lastName: lastName.trim(),
+          email,
+          role,
+          school: institution,
+          idNumber,
+          password,
+          publicKey: publicKeyBase64,
+          hasKeypair: true,
+        });
+      }
 
       // 4. Save to local vault in IndexedDB indexed by user._id for persistent user-isolated storage
       await savePrivateKeyToIndexedDB(user._id, keyPair.privateKey);
@@ -274,6 +305,8 @@ const Register = () => {
       localStorage.setItem("qchat_active_user_id", user._id);
       navigate('/messages');
     } catch (error) {
+      recaptchaRef.current?.reset();
+      setRecaptchaToken('');
       applyBackendError(error);
     } finally {
       setIsSubmitting(false);
@@ -584,6 +617,25 @@ const Register = () => {
                   {errorsRecord.confirmPassword && <p className="auth-field-error" id="register-confirm-password-error">{errorsRecord.confirmPassword}</p>}
                 </div>
               </div>
+
+              <ReCaptcha
+                ref={recaptchaRef}
+                onVerify={(token) => {
+                  setRecaptchaToken(token);
+                  clearFieldError('recaptcha');
+                }}
+                onExpired={() => {
+                  setRecaptchaToken('');
+                }}
+                onError={() => {
+                  setRecaptchaToken('');
+                }}
+              />
+              {errorsRecord.recaptcha && (
+                <p className="auth-field-error center" style={{ marginBottom: '0.75rem' }}>
+                  {errorsRecord.recaptcha}
+                </p>
+              )}
 
               <button type="submit" className="auth-submit large mt-4" disabled={isSubmitting}>
                 <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_top' : 'how_to_reg'}</span>

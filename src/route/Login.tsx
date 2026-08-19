@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { useMutation } from 'convex/react';
+import { useState, useRef } from 'react';
+import { useAction, useMutation } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
 import { getConvexErrorCode, isNetworkError, toErrorText } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
+import ReCaptcha, { ReCaptchaRef } from '../components/ReCaptcha';
 import '../route_css/Login.css';
 
 const convexApi = api as any;
@@ -12,6 +13,7 @@ type LoginErrorsRecord = {
   role?: string;
   email?: string;
   password?: string;
+  recaptcha?: string;
   form?: string;
 };
 
@@ -21,9 +23,13 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState('');
   const [errorsRecord, setErrorsRecord] = useState<LoginErrorsRecord>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const recaptchaRef = useRef<ReCaptchaRef>(null);
   const loginUser = useMutation(convexApi.qchat.loginUser);
+  const loginUserWithRecaptcha = useAction(convexApi.recaptcha.loginUserWithRecaptcha);
 
   const clearFieldError = (field: keyof LoginErrorsRecord) => {
     setErrorsRecord((current) => {
@@ -47,6 +53,10 @@ const Login = () => {
 
     if (!password) {
       errors.password = 'Enter your password.';
+    }
+
+    if (!recaptchaToken) {
+      errors.recaptcha = 'Please complete the reCAPTCHA verification.';
     }
 
     return Object.keys(errors).length > 0 ? errors : null;
@@ -80,6 +90,11 @@ const Login = () => {
 
     const errorText = toErrorText(error);
 
+    if (errorText.includes('reCAPTCHA') || errorText.includes('captcha')) {
+      setErrorsRecord({ recaptcha: 'reCAPTCHA verification failed. Please complete the check again.' });
+      return;
+    }
+
     if (errorText.includes('registered as')) {
       setErrorsRecord({
         role: 'This email is registered under a different account type. Select the correct Student or Lecturer option.',
@@ -112,11 +127,18 @@ const Login = () => {
 
     setIsSubmitting(true);
     try {
-      const user = await loginUser({ email, password, role });
+      let user;
+      if (loginUserWithRecaptcha) {
+        user = await loginUserWithRecaptcha({ email, password, role, recaptchaToken });
+      } else {
+        user = await loginUser({ email, password, role });
+      }
       saveSessionToken(user.sessionToken);
       localStorage.setItem("qchat_active_user_id", user._id);
       navigate('/messages');
     } catch (error) {
+      recaptchaRef.current?.reset();
+      setRecaptchaToken('');
       applyBackendError(error);
     } finally {
       setIsSubmitting(false);
@@ -250,6 +272,25 @@ const Login = () => {
                 </label>
                 <Link to="/forgot-password" className="forgot-password">Forgot Password?</Link>
               </div>
+
+              <ReCaptcha
+                ref={recaptchaRef}
+                onVerify={(token) => {
+                  setRecaptchaToken(token);
+                  clearFieldError('recaptcha');
+                }}
+                onExpired={() => {
+                  setRecaptchaToken('');
+                }}
+                onError={() => {
+                  setRecaptchaToken('');
+                }}
+              />
+              {errorsRecord.recaptcha && (
+                <p className="auth-field-error center" style={{ marginBottom: '0.75rem' }}>
+                  {errorsRecord.recaptcha}
+                </p>
+              )}
 
               <button type="submit" className="auth-submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Logging in...' : 'Login to Portal'}
