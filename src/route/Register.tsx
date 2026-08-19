@@ -67,7 +67,7 @@ const Register = () => {
   const recaptchaRef = useRef<ReCaptchaRef>(null);
 
   const registerUser = useMutation(convexApi.qchat.registerUser);
-  const registerUserWithRecaptcha = useAction(convexApi.recaptcha.registerUserWithRecaptcha);
+  const registerUserWithRecaptcha = useAction(convexApi.qchat.registerUserWithRecaptcha);
 
   // Close dropdown when clicking outside (commented out as dropdown is disabled)
   // useEffect(() => {

@@ -29,7 +29,7 @@ const Login = () => {
 
   const recaptchaRef = useRef<ReCaptchaRef>(null);
   const loginUser = useMutation(convexApi.qchat.loginUser);
-  const loginUserWithRecaptcha = useAction(convexApi.recaptcha.loginUserWithRecaptcha);
+  const loginUserWithRecaptcha = useAction(convexApi.qchat.loginUserWithRecaptcha);
 
   const clearFieldError = (field: keyof LoginErrorsRecord) => {
     setErrorsRecord((current) => {
