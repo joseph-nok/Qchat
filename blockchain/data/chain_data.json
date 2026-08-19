@@ -1,8 +1,8 @@
 {
-  "lastUpdated": "2026-08-19T18:25:13.287Z",
+  "lastUpdated": "2026-08-19T18:31:11.191Z",
   "rpcUrl": "http://127.0.0.1:8545",
   "contractAddress": "0xa50a51c09a5c451C52BB714527E1974b686D8e77",
-  "currentBlock": 114848,
+  "currentBlock": 115206,
   "totalTransactionsRecorded": 1,
   "networkId": "1337"
 }
