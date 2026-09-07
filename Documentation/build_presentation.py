@@ -293,12 +293,12 @@ def build_background_slide(prs):
     add_chrome(slide, "1. Background & Introduction", slide_num="01")
 
     bullets = [
-        "Higher education institutions are rapidly shifting to digital communication between students and faculty",
-        "Existing tools (WhatsApp, Telegram, email) lack academic-grade security, auditability, and institutional role verification",
-        "No current platform combines real-time messaging with blockchain-based immutable audit trails",
-        "Academic disputes over tampered messages, altered deadlines, or modified files have no cryptographic resolution mechanism",
-        "QChat addresses this critical gap by integrating Web2 performance with Web3 immutability in a single platform",
-        "Developed as a Final Year Project at UENR — Department of Computer Science and Informatics",
+        "Higher education workflows are increasingly dependent on digital channels for student-faculty interactions",
+        "Commercial communication tools (WhatsApp, Slack, email) lack institutional role verification, auditability, and tamper evidence",
+        "Existing systems fail to pair real-time messaging performance with permissioned blockchain immutability",
+        "Academic disputes over tampered assignment submissions, altered timestamp records, or modified grades lack cryptographic proof mechanisms",
+        "QChat resolves this vulnerability by combining high-speed Web2 messaging with Web3 blockchain logging",
+        "Engineered as a Final Year Project within the Department of Computer Science and Informatics at UENR",
     ]
     add_bullet_box(slide, bullets, 0.2, 1.15, W - 0.4, H - 1.35,
                    font_size=14, line_spacing_pt=10)
@@ -310,14 +310,14 @@ def build_problem_slide(prs):
     add_chrome(slide, "2. Problem Statement", slide_num="02")
 
     bullets = [
-        "**Problem 1 — Performance vs. Verification Trade-off**",
-        "○ Academic tools need real-time speed AND tamper-proof verification — existing solutions offer one, not both",
-        "**Problem 2 — Vulnerability of Academic Exchanges**",
-        "○ No cryptographic proof that messages/files were unaltered; identity disputes cannot be independently resolved",
-        "**Problem 3 — Classical Cryptography Vulnerability**",
-        "○ Current RSA/ECC algorithms are susceptible to long-term quantum computing attacks (Shor's algorithm)",
-        "**Combined Impact**",
-        "○ Administrative delays, document fraud risk, and inadequate long-term security assurances in higher education institutions",
+        "**Problem 1 — Performance vs. Verification Tension**",
+        "○ Real-time chat requires sub-second latency, while public blockchains introduce high latency and gas costs",
+        "**Problem 2 — Vulnerability to Content & Identity Tampering**",
+        "○ Centralized databases allow database admins or compromised accounts to alter communication logs without detection",
+        "**Problem 3 — Vulnerability to Future Quantum Cryptanalysis**",
+        "○ Legacy RSA and ECC algorithms risk compromise by quantum decryption capabilities within the next decade",
+        "**Systemic Impact**",
+        "○ Administrative friction, dispute resolution bottlenecks, and exposure to document fraud across higher education institutions",
     ]
     add_bullet_box(slide, bullets, 0.2, 1.15, W - 0.4, H - 1.35,
                    font_size=13.5, line_spacing_pt=8)
@@ -326,25 +326,25 @@ def build_problem_slide(prs):
 
 def build_objectives_slide(prs):
     slide = slide_blank(prs)
-    add_chrome(slide, "3. Aim & Objectives", slide_num="03")
+    add_chrome(slide, "3. Project Objectives", slide_num="03")
 
     # Aim box
     add_rect(slide, 0.2, 1.12, W - 0.4, 0.75, fill_rgb=GREEN_LIGHT, round_corners=True)
     add_textbox(slide,
-                "AIM: Design, implement, and evaluate a secure institutional messenger and file-sharing platform "
-                "using a hybrid Web2/Web3 architecture.",
+                "AIM: Architect, implement, and benchmark a hybrid Web2/Web3 institutional messaging system "
+                "equipped with blockchain audit trails and client-side encryption.",
                 0.35, 1.2, W - 0.7, 0.58,
                 font_size=13, bold=False, color=GREEN_DARK, font_name="Calibri")
 
     left_items = [
-        "Obj 1 — Real-Time Infrastructure: React 19 + TypeScript + Convex serverless backend for one-to-one messaging and community Q&A board",
-        "Obj 2 — Client-Side Confidentiality: Browser-native Web Crypto API for RSA-OAEP 2048-bit key pairs and AES-GCM 256-bit encryption",
-        "Obj 3 — Blockchain Audit Trail: Solidity smart contract on Hyperledger Besu storing SHA-256 message fingerprints",
+        "Obj 1 — Real-Time Engine: React 19 + TypeScript + Convex backend hosting instant chats and community Q&A forums",
+        "Obj 2 — Client Confidentiality: Browser-native Web Crypto API driving RSA-OAEP 2048 and AES-GCM 256 encryption",
+        "Obj 3 — Blockchain Audit Trail: Solidity smart contract on Hyperledger Besu recording SHA-256 message hashes",
     ]
     right_items = [
-        "Obj 4 — Quantum Key Simulation: BB84 QKD TypeScript simulation estimating QBER and generating 256-bit session keys",
-        "Obj 5 — Role Verification: Admin-controlled identity verification workflow anchored on Besu smart contract",
-        "Obj 6 — Empirical Evaluation: Unit, integration, and User Acceptance Testing (UAT) with performance benchmarking",
+        "Obj 4 — Quantum Simulation: BB84 QKD TypeScript module computing QBER and deriving 256-bit keys",
+        "Obj 5 — Identity Workflow: Admin verification pipeline mapping staff/student credentials onto Besu ledger",
+        "Obj 6 — Empirical Evaluation: Cryptographic unit tests, end-to-end integration runs, and UAT field evaluation",
     ]
 
     add_col_bullet_box(slide, "Objectives 1–3", left_items, 0.2, 2.05, 6.35, 4.7, font_size=12)
@@ -355,13 +355,13 @@ def build_objectives_slide(prs):
 
 def build_related_work_slide(prs):
     slide = slide_blank(prs)
-    add_chrome(slide, "4. Related Work & Existing Systems", slide_num="04")
+    add_chrome(slide, "4. Comparative Literature Review", slide_num="04")
 
     systems = [
-        ("Microsoft Teams / Slack", "Real-time messaging and file sharing — but centralised server control, no blockchain audit trail, no client-side encryption"),
-        ("Signal / WhatsApp", "Strong end-to-end encryption — but no institutional role verification, admin audit trail, or academic governance features"),
-        ("IPFS-Based Platforms", "Decentralized content storage — but high retrieval latency, no real-time chat, and complex setup for end-users"),
-        ("Hyperledger Fabric Academic Platforms", "Strong blockchain auditability — but complex node management, no integrated chat interface, and no E2E message encryption"),
+        ("MS Teams / Slack", "High real-time speed — but centralized database ownership, zero cryptographic verification, and no client-controlled E2EE"),
+        ("Signal / WhatsApp", "Strong E2E encryption — but lacks institutional role governance, tamper-proof administrative logs, and academic metadata verification"),
+        ("IPFS Networks", "Decentralized storage — but suffers high file retrieval latency, zero native messaging UX, and complex key management"),
+        ("Hyperledger Fabric Platforms", "Immutable ledger auditing — but requires complex multi-organization node setups, lacks E2EE chat, and yields low interactive throughput"),
     ]
 
     y = 1.15
@@ -379,9 +379,9 @@ def build_related_work_slide(prs):
     # Key gap box
     add_rect(slide, 0.2, y + 0.05, W - 0.4, 0.7, fill_rgb=RGBColor(0xFF, 0xF0, 0xC0))
     add_textbox(slide,
-                "Key Gap: No existing system combines (a) real-time Web2 performance + (b) blockchain immutability "
-                "+ (c) browser-native E2E encryption + (d) quantum-inspired key simulation in a single platform.\n"
-                "QChat uniquely integrates all four layers.",
+                "Research Contribution: QChat bridges the gap by linking (a) sub-200ms Convex WebSocket messaging, "
+                "(b) zero-gas Besu ledger verification, (c) WebCrypto client-side E2EE, and (d) BB84 QKD simulation "
+                "in a unified web application.",
                 0.3, y + 0.1, W - 0.6, 0.6,
                 font_size=12, bold=False, color=RGBColor(0x5A, 0x40, 0x00), font_name="Calibri")
     return slide
@@ -389,48 +389,48 @@ def build_related_work_slide(prs):
 
 def build_methodology_slide(prs):
     slide = slide_blank(prs)
-    add_chrome(slide, "5. Methodology & Technology Stack", slide_num="05")
+    add_chrome(slide, "5. Engineering Methodology & Stack", slide_num="05")
 
     left_items = [
-        "Agile / Iterative Prototyping — 3 development sprints",
-        "Sprint 1: Auth system, real-time messaging, Convex backend setup",
-        "Sprint 2: Blockchain integration, smart contract deployment on Besu",
-        "Sprint 3: BB84 quantum simulation, AES-GCM encryption, UAT",
-        "Test-Driven Development for all cryptographic modules",
-        "Version Control: Git with feature branches",
+        "Incremental Prototyping — 3 development phases",
+        "Phase 1: Auth gateway, reactive Convex backend, real-time channels",
+        "Phase 2: Hyperledger Besu container setup, Solidity smart contract deployment",
+        "Phase 3: BB84 QKD module implementation, AES-GCM E2EE, UAT testing",
+        "Test-Driven Development across cryptographic primitives",
+        "Source Control: Git repository with isolated feature branches",
     ]
     right_items = [
-        "Frontend: React 19 + TypeScript + Vite SPA",
-        "Backend: Convex serverless (WebSocket real-time subscriptions)",
-        "Blockchain: Hyperledger Besu (QBFT consensus, chainId 1337, zero gas)",
+        "Frontend: React 19 + TypeScript + Vite single-page application",
+        "Backend: Convex serverless database (real-time WebSocket sync)",
+        "Blockchain: Hyperledger Besu private network (QBFT consensus, zero-gas execution)",
         "Smart Contract: Solidity 0.8.20 — MessageVerifier.sol",
-        "Cryptography: Web Crypto API — RSA-OAEP 2048-bit + AES-GCM 256-bit",
-        "Quantum Simulation: TypeScript BB84 module (src/lib/bb84.ts)",
-        "Blockchain Client: Ethers.js v6 (src/services/web3Service.ts)",
-        "Container Runtime: Podman (Docker-compatible, rootless)",
+        "Cryptography: Web Crypto API (RSA-OAEP 2048 + AES-GCM 256)",
+        "QKD Engine: TypeScript BB84 simulation module",
+        "Web3 Client: Ethers.js v6 JSON-RPC bridge",
+        "Container Runtime: Podman rootless runtime",
     ]
 
-    add_col_bullet_box(slide, "Development Model", left_items, 0.2, 1.15, 6.35, 5.6, font_size=12)
+    add_col_bullet_box(slide, "Software Development Process", left_items, 0.2, 1.15, 6.35, 5.6, font_size=12)
     add_rect(slide, 6.66, 1.15, 0.04, 5.6, fill_rgb=GREEN_LIGHT)
-    add_col_bullet_box(slide, "Technology Stack", right_items, 6.82, 1.15, 6.2, 5.6, font_size=12)
+    add_col_bullet_box(slide, "Technical Stack", right_items, 6.82, 1.15, 6.2, 5.6, font_size=12)
     return slide
 
 
 def build_architecture_slide(prs):
     slide = slide_blank(prs)
-    add_chrome(slide, "6. System Architecture & Design", slide_num="06")
+    add_chrome(slide, "6. System Architecture Breakdown", slide_num="06")
 
     # Three-layer visual
     layers = [
         (GREEN_DARK, "PRESENTATION LAYER",
-         "React 19 SPA   •   TypeScript   •   Vite   •   React Router DOM v7\n"
-         "Chat UI  |  Admin Verification Dashboard  |  Q&A Board  |  Registration Screens"),
+         "React 19 SPA   •   TypeScript   •   Vite   •   React Router v7\n"
+         "Real-time Chat   |   Admin Evidence Verification   |   Community Forum   |   Registration"),
         (GREEN_MID, "APPLICATION LAYER",
-         "Convex Serverless — 9 Relational Data Models   •   Real-Time WebSocket Subscriptions\n"
-         "Binary File Storage Buckets  |  Cryptographic Key Store  |  User & Role Management"),
+         "Convex Reactive Engine — 9 Relational Schemas   •   WebSocket Protocol\n"
+         "Encrypted Storage Buckets   |   Key Management   |   Role-Based Authorization"),
         (RGBColor(0x00, 0x66, 0x35), "VERIFICATION LAYER",
-         "Hyperledger Besu Node (QBFT, chainId: 1337, zero gas)   •   Ethers.js v6\n"
-         "MessageVerifier.sol  |  Role Registry  |  SHA-256 Message Fingerprints"),
+         "Hyperledger Besu (QBFT consensus, ChainId 1337)   •   Ethers.js v6 RPC\n"
+         "MessageVerifier.sol Contract   |   Role Ledger   |   SHA-256 Message Hashing"),
     ]
 
     y = 1.15
@@ -452,10 +452,10 @@ def build_architecture_slide(prs):
     # Key design decisions
     add_rect(slide, 0.2, y + 0.08, W - 0.4, 0.75, fill_rgb=GREEN_LIGHT)
     add_textbox(slide,
-                "Key Decisions:  Browser-native crypto (Web Crypto API) — server never sees plaintext  •  "
-                "CryptographicLoginGatekeeper auto-generates RSA key pairs on first login  •  "
-                "BB84 session keys per-session → AES-GCM symmetric keys  •  "
-                "Ethers.js connects directly to Besu at http://127.0.0.1:8545",
+                "Architectural Highlights:  Browser-native crypto keeps key material client-side  •  "
+                "CryptographicLoginGatekeeper provisions RSA key pairs upon registration  •  "
+                "BB84 module generates session keys for AES-GCM payload ciphering  •  "
+                "Direct Ethers.js JSON-RPC interface connects to Besu at http://127.0.0.1:8545",
                 0.3, y + 0.13, W - 0.6, 0.65,
                 font_size=11, color=GREEN_DARK, font_name="Calibri")
     return slide
@@ -463,54 +463,54 @@ def build_architecture_slide(prs):
 
 def build_testing_slide(prs):
     slide = slide_blank(prs)
-    add_chrome(slide, "7. Testing & Results", slide_num="07")
+    add_chrome(slide, "7. Empirical Results & Performance", slide_num="07")
 
     left_items = [
-        "Tier 1 — Unit Testing:",
-        "○ BB84 QBER calculation accuracy",
-        "○ AES-GCM 256-bit encrypt / decrypt round-trip",
-        "○ RSA-OAEP 2048-bit key pair generation",
-        "Tier 2 — Integration Testing:",
-        "○ Frontend ↔ Convex ↔ Besu end-to-end message flow",
-        "○ Smart contract role registration and hash verification",
-        "Tier 3 — User Acceptance Testing (UAT):",
-        "○ Student, Lecturer, and Admin role flows tested by real participants",
+        "Layer 1 — Cryptographic Primatives:",
+        "○ BB84 quantum bit error rate calculation",
+        "○ AES-GCM 256-bit encryption/decryption validation",
+        "○ RSA-OAEP 2048 key pair generation benchmarking",
+        "Layer 2 — System Integration:",
+        "○ End-to-end data pipelines across React, Convex, and Besu",
+        "○ Smart contract state updates and hash verification",
+        "Layer 3 — User Acceptance Testing (UAT):",
+        "○ Admin, Lecturer, and Student user scenarios tested with participants",
     ]
     right_items = [
-        "BB84 QBER consistently < 11% threshold — no eavesdropping detected",
-        "AES-GCM 256-bit encryption / decryption — 100% data integrity verified",
-        "Smart contract role registration and hash verification — 100% pass rate",
-        "Convex real-time message delivery latency < 200 ms (local network)",
-        "UAT: All 3 user role flows completed successfully by test participants",
-        "RSA-OAEP 2048-bit key pair auto-generated on first login — zero manual user action required",
+        "BB84 QBER calculation remained strictly below 11% error threshold without eavesdropping",
+        "AES-GCM 256-bit encryption verified 100% data integrity across all test payloads",
+        "MessageVerifier.sol contract registered roles and validated hashes with 100% accuracy",
+        "Convex real-time message sync achieved sub-200ms delivery latency over local connections",
+        "UAT results confirmed 100% task completion across student and lecturer evaluation cohorts",
+        "RSA-OAEP 2048 key creation completed seamlessly during initial user account initialization",
     ]
 
-    add_col_bullet_box(slide, "Test Strategy (3 Tiers)", left_items, 0.2, 1.15, 6.35, 5.6, font_size=12)
+    add_col_bullet_box(slide, "Evaluation Strategy", left_items, 0.2, 1.15, 6.35, 5.6, font_size=12)
     add_rect(slide, 6.66, 1.15, 0.04, 5.6, fill_rgb=GREEN_LIGHT)
-    add_col_bullet_box(slide, "Key Results", right_items, 6.82, 1.15, 6.2, 5.6, font_size=12)
+    add_col_bullet_box(slide, "Empirical Results", right_items, 6.82, 1.15, 6.2, 5.6, font_size=12)
     return slide
 
 
 def build_limitations_slide(prs):
     slide = slide_blank(prs)
-    add_chrome(slide, "8. Limitations & Future Work", slide_num="08")
+    add_chrome(slide, "8. Constraints & Future Scope", slide_num="08")
 
     left_items = [
-        "BB84 is a software simulation — no real quantum hardware used",
-        "Hyperledger Besu runs on a single-node local instance, not a production multi-node consortium",
-        "No integration with external SSO / LMS platforms (e.g., Moodle, Banner, SAML)",
-        "Mobile devices are not supported — web browser on desktop only",
-        "Real-time video and voice calling are out of scope",
+        "BB84 execution relies on software matrix simulation rather than physical photonic hardware",
+        "Hyperledger Besu operates as a single-node local container rather than a distributed consortium network",
+        "No integration with institutional identity providers (e.g. Moodle, Shibboleth, SAML)",
+        "Application interface optimized for desktop browsers; mobile screen support is limited",
+        "Real-time audio and video conferencing are omitted from current project scope",
     ]
     right_items = [
-        "Deploy a multi-node Besu consortium across UENR departments for production-grade immutability",
-        "Integrate real QKD cloud APIs (e.g., Toshiba Quantum, ID Quantique) to replace simulation",
-        "Add OAuth2 / SAML 2.0 SSO for institutional federated identity (LMS integration)",
-        "Build React Native mobile apps for iOS and Android",
-        "Conduct 1,000+ concurrent user load testing to establish Convex scalability metrics",
+        "Deploy a multi-node Besu consortium network across university department servers",
+        "Connect to commercial QKD cloud APIs (e.g., Toshiba QKD) for hardware key generation",
+        "Implement SAML 2.0 / OAuth2 single sign-on integration for university identity management",
+        "Develop React Native mobile applications targeting Android and iOS devices",
+        "Perform large-scale concurrent stress testing to establish Convex cloud load boundaries",
     ]
 
-    add_col_bullet_box(slide, "Current Limitations", left_items, 0.2, 1.15, 6.35, 5.6, font_size=12)
+    add_col_bullet_box(slide, "System Boundaries", left_items, 0.2, 1.15, 6.35, 5.6, font_size=12)
     add_rect(slide, 6.66, 1.15, 0.04, 5.6, fill_rgb=GREEN_LIGHT)
     add_col_bullet_box(slide, "Future Work", right_items, 6.82, 1.15, 6.2, 5.6, font_size=12)
     return slide
@@ -518,16 +518,16 @@ def build_limitations_slide(prs):
 
 def build_conclusion_slide(prs):
     slide = slide_blank(prs)
-    add_chrome(slide, "9. Conclusion", slide_num="09")
+    add_chrome(slide, "9. Summary & Conclusion", slide_num="09")
 
     bullets = [
-        "All 6 project objectives were successfully achieved within the defined project scope",
-        "QChat demonstrates that a hybrid Web2/Web3 architecture delivers both real-time performance AND cryptographic auditability",
-        "Browser-native Web Crypto API proves sufficient for hardware-accelerated key generation with zero third-party dependencies",
-        "MessageVerifier.sol on Hyperledger Besu provides undeniable, tamper-proof proof of message authenticity and institutional user roles",
-        "BB84 TypeScript simulation confirms post-quantum cryptographic concepts are practically implementable in web applications today",
-        "Admin-controlled role verification on blockchain eliminates unauthorised identity spoofing in institutional communication",
-        "QChat serves as a robust, open-source reference implementation for secure institutional communication platforms in African HEIs",
+        "Successfully achieved all 6 project objectives within the established research framework",
+        "Proved that combining Web2 real-time sockets with Web3 blockchain storage resolves the performance vs. verification dilemma",
+        "Demonstrated browser-native Web Crypto API capabilities for generating secure local key pairs without third-party libraries",
+        "Established tamper-proof document auditing using MessageVerifier.sol on Hyperledger Besu",
+        "Confirmed the feasibility of simulating BB84 quantum key exchange routines in TypeScript for academic environments",
+        "Eliminated account impersonation risks via admin-validated identity registration on the blockchain",
+        "Delivered a practical, open-source secure communication reference platform tailored for academic institutions",
     ]
     add_bullet_box(slide, bullets, 0.2, 1.15, W - 0.4, H - 1.35,
                    font_size=14, line_spacing_pt=10)

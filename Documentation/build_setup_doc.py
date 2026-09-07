@@ -108,157 +108,151 @@ def build():
     # ── 1. Overview ────────────────────────────────────────────────────────────
     add_heading(doc, '1. Overview', 1)
     add_para(doc,
-        'This guide explains how to run the QChat project on a clean Windows 11 machine. '
-        'QChat was developed on a Linux workstation (Fedora 41) and is designed to run on '
-        'Windows through the Git Bash environment and Podman container runtime — no source-code '
-        'changes are required. The application behaves identically on both operating systems.')
+        'This reference walks supervisors through deploying and evaluating QChat on a standard 64-bit Windows 11 host. '
+        'Although we developed QChat natively under Linux (Fedora 41), the architecture targets cross-platform runtime equality. '
+        'By utilizing Git Bash toolchains alongside Podman container engines, QChat executes on Windows without altering a single line of application source code.')
     add_para(doc,
-        'Two installation methods are provided:')
-    add_bullet(doc, 'Method 1 – Manual Step-by-Step: Recommended for supervisors who want full visibility over every step.')
-    add_bullet(doc, 'Method 2 – Automated Script (setup-project.sh): Recommended for rapid deployment with minimal manual effort.')
+        'Evaluators can choose between two deployment pathways:')
+    add_bullet(doc, 'Method 1 – Step-by-Step Manual Deployment: Best suited for detailed step verification.')
+    add_bullet(doc, 'Method 2 – Script-Driven Automated Setup (setup-project.sh): Designed for immediate environment bootstrapping with zero interactive prompts.')
 
     # ── 2. Prerequisites ───────────────────────────────────────────────────────
     add_heading(doc, '2. Prerequisites', 1)
-    add_para(doc, 'Before beginning either method, confirm the following conditions are met:')
-    add_bullet(doc, 'Windows 11 (64-bit) with all pending updates installed.')
-    add_bullet(doc, 'Hardware Virtualization is enabled in the BIOS/UEFI.\n'
-                    '   → Verify in Task Manager → Performance → CPU → Virtualization: Enabled.')
-    add_bullet(doc, 'Administrator privileges are available for initial package installation.')
-    add_bullet(doc, 'Stable internet connection for downloading packages and container images.')
-    add_bullet(doc, 'The project folder is located at a path such as:\n'
+    add_para(doc, 'Before running either deployment pathway, double-check that your machine satisfies these baseline requirements:')
+    add_bullet(doc, 'Windows 11 OS (64-bit build) patched to current security levels.')
+    add_bullet(doc, 'Hardware CPU Virtualization enabled within the motherboard UEFI/BIOS settings.\n'
+                    '   → Verify via Task Manager → Performance → CPU → Virtualization: Enabled.')
+    add_bullet(doc, 'Administrative permissions on the host system to run package manager installers.')
+    add_bullet(doc, 'Active network connection capable of pulling container layers and Node dependencies.')
+    add_bullet(doc, 'Project repository cloned to a local folder path (for example):\n'
                     '   C:\\Users\\YOUR_USERNAME\\Desktop\\Qchat')
-    add_note(doc, 'Replace YOUR_USERNAME with the actual Windows account name wherever it appears in this guide.')
+    add_note(doc, 'Substitute YOUR_USERNAME with your actual local Windows profile identifier.')
 
     # ── 3. Method 1 – Manual Setup ─────────────────────────────────────────────
     add_heading(doc, '3. Method 1 – Manual Step-by-Step Setup', 1)
-    add_para(doc, 'Follow the steps below in order. Verify each component before proceeding to the next.')
+    add_para(doc, 'Execute the following operations sequentially. Confirm each tool functions prior to triggering subsequent steps.')
 
     # 3.1 Git
-    add_heading(doc, '3.1  Install Git and Git Bash', 2)
+    add_heading(doc, '3.1  Install Git and Git Bash Shell', 2)
     add_para(doc,
-        'Windows cannot execute .sh scripts natively. Git Bash provides the required Bash shell environment.')
-    add_bullet(doc, 'Download the official Git for Windows installer from:')
+        'Native Windows command processors (CMD/PowerShell) lack POSIX POSIX-shell script handling. Git Bash delivers the required shell environment.')
+    add_bullet(doc, 'Grab the current Git for Windows distribution directly from:')
     add_para(doc, 'https://git-scm.com/download/win', code=True)
-    add_bullet(doc, 'Run the installer. Accept all defaults, ensuring these options remain checked:')
-    add_bullet(doc, '"Git Bash Here" context menu option', sub=True)
-    add_bullet(doc, '"Git from the command line and also from 3rd-party software"', sub=True)
-    add_bullet(doc, 'After installation, open Git Bash from the Start Menu and confirm it launches successfully.')
-    add_note(doc, 'All subsequent commands in this guide must be typed into Git Bash, not CMD or PowerShell.')
+    add_bullet(doc, 'Run the installation package. Keep standard options enabled, ensuring these defaults remain selected:')
+    add_bullet(doc, '"Git Bash Here" shell context extension', sub=True)
+    add_bullet(doc, '"Git from the command line and third-party binaries"', sub=True)
+    add_bullet(doc, 'Once setup completes, fire up Git Bash via your Start Menu to verify terminal opening.')
+    add_note(doc, 'Execute all terminal commands in Git Bash rather than CMD or PowerShell.')
 
     # 3.2 Node.js
-    add_heading(doc, '3.2  Install Node.js (LTS)', 2)
-    add_bullet(doc, 'Download the Windows Installer (.msi) – LTS version from:')
+    add_heading(doc, '3.2  Install Node.js (LTS Runtime)', 2)
+    add_bullet(doc, 'Download the Node.js Windows Installer (.msi) LTS release from:')
     add_para(doc, 'https://nodejs.org/', code=True)
-    add_bullet(doc, 'Run the installer. Ensure the "Add to PATH" checkbox remains selected.')
-    add_bullet(doc, 'Open a new Git Bash window and verify both commands print version numbers:')
+    add_bullet(doc, 'Execute the setup wizard, confirming the "Add to PATH" directive remains active.')
+    add_bullet(doc, 'Launch a fresh Git Bash terminal instance and confirm version responses:')
     add_para(doc, 'node -v', code=True)
     add_para(doc, 'npm -v', code=True)
 
     # 3.3 pnpm
-    add_heading(doc, '3.3  Install pnpm Globally', 2)
-    add_para(doc, 'In Git Bash, run:')
+    add_heading(doc, '3.3  Install pnpm Package Manager', 2)
+    add_para(doc, 'From your Git Bash prompt, run:')
     add_para(doc, 'npm install -g pnpm', code=True)
-    add_para(doc, 'Verify installation:')
+    add_para(doc, 'Validate tool registration:')
     add_para(doc, 'pnpm -v', code=True)
 
     # 3.4 Podman
-    add_heading(doc, '3.4  Install and Initialise Podman', 2)
+    add_heading(doc, '3.4  Configure Podman Container Service', 2)
     add_para(doc,
-        'Podman is used to run the local Hyperledger Besu blockchain container. '
-        'It is a Docker-compatible, rootless container engine provided by Red Hat.')
-    add_bullet(doc, 'Install via winget (in PowerShell as Administrator):')
+        'QChat depends on Podman to orchestrate the private Hyperledger Besu blockchain network inside an isolated runtime environment. '
+        'Podman acts as a daemonless, rootless container platform maintained by Red Hat.')
+    add_bullet(doc, 'Trigger installation via winget (run PowerShell under Administrator access):')
     add_para(doc, 'winget install RedHat.Podman --accept-source-agreements --accept-package-agreements', code=True)
-    add_bullet(doc, 'Restart the computer after installation completes.')
-    add_bullet(doc, 'Open Git Bash and initialise the Podman virtual machine:')
+    add_bullet(doc, 'Reboot the computer to finalize driver registration.')
+    add_bullet(doc, 'Open Git Bash and boot the underlying Podman virtual machine host:')
     add_para(doc, 'podman machine init', code=True)
     add_para(doc, 'podman machine start', code=True)
-    add_bullet(doc, 'Confirm successful installation:')
+    add_bullet(doc, 'Confirm Podman environment status:')
     add_para(doc, 'podman version', code=True)
     add_warning(doc,
-        'If winget is unavailable or blocked by your institution\'s Group Policy, download and install '
-        'Node.js, Podman, and Git manually from their official websites using the graphical installers.')
+        'If network policies or Group Policy rules block winget execution, fetch offline setup executables '
+        'for Node.js, Podman, and Git directly from their primary web mirrors.')
 
     # 3.5 Project Dependencies
-    add_heading(doc, '3.5  Install Project Dependencies', 2)
-    add_para(doc, 'Open Git Bash and navigate to the project root:')
+    add_heading(doc, '3.5  Pull Project Dependencies', 2)
+    add_para(doc, 'Switch into your workspace directory using Git Bash:')
     add_para(doc, 'cd /c/Users/YOUR_USERNAME/Desktop/Qchat', code=True)
-    add_para(doc, 'Install root and frontend packages:')
+    add_para(doc, 'Install top-level application and frontend dependencies:')
     add_para(doc, 'pnpm install', code=True)
-    add_para(doc, 'Install smart-contract dependencies:')
+    add_para(doc, 'Install smart contract dependencies:')
     add_para(doc, 'cd contract', code=True)
     add_para(doc, 'npm install', code=True)
     add_para(doc, 'cd ..', code=True)
 
     # ── 4. Method 2 – Automated Setup ─────────────────────────────────────────
-    add_heading(doc, '4. Method 2 – Automated Setup with setup-project.sh', 1)
+    add_heading(doc, '4. Method 2 – Automated Script Deployment (setup-project.sh)', 1)
     add_para(doc,
-        'This method minimises manual work. Only Git Bash needs to be installed manually; '
-        'everything else is handled by the provided setup script (setup-project.sh).')
+        'This approach automates dependency installation. Aside from initial Git Bash bootstrapping, '
+        'the included shell script (setup-project.sh) sets up the remaining runtime elements.')
 
-    add_heading(doc, '4.1  Bootstrap Git Bash', 2)
-    add_para(doc, 'Open Windows PowerShell as Administrator and run:')
+    add_heading(doc, '4.1  Bootstrap Git Bash Environment', 2)
+    add_para(doc, 'In an elevated Administrator PowerShell prompt, execute:')
     add_para(doc,
         'winget install Git.Git --silent --accept-source-agreements --accept-package-agreements', code=True)
     add_para(doc,
         'Start-Process "C:\\Program Files\\Git\\git-bash.exe" -ArgumentList "--cd-to-home"', code=True)
-    add_para(doc, 'A new Git Bash window will open automatically.')
+    add_para(doc, 'A dedicated Git Bash console window will launch.')
 
-    add_heading(doc, '4.2  Run the Automated Setup Script', 2)
-    add_para(doc, 'In the Git Bash window, navigate to the project root:')
+    # 4.2 Run script
+    add_heading(doc, '4.2  Execute setup-project.sh', 2)
+    add_para(doc, 'Within Git Bash, change directory to the repository folder:')
     add_para(doc, 'cd /c/Users/YOUR_USERNAME/Desktop/Qchat', code=True)
-    add_para(doc, 'Make the script executable and run it:')
+    add_para(doc, 'Set executable flags and launch setup:')
     add_para(doc, 'chmod +x setup-project.sh', code=True)
     add_para(doc, './setup-project.sh', code=True)
-    add_para(doc, 'The script will automatically:')
-    add_bullet(doc, 'Detect and install Node.js LTS if missing')
-    add_bullet(doc, 'Detect and install Podman if missing, then initialise and start the Podman virtual machine')
-    add_bullet(doc, 'Install pnpm globally if missing')
-    add_bullet(doc, 'Run pnpm install at the project root')
-    add_bullet(doc, 'Install dependencies inside the contract/ folder')
-    add_bullet(doc, 'Initialise the Convex development backend (npx convex dev --once) and generate the .env.local configuration file')
-    add_para(doc, 'When finished, the terminal displays:')
+    add_para(doc, 'The setup pipeline carries out the following tasks:')
+    add_bullet(doc, 'Verifies Node.js LTS availability; installs via winget if missing')
+    add_bullet(doc, 'Checks Podman engine status; installs and starts the container VM if needed')
+    add_bullet(doc, 'Installs pnpm globally if not found in system PATH')
+    add_bullet(doc, 'Executes pnpm install across project root components')
+    add_bullet(doc, 'Pulls npm packages within the contract/ folder')
+    add_bullet(doc, 'Executes npx convex dev --once to configure the Convex reactive backend and generate .env.local')
+    add_para(doc, 'Upon successful setup, the console outputs:')
     add_para(doc, '🎉 SETTING UP COMPLETE!', code=True)
 
     # ── 5. Launching the Application ──────────────────────────────────────────
     add_heading(doc, '5. Launching the Application', 1)
 
-    add_heading(doc, '5.1  Start the Blockchain Node', 2)
-    add_para(doc, 'Ensure the Podman machine is running before launching the application:')
+    add_heading(doc, '5.1  Boot Private Blockchain Node', 2)
+    add_para(doc, 'Confirm the underlying Podman machine is active prior to launching application services:')
     add_para(doc, 'podman machine start', code=True)
-    add_para(doc, 'The Hyperledger Besu node starts automatically when the project script runs.')
+    add_para(doc, 'The local Besu blockchain node spins up automatically during script execution.')
 
-    add_heading(doc, '5.2  Start the Frontend and Backend', 2)
-    add_para(doc, 'In Git Bash, from the project root, run:')
+    add_heading(doc, '5.2  Launch Frontend & Reactive Backend Services', 2)
+    add_para(doc, 'From your project root in Git Bash, run:')
     add_para(doc, './start-project.sh', code=True)
-    add_para(doc, 'This script concurrently starts:')
-    add_bullet(doc, 'The Vite development server (React 19 frontend)')
-    add_bullet(doc, 'The Convex local backend (serverless functions)')
+    add_para(doc, 'This startup script spawns two concurrent processes:')
+    add_bullet(doc, 'Vite dev server hosting the React 19 single-page application')
+    add_bullet(doc, 'Convex development server providing reactive backend storage and RPC functions')
 
-    add_heading(doc, '5.3  Access the Application', 2)
-    add_para(doc, 'Once both processes are running (you will see "Local: http://localhost:5173/"), open a web browser and navigate to:')
+    add_heading(doc, '5.3  Open Browser Interface', 2)
+    add_para(doc, 'When logs indicate active servers (showing "Local: http://localhost:5173/"), launch your web browser and navigate to:')
     add_para(doc, 'http://localhost:5173/', code=True)
-    add_note(doc, 'Use a Chromium-based browser (Google Chrome or Microsoft Edge) for best compatibility with the Web Crypto API used by QChat.')
+    add_note(doc, 'We recommend Chromium-based browsers (Google Chrome, Brave, or Microsoft Edge) for full Web Crypto API standard compliance.')
 
     # ── 6. Important Notes ─────────────────────────────────────────────────────
     add_heading(doc, '6. Important Notes', 1)
     add_bullet(doc,
-        'Always use Git Bash (not PowerShell or CMD) when executing .sh scripts such as '
-        './setup-project.sh and ./start-project.sh.')
+        'Run all shell scripts (./setup-project.sh, ./start-project.sh) exclusively inside Git Bash.')
     add_bullet(doc,
-        'If the Podman machine is not running, execute podman machine start in Git Bash before launching the project.')
+        'If Podman service calls fail, ensure podman machine start has been issued inside Git Bash prior to app startup.')
     add_bullet(doc,
-        'The .env.local file is generated automatically by npx convex dev during setup. '
-        'No manual Convex configuration is required.')
+        'The .env.local configuration file generates during npx convex dev execution. No manual key editing is necessary.')
     add_bullet(doc,
-        'If Windows Defender SmartScreen or antivirus software blocks the installer scripts, '
-        'right-click the installer → "Run anyway" or temporarily disable real-time protection, '
-        'then re-enable it after installation.')
+        'If Windows Defender flags installer commands, click "More info" → "Run anyway", or temporarily pause real-time protection during setup.')
     add_bullet(doc,
-        'The original Linux/Fedora codebase remains unmodified. All Windows compatibility is '
-        'handled by Git Bash, Podman Desktop, and the provided shell scripts.')
+        'The underlying Linux repository architecture requires no code modifications. Git Bash and Podman resolve all platform translation requirements.')
     add_bullet(doc,
-        'If winget is unavailable or blocked by Group Policy, the packages (Node.js, Podman, Git) '
-        'can be downloaded manually from their official websites and installed via graphical installers.')
+        'Should automated winget routines hit network restrictions, install Node.js, Podman, and Git via standard standalone MSI/EXE binary installers.')
 
     # ── Appendix A – setup-project.sh content ─────────────────────────────────
     add_heading(doc, 'Appendix A – Content of setup-project.sh', 1)
