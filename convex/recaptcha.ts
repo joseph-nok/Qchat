@@ -79,11 +79,12 @@ export const loginUserWithRecaptcha = action({
       throw new ConvexError("reCAPTCHA verification failed. Please try again.");
     }
 
-    return await ctx.runMutation(api.qchat.loginUser, {
+    const result: any = await ctx.runMutation(api.qchat.loginUser, {
       email: args.email,
       password: args.password,
       role: args.role,
     });
+    return result;
   },
 });
 
@@ -111,7 +112,7 @@ export const registerUserWithRecaptcha = action({
       throw new ConvexError("reCAPTCHA verification failed. Please complete the reCAPTCHA challenge again.");
     }
 
-    return await ctx.runMutation(api.qchat.registerUser, {
+    const result: any = await ctx.runMutation(api.qchat.registerUser, {
       firstName: args.firstName,
       lastName: args.lastName,
       email: args.email,
@@ -122,5 +123,6 @@ export const registerUserWithRecaptcha = action({
       publicKey: args.publicKey,
       hasKeypair: args.hasKeypair,
     });
+    return result;
   },
 });
