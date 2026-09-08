@@ -14,6 +14,40 @@ const now = () => Date.now();
 
 const testUsers = [
   {
+    firstName: "Osei Nana",
+    lastName: "Kwaku",
+    fullName: "Osei Nana Kwaku",
+    email: "osei@uenr.edu.gh",
+    role: "student" as const,
+    school: "University of Energy and Natural Resources (UENR)",
+    idNumber: "UEB3509022",
+    indexNumber: "UEB3509022",
+    walletAddress: "0xf789Beaa2ee7cB2c5Af877C38A18e1acD7550a05",
+    bio: "Level 400 Computer Science student. Submitted cryptography & security assignment.",
+    avatarUrl: "",
+    passwordHash: "qchat_a9e63a98",
+    sessionToken: "demo:osei@uenr.edu.gh",
+    verificationStatus: "approved" as const,
+    approved: true,
+  },
+  {
+    firstName: "Peter",
+    lastName: "Nimbe",
+    fullName: "Dr. Peter Nimbe",
+    email: "peter.nimbe@uenr.edu.gh",
+    role: "lecturer" as const,
+    school: "University of Energy and Natural Resources (UENR)",
+    idNumber: "PS001",
+    staffId: "PS001",
+    walletAddress: "0xabcd1234ef567890123456789012345678901234",
+    bio: "Head of Computer Science & Informatics. Reviewer for academic submissions.",
+    avatarUrl: "",
+    passwordHash: "qchat_a9e63a98",
+    sessionToken: "demo:peter.nimbe@uenr.edu.gh",
+    verificationStatus: "approved" as const,
+    approved: true,
+  },
+  {
     firstName: "Kwame",
     lastName: "Mensah",
     fullName: "Kwame Mensah",
@@ -21,6 +55,8 @@ const testUsers = [
     role: "student" as const,
     school: "University of Energy and Natural Resources (UENR)",
     idNumber: "UEB1234567",
+    indexNumber: "UEB1234567",
+    walletAddress: "0x1111222233334444555566667777888899990000",
     bio: "Computer science student focused on secure academic credential exchange.",
     avatarUrl: "",
     passwordHash: "qchat_a9e63a98",
@@ -35,7 +71,9 @@ const testUsers = [
     email: "abena.ansah@ug.edu.gh",
     role: "lecturer" as const,
     school: "University of Ghana",
-    idNumber: "UG-STF-0001",
+    idNumber: "PS002",
+    staffId: "PS002",
+    walletAddress: "0x9999888877776666555544443333222211110000",
     bio: "Lecturer and registrar reviewer for postgraduate engineering credentials.",
     avatarUrl: "",
     passwordHash: "qchat_a9e63a98",
@@ -50,7 +88,9 @@ const testUsers = [
     email: "kofi.owusu@knust.edu.gh",
     role: "lecturer" as const,
     school: "KNUST",
-    idNumber: "KNUST-STF-0002",
+    idNumber: "PS003",
+    staffId: "PS003",
+    walletAddress: "0x5555444433332222111100009999888877776666",
     bio: "Academic advisor coordinating scholarship and fellowship document reviews.",
     avatarUrl: "",
     passwordHash: "qchat_a9e63a98",
@@ -65,41 +105,12 @@ const testUsers = [
     email: "esi.boateng@ug.edu.gh",
     role: "student" as const,
     school: "University of Ghana",
-    idNumber: "UG-STU-0003",
+    idNumber: "UEB8899001",
+    indexNumber: "UEB8899001",
     bio: "Undergraduate researcher preparing institutional profile verification.",
     avatarUrl: "",
     passwordHash: "qchat_a9e63a98",
     sessionToken: "demo:esi.boateng@ug.edu.gh",
-    verificationStatus: "pending" as const,
-    approved: false,
-  },
-  {
-    firstName: "Peter",
-    lastName: "Nimbe",
-    fullName: "Prof. Peter Nimbe",
-    email: "peter.nimbe@uenr.edu.gh",
-    role: "lecturer" as const,
-    school: "University of Energy and Natural Resources (UENR)",
-    idNumber: "STF9876543",
-    bio: "Lecturer supporting secure academic identity workflows in Qchat.",
-    avatarUrl: "",
-    passwordHash: "qchat_a9e63a98",
-    sessionToken: "demo:peter.nimbe@uenr.edu.gh",
-    verificationStatus: "unverified" as const,
-    approved: false,
-  },
-  {
-    firstName: "Akosua",
-    lastName: "Nyarko",
-    fullName: "Akosua Nyarko",
-    email: "akosua.nyarko@knust.edu.gh",
-    role: "student" as const,
-    school: "KNUST",
-    idNumber: "KNUST-STU-0004",
-    bio: "Final-year information systems student awaiting verification approval.",
-    avatarUrl: "",
-    passwordHash: "qchat_a9e63a98",
-    sessionToken: "demo:akosua.nyarko@knust.edu.gh",
     verificationStatus: "pending" as const,
     approved: false,
   },
@@ -193,8 +204,8 @@ export const run = mutation({
       }
     }
 
-    const [kwameId, abenaId, kofiId] = userIds;
-    if (!kwameId || !abenaId || !kofiId) {
+    const [oseiId, peterId, kwameId, abenaId, kofiId] = userIds;
+    if (!oseiId || !peterId || !kwameId || !abenaId || !kofiId) {
       throw new Error("Seed users were not created correctly.");
     }
 
@@ -234,6 +245,65 @@ export const run = mutation({
         updatedAt,
       });
     };
+
+    // Room 0: Osei Nana Kwaku & Dr. Peter Nimbe
+    const roomZeroKey = [oseiId, peterId].sort().join(":");
+    const existingRoomZero = await ctx.db
+      .query("chatRooms")
+      .withIndex("by_participantKey", (q) => q.eq("participantKey", roomZeroKey))
+      .first();
+
+    if (!existingRoomZero) {
+      const roomZeroCreatedAt = timestamp - 1000 * 60 * 60 * 5;
+      const roomZeroId = await ctx.db.insert("chatRooms", {
+        participantIds: [oseiId, peterId],
+        participantKey: roomZeroKey,
+        title: "Osei Nana Kwaku, Dr. Peter Nimbe",
+        lastMessageText: "Submitted assignment.pdf for Cryptography & Network Security.",
+        lastMessageAt: roomZeroCreatedAt + 1000 * 60 * 30,
+        createdAt: roomZeroCreatedAt,
+        updatedAt: roomZeroCreatedAt + 1000 * 60 * 30,
+      });
+
+      await ctx.db.insert("messages", {
+        roomId: roomZeroId,
+        senderId: peterId,
+        text: "Hello Osei, please remember to submit your assignment.pdf before 14:30 PM today.",
+        readBy: [peterId, oseiId],
+        createdAt: roomZeroCreatedAt,
+      });
+
+      await ctx.db.insert("messages", {
+        roomId: roomZeroId,
+        senderId: oseiId,
+        text: "Good afternoon Dr. Peter, here is my completed assignment submission file.",
+        attachmentName: "assignment.pdf",
+        attachmentType: "application/pdf",
+        attachmentSize: 1048576,
+        attachmentUrl: "https://qchat-demo.local/submissions/assignment.pdf",
+        blockchainTxHash: "0x5c16c49d32067cc9f506a8eb2e94e76d35d0cf2c9fe1ee8bb58791248f3a91c5",
+        readBy: [oseiId, peterId],
+        createdAt: roomZeroCreatedAt + 1000 * 60 * 20,
+      });
+
+      await ctx.db.insert("messages", {
+        roomId: roomZeroId,
+        senderId: oseiId,
+        text: "I have also attached the raw lab data log file as reference.",
+        attachmentName: "lab_data_logs.csv",
+        attachmentType: "text/csv",
+        attachmentSize: 45020,
+        attachmentUrl: "https://qchat-demo.local/submissions/lab_data_logs.csv",
+        blockchainTxHash: "0x8a92b31f7c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
+        readBy: [oseiId, peterId],
+        createdAt: roomZeroCreatedAt + 1000 * 60 * 30,
+      });
+
+      await ensureRoomMember(roomZeroId, oseiId, peterId, 0, roomZeroCreatedAt + 1000 * 60 * 30);
+      await ensureRoomMember(roomZeroId, peterId, oseiId, 2, roomZeroCreatedAt + 1000 * 60 * 30);
+      roomsInserted += 1;
+      messagesInserted += 3;
+    }
 
     const roomOneKey = [kwameId, abenaId].sort().join(":");
     const existingRoomOne = await ctx.db

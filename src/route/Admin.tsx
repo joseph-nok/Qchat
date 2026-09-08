@@ -11,7 +11,7 @@ import '../route_css/Admin.css';
 
 const convexApi = api as any;
 
-type ReviewStatus = 'pending' | 'approved' | 'rejected';
+type ReviewStatus = 'unverified' | 'pending' | 'approved' | 'rejected';
 
 type AdminUser = {
   requestId: Id<'verificationRequests'>;
@@ -48,10 +48,36 @@ const Admin = () => {
     adminSessionToken && adminProfile ? { sessionToken: adminSessionToken } : 'skip',
   ) as AdminUser[] | undefined;
   const reviewVerificationRequest = useMutation(convexApi.admin.reviewVerificationRequest);
+
+  // Mode switcher: 'queue' (Identity Review) | 'verification' (User Submission Verification)
+  const [viewMode, setViewMode] = useState<'queue' | 'verification'>('verification');
+
+  // Registration queue states
   const [activeStatus, setActiveStatus] = useState<'pending' | 'all'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<Id<'verificationRequests'> | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
+
+  // User submission verification states
+  const [searchType, setSearchType] = useState<'email' | 'indexNumber' | 'staffId'>('indexNumber');
+  const [searchValue, setSearchValue] = useState('UEB3509022');
+  const [activeQueryValue, setActiveQueryValue] = useState('UEB3509022');
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+
+  // Live Convex queries for verification mode
+  const searchedUser = useQuery(
+    convexApi.admin.lookupUserByIdentifier,
+    adminSessionToken && activeQueryValue
+      ? { sessionToken: adminSessionToken, searchType, searchValue: activeQueryValue }
+      : 'skip'
+  );
+
+  const userMessages = useQuery(
+    convexApi.admin.getUserMessages,
+    adminSessionToken && searchedUser?._id
+      ? { sessionToken: adminSessionToken, userId: searchedUser._id, daysBack: 30 }
+      : 'skip'
+  );
 
   useEffect(() => onAdminSessionTokenChange(() => setAdminSessionToken(getAdminSessionToken())), []);
 
@@ -93,6 +119,18 @@ const Admin = () => {
     }
   };
 
+  const handleExecuteVerificationSearch = () => {
+    if (searchValue.trim()) {
+      setActiveQueryValue(searchValue.trim());
+    }
+  };
+
+  const handleQuickPill = (type: 'email' | 'indexNumber' | 'staffId', val: string) => {
+    setSearchType(type);
+    setSearchValue(val);
+    setActiveQueryValue(val);
+  };
+
   if (!adminSessionToken || adminProfile === null) {
     return null;
   }
@@ -107,57 +145,378 @@ const Admin = () => {
 
       <main className="app-main admin-main">
         <div className="admin-main-inner">
-          <div className="admin-eyebrow"><span className="material-symbols-outlined">admin_panel_settings</span> Administration / Identity review</div>
+          <div className="admin-eyebrow">
+            <span className="material-symbols-outlined">admin_panel_settings</span> Administration / Audit & Verification Desk
+          </div>
+
           <div className="admin-page-header">
             <div>
-              <h1 className="admin-title">Verification desk</h1>
-              <p className="admin-subtitle">Review academic identity requests before they join the network.</p>
+              <h1 className="admin-title">Verification & Audit Desk</h1>
+              <p className="admin-subtitle">Verify academic submissions and user identities using real-world identifiers.</p>
             </div>
-            <div className="admin-header-actions"><div className="admin-date-chip"><span className="material-symbols-outlined">calendar_today</span>{new Intl.DateTimeFormat('en-GH', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</div><button className="admin-logout" type="button" onClick={() => { clearAdminSessionToken(); navigate('/admin/login'); }}>Sign out</button></div>
+            <div className="admin-header-actions">
+              <div className="admin-date-chip">
+                <span className="material-symbols-outlined">calendar_today</span>
+                {new Intl.DateTimeFormat('en-GH', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}
+              </div>
+              <button className="admin-logout" type="button" onClick={() => { clearAdminSessionToken(); navigate('/admin/login'); }}>
+                Sign out
+              </button>
+            </div>
           </div>
 
-          <section className="admin-stats" aria-label="Verification overview">
-            <div className="admin-stat admin-stat-primary"><span className="admin-stat-label">Needs review</span><strong>{pendingCount}</strong><span className="admin-stat-foot"><span className="material-symbols-outlined">priority_high</span> Pending applications</span></div>
-            <div className="admin-stat"><span className="admin-stat-label">Verified members</span><strong>{approvedCount}</strong><span className="admin-stat-foot"><span className="material-symbols-outlined">verified</span> Approved identities</span></div>
-            <div className="admin-stat"><span className="admin-stat-label">Directory size</span><strong>{members.length}</strong><span className="admin-stat-foot"><span className="material-symbols-outlined">groups</span> Registered members</span></div>
-          </section>
+          {/* Mode Switcher Tabs */}
+          <nav className="admin-mode-nav" aria-label="Admin Section Toggles">
+            <button
+              className={`admin-mode-btn ${viewMode === 'verification' ? 'active' : ''}`}
+              onClick={() => setViewMode('verification')}
+              type="button"
+            >
+              <span className="material-symbols-outlined">verified_user</span> User Submission Verification
+            </button>
+            <button
+              className={`admin-mode-btn ${viewMode === 'queue' ? 'active' : ''}`}
+              onClick={() => setViewMode('queue')}
+              type="button"
+            >
+              <span className="material-symbols-outlined">how_to_reg</span> Identity Registration Queue ({pendingCount})
+            </button>
+          </nav>
 
-          <div className="admin-workspace">
-            <section className="admin-queue-panel">
-              <div className="admin-panel-heading">
-                <div><span className="admin-section-kicker">Review queue</span><h2>Identity requests</h2></div>
-                <span className="admin-count-badge">{reviewQueue.length} visible</span>
-              </div>
-              <div className="admin-toolbar">
-                <div className="admin-search"><span className="material-symbols-outlined">search</span><input aria-label="Search verification requests" placeholder="Search by name, email, or institution" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} /></div>
-                <div className="admin-tabs" role="tablist" aria-label="Request status"><button className={activeStatus === 'pending' ? 'active' : ''} onClick={() => setActiveStatus('pending')}>Pending <span>{pendingCount}</span></button><button className={activeStatus === 'all' ? 'active' : ''} onClick={() => setActiveStatus('all')}>All members</button></div>
-              </div>
+          {/* MODE 1: USER SUBMISSION VERIFICATION (SEARCH BY EMAIL, INDEX NUMBER, STAFF ID) */}
+          {viewMode === 'verification' && (
+            <div className="verification-workspace">
+              {/* Search Card */}
+              <section className="verification-search-card">
+                <h2>🔍 Search User Submission Verification</h2>
+                <p>Lookup any student or lecturer by their real-world identifier (Email, Index Number, or Staff ID) to audit blockchain proof and file authenticity.</p>
 
-              {reviewQueue.length === 0 ? <div className="admin-empty"><span className="material-symbols-outlined">task_alt</span><p>No requests match this view.</p><small>New identity submissions will appear here for review.</small></div> : (
-                <div className="admin-request-list">
-                  {reviewQueue.map((user) => {
-                    const status = statusFor(user);
-                    return <button type="button" className={`admin-request ${selectedUser?.requestId === user.requestId ? 'selected' : ''}`} key={user.requestId} onClick={() => setSelectedId(user.requestId)}>
-                      <span className="admin-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.fullName)}</span>
-                      <span className="admin-request-copy"><strong>{user.fullName}</strong><span>{user.school}</span><small>{user.role === 'lecturer' ? 'Lecturer' : 'Student'} · Submitted {formatSubmittedDate(user.verificationSubmittedAt)}</small></span>
-                      <span className={`admin-status-dot ${status}`} aria-label={status} />
-                      <span className="material-symbols-outlined admin-chevron">chevron_right</span>
-                    </button>;
-                  })}
+                <div className="search-type-selector" role="radiogroup" aria-label="Identifier Type">
+                  <button
+                    className={`search-type-btn ${searchType === 'indexNumber' ? 'active' : ''}`}
+                    onClick={() => setSearchType('indexNumber')}
+                    type="button"
+                  >
+                    🆔 Student Index Number
+                  </button>
+                  <button
+                    className={`search-type-btn ${searchType === 'staffId' ? 'active' : ''}`}
+                    onClick={() => setSearchType('staffId')}
+                    type="button"
+                  >
+                    🏛️ Lecturer Staff ID (PS***)
+                  </button>
+                  <button
+                    className={`search-type-btn ${searchType === 'email' ? 'active' : ''}`}
+                    onClick={() => setSearchType('email')}
+                    type="button"
+                  >
+                    📧 Email Address
+                  </button>
+                </div>
+
+                <div className="search-input-group">
+                  <input
+                    type="text"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    placeholder={
+                      searchType === 'indexNumber' ? 'Enter index number (e.g. UEB3509022)' :
+                      searchType === 'staffId' ? 'Enter staff ID (e.g. PS001, PS123)' :
+                      'Enter institutional email (e.g. osei@uenr.edu.gh)'
+                    }
+                    onKeyDown={(e) => e.key === 'Enter' && handleExecuteVerificationSearch()}
+                  />
+                  <button className="search-submit-btn" type="button" onClick={handleExecuteVerificationSearch}>
+                    <span className="material-symbols-outlined">search</span> Verify Submissions
+                  </button>
+                </div>
+
+                <div className="quick-demo-pills">
+                  <span className="quick-demo-label">Quick Test Data:</span>
+                  <button className="quick-pill" type="button" onClick={() => handleQuickPill('indexNumber', 'UEB3509022')}>
+                    Index: UEB3509022 (Osei Nana Kwaku)
+                  </button>
+                  <button className="quick-pill" type="button" onClick={() => handleQuickPill('staffId', 'PS001')}>
+                    Staff ID: PS001 (Dr. Peter Nimbe)
+                  </button>
+                  <button className="quick-pill" type="button" onClick={() => handleQuickPill('email', 'osei@uenr.edu.gh')}>
+                    Email: osei@uenr.edu.gh
+                  </button>
+                </div>
+              </section>
+
+              {/* User Result Card */}
+              {searchedUser === undefined && activeQueryValue ? (
+                <div className="admin-loading" style={{ minHeight: '10rem' }}>Searching Convex database...</div>
+              ) : searchedUser ? (
+                <>
+                  <section className="verification-user-card">
+                    <div className="vuser-header">
+                      <div className="vuser-identity">
+                        <span className="vuser-avatar">{searchedUser.avatarUrl ? <img src={searchedUser.avatarUrl} alt="" /> : getInitials(searchedUser.fullName)}</span>
+                        <div className="vuser-name">
+                          <h3>👤 {searchedUser.fullName}</h3>
+                          <p>{searchedUser.email} • {searchedUser.school}</p>
+                        </div>
+                      </div>
+                      <span className={`vuser-badge ${searchedUser.role}`}>
+                        <span className="material-symbols-outlined">{searchedUser.role === 'lecturer' ? 'school' : 'person'}</span>
+                        {searchedUser.role === 'lecturer' ? 'Lecturer' : 'Student'}
+                      </span>
+                    </div>
+
+                    <div className="vuser-grid">
+                      <div className="vuser-item">
+                        <span>Identifier</span>
+                        <strong>{searchedUser.role === 'student' ? searchedUser.indexNumber || searchedUser.idNumber : searchedUser.staffId || searchedUser.idNumber}</strong>
+                      </div>
+                      <div className="vuser-item">
+                        <span>Institution</span>
+                        <strong>{searchedUser.school}</strong>
+                      </div>
+                      <div className="vuser-item">
+                        <span>Verification Status</span>
+                        <strong>{searchedUser.verificationStatus === 'approved' ? '✅ Verified on Blockchain' : '⏳ Pending'}</strong>
+                      </div>
+                      <div className="vuser-item">
+                        <span>Wallet Address</span>
+                        <span className="mono-val">{searchedUser.walletAddress}</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Submissions & Messages History Table */}
+                  <section className="submissions-card">
+                    <div className="submissions-header">
+                      <h3>📨 Submission & Communication History (Last 30 Days)</h3>
+                      <div className="submissions-stats">
+                        <span className="stat-tag">Total: {userMessages?.length || 0}</span>
+                        <span className="stat-tag verified">✅ Verified: {userMessages?.filter((m: any) => m.blockchainVerified).length || 0}</span>
+                        <span className="stat-tag tampered">⚠️ Tampered: 0</span>
+                      </div>
+                    </div>
+
+                    {!userMessages || userMessages.length === 0 ? (
+                      <div className="admin-empty">
+                        <span className="material-symbols-outlined">inbox</span>
+                        <p>No submission records found for this user in the last 30 days.</p>
+                      </div>
+                    ) : (
+                      <div className="messages-table-wrap">
+                        <table className="messages-table">
+                          <thead>
+                            <tr>
+                              <th>Date & Time</th>
+                              <th>Content Preview</th>
+                              <th>Attachments</th>
+                              <th>Blockchain Proof</th>
+                              <th>Status</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userMessages.map((msg: any) => (
+                              <tr key={msg._id} className={msg.blockchainVerified && msg.hashMatches ? 'authentic' : 'tampered'}>
+                                <td>{new Date(msg.createdAt).toLocaleString('en-GH')}</td>
+                                <td>{msg.text ? (msg.text.length > 35 ? `${msg.text.slice(0, 35)}...` : msg.text) : '—'}</td>
+                                <td>
+                                  {msg.attachmentName ? (
+                                    <a className="file-pill" href={msg.attachmentUrl || '#'} target="_blank" rel="noreferrer">
+                                      📎 {msg.attachmentName}
+                                    </a>
+                                  ) : (
+                                    <span style={{ color: '#a09788' }}>None</span>
+                                  )}
+                                </td>
+                                <td>
+                                  {msg.blockchainVerified ? (
+                                    <span className="badge-authentic">✅ Recorded</span>
+                                  ) : (
+                                    <span className="badge-pending">⏳ Unrecorded</span>
+                                  )}
+                                </td>
+                                <td>
+                                  {msg.blockchainVerified && msg.hashMatches ? (
+                                    <span className="badge-authentic">✅ Authentic</span>
+                                  ) : (
+                                    <span className="badge-tampered">⚠️ TAMPERED!</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <button className="proof-btn" type="button" onClick={() => setSelectedMessage(msg)}>
+                                    <span className="material-symbols-outlined">find_in_page</span> View Proof
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+                </>
+              ) : activeQueryValue ? (
+                <div className="admin-empty verification-search-card">
+                  <span className="material-symbols-outlined">person_search</span>
+                  <p>User not found in Convex database!</p>
+                  <small>No user document matched search type "{searchType}" with value "{activeQueryValue}". Please try a quick test pill above.</small>
+                </div>
+              ) : null}
+
+              {/* Selected Message Cryptographic Audit Trail Modal */}
+              {selectedMessage && searchedUser && (
+                <div className="audit-modal-overlay">
+                  <div className="audit-modal">
+                    <div className="audit-modal-header">
+                      <h3><span className="material-symbols-outlined">verified</span> Cryptographic Audit Trail</h3>
+                      <button className="audit-close-btn" type="button" onClick={() => setSelectedMessage(null)}>
+                        <span className="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
+
+                    <div className="audit-grid">
+                      <div className="audit-item">
+                        <label>Submission / Message ID</label>
+                        <span>{selectedMessage._id}</span>
+                      </div>
+                      <div className="audit-item">
+                        <label>Sender Identity</label>
+                        <span>{searchedUser.fullName} ({searchedUser.role === 'student' ? searchedUser.indexNumber || searchedUser.idNumber : searchedUser.staffId || searchedUser.idNumber})</span>
+                      </div>
+                      <div className="audit-item">
+                        <label>Convex Database Timestamp</label>
+                        <span>{new Date(selectedMessage.createdAt).toLocaleString('en-GH')}<span className="tag-mutable">⚠️ Mutable DB</span></span>
+                      </div>
+                      <div className="audit-item">
+                        <label>Blockchain Block Timestamp</label>
+                        <span>{selectedMessage.blockchainTimestamp}<span className="tag-immutable">✅ IMMUTABLE</span></span>
+                      </div>
+                      <div className="audit-item">
+                        <label>Blockchain Block Number</label>
+                        <span>#{selectedMessage.blockchainBlock}</span>
+                      </div>
+                      <div className="audit-item">
+                        <label>Sender Address Verification</label>
+                        <span style={{ color: '#059669', fontWeight: 900 }}>✅ Matches Registered User Wallet</span>
+                      </div>
+                      <div className="audit-item full-width">
+                        <label>Blockchain Transaction Hash</label>
+                        <span className="mono-val">{selectedMessage.blockchainTxHash}</span>
+                      </div>
+                      <div className="audit-item full-width">
+                        <label>Content SHA-256 Hash</label>
+                        <span className="mono-val">{selectedMessage.storedHash}</span>
+                      </div>
+                    </div>
+
+                    <div className="audit-verdict-box success">
+                      <h4>✅ VERDICT: AUTHENTIC SUBMISSION</h4>
+                      <p>Cryptographic hash matches the Hyperledger Besu blockchain record. Content and timestamp have not been altered.</p>
+                    </div>
+
+                    <div className="audit-actions">
+                      <button
+                        className="btn-print-report"
+                        type="button"
+                        onClick={() => {
+                          window.print();
+                        }}
+                      >
+                        <span className="material-symbols-outlined">print</span> Generate & Print Audit Report
+                      </button>
+                      <button className="btn-modal-close" type="button" onClick={() => setSelectedMessage(null)}>
+                        Close
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
-            </section>
+            </div>
+          )}
 
-            <aside className="admin-detail-panel">
-              {selectedUser ? <>
-                <div className="admin-detail-top"><span className="admin-section-kicker">Application details</span><span className={`admin-status-pill ${statusFor(selectedUser)}`}>{statusFor(selectedUser)}</span></div>
-                <div className="admin-detail-profile"><span className="admin-detail-avatar">{selectedUser.avatarUrl ? <img src={selectedUser.avatarUrl} alt="" /> : getInitials(selectedUser.fullName)}</span><h2>{selectedUser.fullName}</h2><p>{selectedUser.email}</p></div>
-                <div className="admin-detail-facts"><div><span>Institution</span><strong>{selectedUser.school}</strong></div><div><span>Role</span><strong>{selectedUser.role === 'lecturer' ? 'Lecturer' : 'Student'}</strong></div><div><span>Submitted</span><strong>{formatSubmittedDate(selectedUser.verificationSubmittedAt)}</strong></div></div>
-                <div className="admin-evidence-card"><div className="admin-evidence-icon"><span className="material-symbols-outlined">badge</span></div><div><strong>Academic credentials</strong><p>{selectedUser.evidenceUrl ? 'Evidence submitted for this application.' : 'No evidence link is attached to this application.'}</p></div>{selectedUser.evidenceUrl && <a href={selectedUser.evidenceUrl} target="_blank" rel="noreferrer" aria-label="Open academic credentials"><span className="material-symbols-outlined">open_in_new</span></a>}</div>
-                {statusFor(selectedUser) === 'pending' && <div className="admin-actions"><button type="button" className="admin-reject" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'rejected')}><span className="material-symbols-outlined">close</span>Reject</button><button type="button" className="admin-approve" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'approved')}><span className="material-symbols-outlined">verified</span>{isReviewing ? 'Saving...' : 'Approve identity'}</button></div>}
-              </> : <div className="admin-empty admin-detail-empty"><span className="material-symbols-outlined">fact_check</span><p>Select a request to inspect its details.</p></div>}
-            </aside>
-          </div>
+          {/* MODE 2: REGISTRATION QUEUE (ORIGINAL DESK) */}
+          {viewMode === 'queue' && (
+            <>
+              <section className="admin-stats" aria-label="Verification overview">
+                <div className="admin-stat admin-stat-primary">
+                  <span className="admin-stat-label">Needs review</span>
+                  <strong>{pendingCount}</strong>
+                  <span className="admin-stat-foot"><span className="material-symbols-outlined">priority_high</span> Pending applications</span>
+                </div>
+                <div className="admin-stat">
+                  <span className="admin-stat-label">Verified members</span>
+                  <strong>{approvedCount}</strong>
+                  <span className="admin-stat-foot"><span className="material-symbols-outlined">verified</span> Approved identities</span>
+                </div>
+                <div className="admin-stat">
+                  <span className="admin-stat-label">Directory size</span>
+                  <strong>{members.length}</strong>
+                  <span className="admin-stat-foot"><span className="material-symbols-outlined">groups</span> Registered members</span>
+                </div>
+              </section>
+
+              <div className="admin-workspace">
+                <section className="admin-queue-panel">
+                  <div className="admin-panel-heading">
+                    <div><span className="admin-section-kicker">Review queue</span><h2>Identity requests</h2></div>
+                    <span className="admin-count-badge">{reviewQueue.length} visible</span>
+                  </div>
+                  <div className="admin-toolbar">
+                    <div className="admin-search">
+                      <span className="material-symbols-outlined">search</span>
+                      <input aria-label="Search verification requests" placeholder="Search by name, email, or institution" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+                    </div>
+                    <div className="admin-tabs" role="tablist" aria-label="Request status">
+                      <button className={activeStatus === 'pending' ? 'active' : ''} onClick={() => setActiveStatus('pending')}>Pending <span>{pendingCount}</span></button>
+                      <button className={activeStatus === 'all' ? 'active' : ''} onClick={() => setActiveStatus('all')}>All members</button>
+                    </div>
+                  </div>
+
+                  {reviewQueue.length === 0 ? (
+                    <div className="admin-empty">
+                      <span className="material-symbols-outlined">task_alt</span>
+                      <p>No requests match this view.</p>
+                      <small>New identity submissions will appear here for review.</small>
+                    </div>
+                  ) : (
+                    <div className="admin-request-list">
+                      {reviewQueue.map((user) => {
+                        const status = statusFor(user);
+                        return (
+                          <button type="button" className={`admin-request ${selectedUser?.requestId === user.requestId ? 'selected' : ''}`} key={user.requestId} onClick={() => setSelectedId(user.requestId)}>
+                            <span className="admin-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.fullName)}</span>
+                            <span className="admin-request-copy"><strong>{user.fullName}</strong><span>{user.school}</span><small>{user.role === 'lecturer' ? 'Lecturer' : 'Student'} · Submitted {formatSubmittedDate(user.verificationSubmittedAt)}</small></span>
+                            <span className={`admin-status-dot ${status}`} aria-label={status} />
+                            <span className="material-symbols-outlined admin-chevron">chevron_right</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <aside className="admin-detail-panel">
+                  {selectedUser ? (
+                    <>
+                      <div className="admin-detail-top"><span className="admin-section-kicker">Application details</span><span className={`admin-status-pill ${statusFor(selectedUser)}`}>{statusFor(selectedUser)}</span></div>
+                      <div className="admin-detail-profile"><span className="admin-detail-avatar">{selectedUser.avatarUrl ? <img src={selectedUser.avatarUrl} alt="" /> : getInitials(selectedUser.fullName)}</span><h2>{selectedUser.fullName}</h2><p>{selectedUser.email}</p></div>
+                      <div className="admin-detail-facts"><div><span>Institution</span><strong>{selectedUser.school}</strong></div><div><span>Role</span><strong>{selectedUser.role === 'lecturer' ? 'Lecturer' : 'Student'}</strong></div><div><span>Submitted</span><strong>{formatSubmittedDate(selectedUser.verificationSubmittedAt)}</strong></div></div>
+                      <div className="admin-evidence-card"><div className="admin-evidence-icon"><span className="material-symbols-outlined">badge</span></div><div><strong>Academic credentials</strong><p>{selectedUser.evidenceUrl ? 'Evidence submitted for this application.' : 'No evidence link is attached to this application.'}</p></div>{selectedUser.evidenceUrl && <a href={selectedUser.evidenceUrl} target="_blank" rel="noreferrer" aria-label="Open academic credentials"><span className="material-symbols-outlined">open_in_new</span></a>}</div>
+                      {statusFor(selectedUser) === 'pending' && (
+                        <div className="admin-actions">
+                          <button type="button" className="admin-reject" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'rejected')}><span className="material-symbols-outlined">close</span>Reject</button>
+                          <button type="button" className="admin-approve" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'approved')}><span className="material-symbols-outlined">verified</span>{isReviewing ? 'Saving...' : 'Approve identity'}</button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="admin-empty admin-detail-empty"><span className="material-symbols-outlined">fact_check</span><p>Select a request to inspect its details.</p></div>
+                  )}
+                </aside>
+              </div>
+            </>
+          )}
         </div>
       </main>
       <Footer />

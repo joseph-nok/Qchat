@@ -809,7 +809,7 @@ const MessagesList = () => {
                 messages.map((message) => {
                   const isEncrypted = message.isEncrypted;
                   const decryptedText = isEncrypted
-                    ? (decryptedTexts[message._id] || '[Decrypting message...]')
+                    ? (decryptedTexts[message._id] || 'Tap to decrypt message...')
                     : message.text;
 
                   return (

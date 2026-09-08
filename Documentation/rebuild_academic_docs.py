@@ -473,7 +473,7 @@ def chapter_3(doc):
         ["Collection Name", "Core Schema Fields", "Secondary Indexing", "System Purpose"],
         [
             ["admins", "email, passwordHash, sessionToken", "by_email, by_sessionToken", "Administrative authentication records"],
-            ["users", "profile, role, publicKey, hasKeypair, verificationStatus", "by_email, by_sessionToken, by_school, by_verificationStatus", "Student and lecturer account profiles"],
+            ["users", "firstName, lastName, email, role, indexNumber, staffId (PS***), idNumber, walletAddress, verificationStatus", "by_email, by_indexNumber, by_staffId, by_idNumber, by_sessionToken, by_school, by_verificationStatus, by_walletAddress", "Student and lecturer profiles indexed by real-world identifiers"],
             ["chatRooms", "participantIds, bb84Key, bb84Fingerprint", "by_participantKey", "One-to-one conversation room metadata"],
             ["chatRoomMembers", "roomId, userId, unreadCount", "by_userId_and_updatedAt", "Unread badges and member room state"],
             ["messages", "text, iv, isEncrypted, blockchainTxHash, attachments", "by_roomId_and_createdAt", "Encrypted message payloads and audit tx hashes"],
@@ -539,7 +539,9 @@ def chapter_3(doc):
             "recordHash(string messageId, bytes32 messageHash, address sender, address receiver): Stores payload digest; reverts on duplicate message ID.",
             "verifyHash(string messageId): Read-only view function returning stored bytes32 hash for integrity verification.",
             "verifyUser(address user, string role): Admin-only function registering verified user identity and institutional role on-chain.",
-            "getUserRole(address user): Returns the on-chain recorded role string for a given wallet address.",
+            "verifyUserWithIndex(address user, string role, string indexNumber): Binds student index number (e.g., UEB3509022) to role and wallet address on-chain.",
+            "verifyUserWithStaffId(address user, string role, string staffId): Binds lecturer staff ID in PS*** format (e.g., PS001, PS123) to role and wallet address on-chain.",
+            "getUserRole(address user), getUserIndexNumber(address user), getUserStaffId(address user): View functions returning on-chain identity bindings.",
         ],
     )
 
@@ -551,8 +553,9 @@ def chapter_3(doc):
     )
     p(
         doc,
-        "Verification Flow: User uploads identity evidence → Store request in Convex → Admin reviews request in Admin.tsx → "
-        "Admin approves status → Execute Besu verifyUser() to record role on-chain.",
+        "Verification Flow: Admin enters search identifier (Email, Student Index Number UEB3509022, or Lecturer Staff ID PS***) → "
+        "Query Convex database for user profile and 30-day message history → Inspect Cryptographic Audit Trail comparing Convex mutable DB timestamp "
+        "against Besu immutable block timestamp → Validate content SHA-256 hash match → Generate and print formal verification audit report.",
     )
 
     h(doc, "3.8 User Interface Routing", 2)

@@ -21,6 +21,10 @@ contract MessageVerifier {
     // Mapping from user address to their role ("student", "lecturer", "admin")
     mapping(address => string) private userRoles;
 
+    // Real-world identifier mappings
+    mapping(address => string) public userIndexNumber; // Student index numbers e.g. UEB3509022
+    mapping(address => string) public userStaffId;     // Lecturer staff IDs e.g. PS001, PS123
+
     // Events for frontend listening
     event MessageHashRecorded(
         string messageId,
@@ -32,7 +36,8 @@ contract MessageVerifier {
 
     event UserVerified(
         address indexed userAddress,
-        string role
+        string role,
+        string identifier
     );
 
     // Modifier to restrict access to the admin only
@@ -47,7 +52,7 @@ contract MessageVerifier {
     constructor() {
         admin = msg.sender;
         userRoles[admin] = "admin";
-        emit UserVerified(admin, "admin");
+        emit UserVerified(admin, "admin", "ADMIN_SYS");
     }
 
     /**
@@ -96,7 +101,35 @@ contract MessageVerifier {
         require(bytes(role).length > 0, "MessageVerifier: Role cannot be empty");
 
         userRoles[userAddress] = role;
-        emit UserVerified(userAddress, role);
+        emit UserVerified(userAddress, role, "");
+    }
+
+    /**
+     * @dev Admin verifies student user with Index Number (e.g. UEB3509022).
+     */
+    function verifyUserWithIndex(
+        address userAddress,
+        string memory role,
+        string memory indexNumber
+    ) external onlyAdmin {
+        require(userAddress != address(0), "MessageVerifier: Invalid address");
+        userRoles[userAddress] = role;
+        userIndexNumber[userAddress] = indexNumber;
+        emit UserVerified(userAddress, role, indexNumber);
+    }
+
+    /**
+     * @dev Admin verifies lecturer user with Staff ID (e.g. PS001, PS123).
+     */
+    function verifyUserWithStaffId(
+        address userAddress,
+        string memory role,
+        string memory staffId
+    ) external onlyAdmin {
+        require(userAddress != address(0), "MessageVerifier: Invalid address");
+        userRoles[userAddress] = role;
+        userStaffId[userAddress] = staffId;
+        emit UserVerified(userAddress, role, staffId);
     }
 
     /**
@@ -106,5 +139,19 @@ contract MessageVerifier {
      */
     function getUserRole(address userAddress) external view returns (string memory) {
         return userRoles[userAddress];
+    }
+
+    /**
+     * @dev Returns user's registered student index number.
+     */
+    function getUserIndexNumber(address userAddress) external view returns (string memory) {
+        return userIndexNumber[userAddress];
+    }
+
+    /**
+     * @dev Returns user's registered lecturer staff ID (PS***).
+     */
+    function getUserStaffId(address userAddress) external view returns (string memory) {
+        return userStaffId[userAddress];
     }
 }

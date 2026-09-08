@@ -27,10 +27,16 @@ export interface MessageVerifierInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "admin"
+      | "getUserIndexNumber"
       | "getUserRole"
+      | "getUserStaffId"
       | "recordHash"
+      | "userIndexNumber"
+      | "userStaffId"
       | "verifyHash"
       | "verifyUser"
+      | "verifyUserWithIndex"
+      | "verifyUserWithStaffId"
   ): FunctionFragment;
 
   getEvent(
@@ -39,27 +45,75 @@ export interface MessageVerifierInterface extends Interface {
 
   encodeFunctionData(functionFragment: "admin", values?: undefined): string;
   encodeFunctionData(
+    functionFragment: "getUserIndexNumber",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getUserRole",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getUserStaffId",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "recordHash",
     values: [string, BytesLike, AddressLike, AddressLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "userIndexNumber",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "userStaffId",
+    values: [AddressLike]
+  ): string;
   encodeFunctionData(functionFragment: "verifyHash", values: [string]): string;
   encodeFunctionData(
     functionFragment: "verifyUser",
     values: [AddressLike, string]
   ): string;
+  encodeFunctionData(
+    functionFragment: "verifyUserWithIndex",
+    values: [AddressLike, string, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "verifyUserWithStaffId",
+    values: [AddressLike, string, string]
+  ): string;
 
   decodeFunctionResult(functionFragment: "admin", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "getUserIndexNumber",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "getUserRole",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "getUserStaffId",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "recordHash", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "userIndexNumber",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "userStaffId",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "verifyHash", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "verifyUser", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "verifyUserWithIndex",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "verifyUserWithStaffId",
+    data: BytesLike
+  ): Result;
 }
 
 export namespace MessageHashRecordedEvent {
@@ -91,11 +145,20 @@ export namespace MessageHashRecordedEvent {
 }
 
 export namespace UserVerifiedEvent {
-  export type InputTuple = [userAddress: AddressLike, role: string];
-  export type OutputTuple = [userAddress: string, role: string];
+  export type InputTuple = [
+    userAddress: AddressLike,
+    role: string,
+    identifier: string
+  ];
+  export type OutputTuple = [
+    userAddress: string,
+    role: string,
+    identifier: string
+  ];
   export interface OutputObject {
     userAddress: string;
     role: string;
+    identifier: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -148,7 +211,19 @@ export interface MessageVerifier extends BaseContract {
 
   admin: TypedContractMethod<[], [string], "view">;
 
+  getUserIndexNumber: TypedContractMethod<
+    [userAddress: AddressLike],
+    [string],
+    "view"
+  >;
+
   getUserRole: TypedContractMethod<
+    [userAddress: AddressLike],
+    [string],
+    "view"
+  >;
+
+  getUserStaffId: TypedContractMethod<
     [userAddress: AddressLike],
     [string],
     "view"
@@ -165,10 +240,26 @@ export interface MessageVerifier extends BaseContract {
     "nonpayable"
   >;
 
+  userIndexNumber: TypedContractMethod<[arg0: AddressLike], [string], "view">;
+
+  userStaffId: TypedContractMethod<[arg0: AddressLike], [string], "view">;
+
   verifyHash: TypedContractMethod<[messageId: string], [string], "view">;
 
   verifyUser: TypedContractMethod<
     [userAddress: AddressLike, role: string],
+    [void],
+    "nonpayable"
+  >;
+
+  verifyUserWithIndex: TypedContractMethod<
+    [userAddress: AddressLike, role: string, indexNumber: string],
+    [void],
+    "nonpayable"
+  >;
+
+  verifyUserWithStaffId: TypedContractMethod<
+    [userAddress: AddressLike, role: string, staffId: string],
     [void],
     "nonpayable"
   >;
@@ -181,7 +272,13 @@ export interface MessageVerifier extends BaseContract {
     nameOrSignature: "admin"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
+    nameOrSignature: "getUserIndexNumber"
+  ): TypedContractMethod<[userAddress: AddressLike], [string], "view">;
+  getFunction(
     nameOrSignature: "getUserRole"
+  ): TypedContractMethod<[userAddress: AddressLike], [string], "view">;
+  getFunction(
+    nameOrSignature: "getUserStaffId"
   ): TypedContractMethod<[userAddress: AddressLike], [string], "view">;
   getFunction(
     nameOrSignature: "recordHash"
@@ -196,12 +293,32 @@ export interface MessageVerifier extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "userIndexNumber"
+  ): TypedContractMethod<[arg0: AddressLike], [string], "view">;
+  getFunction(
+    nameOrSignature: "userStaffId"
+  ): TypedContractMethod<[arg0: AddressLike], [string], "view">;
+  getFunction(
     nameOrSignature: "verifyHash"
   ): TypedContractMethod<[messageId: string], [string], "view">;
   getFunction(
     nameOrSignature: "verifyUser"
   ): TypedContractMethod<
     [userAddress: AddressLike, role: string],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "verifyUserWithIndex"
+  ): TypedContractMethod<
+    [userAddress: AddressLike, role: string, indexNumber: string],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "verifyUserWithStaffId"
+  ): TypedContractMethod<
+    [userAddress: AddressLike, role: string, staffId: string],
     [void],
     "nonpayable"
   >;
@@ -233,7 +350,7 @@ export interface MessageVerifier extends BaseContract {
       MessageHashRecordedEvent.OutputObject
     >;
 
-    "UserVerified(address,string)": TypedContractEvent<
+    "UserVerified(address,string,string)": TypedContractEvent<
       UserVerifiedEvent.InputTuple,
       UserVerifiedEvent.OutputTuple,
       UserVerifiedEvent.OutputObject

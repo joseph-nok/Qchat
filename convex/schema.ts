@@ -21,6 +21,9 @@ export default defineSchema({
     role: v.union(v.literal("student"), v.literal("lecturer")),
     school: v.string(),
     idNumber: v.optional(v.string()),
+    indexNumber: v.optional(v.string()),
+    staffId: v.optional(v.string()),
+    walletAddress: v.optional(v.string()),
     rank: v.optional(v.string()),
     bio: v.optional(v.string()),
     avatarStorageId: v.optional(v.id("_storage")),
@@ -43,7 +46,11 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_sessionToken", ["sessionToken"])
     .index("by_school", ["school"])
-    .index("by_verificationStatus", ["verificationStatus"]),
+    .index("by_verificationStatus", ["verificationStatus"])
+    .index("by_idNumber", ["idNumber"])
+    .index("by_indexNumber", ["indexNumber"])
+    .index("by_staffId", ["staffId"])
+    .index("by_walletAddress", ["walletAddress"]),
 
   chatRooms: defineTable({
     participantIds: v.array(v.id("users")),
@@ -96,7 +103,8 @@ export default defineSchema({
     blockchainTxHash: v.optional(v.string()),
   })
     .index("by_roomId_and_createdAt", ["roomId", "createdAt"])
-    .index("by_senderId", ["senderId"]),
+    .index("by_senderId", ["senderId"])
+    .index("by_senderId_and_createdAt", ["senderId", "createdAt"]),
 
   questions: defineTable({
     authorId: v.id("users"),
