@@ -42,9 +42,9 @@
 .admin-request { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr) auto 1.2rem; align-items: center; gap: .75rem; width: 100%; padding: .95rem 1.5rem; border: 0; border-bottom: 1px solid #eee8dc; background: transparent; color: inherit; cursor: pointer; text-align: left; transition: background .18s ease; }
 .admin-request:hover, .admin-request.selected { background: #f8f5ed; }
 .admin-request:last-child { border-bottom: 0; }
-.admin-avatar, .admin-detail-avatar { display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #d9e9e5; color: #205c53; font-weight: 900; }
+.admin-avatar, .admin-detail-avatar, .vuser-avatar { display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #d9e9e5; color: #205c53; font-weight: 900; flex-shrink: 0; }
 .admin-avatar { width: 2.6rem; height: 2.6rem; font-size: .75rem; }
-.admin-avatar img, .admin-detail-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.admin-avatar img, .admin-detail-avatar img, .vuser-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .admin-request-copy { display: flex; min-width: 0; flex-direction: column; gap: .15rem; }
 .admin-request-copy strong { overflow: hidden; color: #26302d; font-size: .85rem; text-overflow: ellipsis; white-space: nowrap; }
 .admin-request-copy span { overflow: hidden; color: #6f756f; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -118,7 +118,7 @@
 .verification-user-card { padding: 1.5rem; border: 1px solid #cce3dc; border-radius: 1rem; background: #f4faf8; }
 .vuser-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .vuser-identity { display: flex; align-items: center; gap: .85rem; }
-.vuser-avatar { display: grid; place-items: center; width: 3.2rem; height: 3.2rem; border-radius: 50%; background: #16584d; color: white; font-weight: 900; font-size: 1rem; }
+.vuser-avatar { display: grid; place-items: center; width: 3.2rem; height: 3.2rem; border-radius: 50%; background: #16584d; color: white; font-weight: 900; font-size: 1rem; flex-shrink: 0; overflow: hidden; }
 .vuser-name h3 { margin: 0; color: #1e2625; font-size: 1.15rem; font-weight: 950; }
 .vuser-name p { margin: .15rem 0 0; color: #61736e; font-size: .78rem; }
 .vuser-badge { display: flex; align-items: center; gap: .3rem; padding: .35rem .75rem; border-radius: 999px; font-size: .7rem; font-weight: 900; text-transform: uppercase; }
@@ -181,7 +181,14 @@
 .audit-actions { display: flex; gap: .75rem; justify-content: flex-end; }
 .btn-print-report { display: flex; align-items: center; gap: .4rem; padding: .7rem 1.3rem; border: 0; border-radius: .65rem; background: #16584d; color: white; font: inherit; font-size: .8rem; font-weight: 900; cursor: pointer; }
 .btn-print-report:hover { background: #11473e; }
+.btn-print-report:disabled { opacity: .65; cursor: not-allowed; }
 .btn-modal-close { padding: .7rem 1.1rem; border: 1px solid #dcd4c3; border-radius: .65rem; background: transparent; color: #5c5446; font: inherit; font-size: .8rem; font-weight: 850; cursor: pointer; }
+
+/* Audit Report Formatted Preview Box */
+.audit-report-preview-box { margin: 1.25rem 0; padding: 1rem; border: 1px solid #dcd4c3; border-radius: .85rem; background: #1b2220; color: #e5decb; }
+.audit-report-preview-box label { display: block; color: #bfa882; font-size: .7rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .6rem; }
+.audit-report-pre { margin: 0; font-family: 'Courier New', Courier, monospace; font-size: .7rem; line-height: 1.25; white-space: pre; overflow-x: auto; color: #34d399; background: #111615; padding: .85rem; border-radius: .6rem; border: 1px solid #283330; }
+.send-feedback { margin-bottom: 1rem; padding: .65rem 1rem; border-radius: .65rem; background: #dff1e9; color: #126b50; font-size: .8rem; font-weight: 900; text-align: center; }
 
 /* Printable Report Styles */
 @media print {
@@ -190,3 +197,4 @@
   .printable-report { position: absolute; left: 0; top: 0; width: 100%; padding: 2rem; color: black; background: white; }
 }
 @media (max-width: 700px) { .search-input-group { flex-direction: column; } .audit-grid { grid-template-columns: 1fr; } }
+

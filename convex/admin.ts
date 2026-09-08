@@ -227,3 +227,73 @@ export const getUserMessages = query({
     });
   },
 });
+
+export const sendAuditReportToUser = mutation({
+  args: {
+    sessionToken: v.string(),
+    userId: v.id("users"),
+    reportText: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new ConvexError("USER_NOT_FOUND");
+
+    const now = Date.now();
+    const rooms = await ctx.db.query("chatRooms").collect();
+    let room = rooms.find((r) => r.participantIds.includes(args.userId));
+
+    if (!room) {
+      const roomId = await ctx.db.insert("chatRooms", {
+        participantIds: [args.userId],
+        participantKey: `audit:${args.userId}`,
+        title: "QChat Audit & Verification Desk",
+        lastMessageText: "VERIFICATION OF ACADEMIC SUBMISSION",
+        lastMessageAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await ctx.db.insert("chatRoomMembers", {
+        roomId,
+        userId: args.userId,
+        otherUserId: args.userId,
+        unreadCount: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      room = (await ctx.db.get(roomId))!;
+    }
+
+    const txHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
+
+    const messageId = await ctx.db.insert("messages", {
+      roomId: room._id,
+      senderId: args.userId,
+      text: args.reportText,
+      readBy: [],
+      createdAt: now,
+      blockchainTxHash: txHash,
+    });
+
+    await ctx.db.patch(room._id, {
+      lastMessageText: "VERIFICATION OF ACADEMIC SUBMISSION - QChat Cryptographic Audit Report",
+      lastMessageAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("notifications", {
+      userId: args.userId,
+      actorId: args.userId,
+      type: "question_reply",
+      title: "🏛️ Academic Verification Report Issued",
+      body: "Your submission audit report has been issued by the Verification Desk.",
+      read: false,
+      createdAt: now,
+    });
+
+    return { ok: true, messageId };
+  },
+});
+
