@@ -6,10 +6,17 @@ const Header = () => {
     <header className="top-app-bar">
       <div className="top-app-bar-content">
         <div className="logo">
-          <span className="logo-text">Ghana Education Connect</span>
+          <span className="logo-text">QCampus Connect.</span>
+          <div className="logo-text"> Connected Campus. Trusted Conversations</div>
         </div>
         <div className="actions">
-          <Link to="/register" className="primary-btn" style={{textDecoration: 'none'}}>Get Started</Link>
+          <Link
+            to="/register"
+            className="primary-btn"
+            style={{ textDecoration: "none" }}
+          >
+            Get Started
+          </Link>
         </div>
       </div>
     </header>

@@ -33,7 +33,7 @@ const AdminLogin = () => {
 
   return (
     <div className="auth-page admin-auth-page">
-      <header className="auth-header"><Link to="/" className="auth-header-brand"><div className="auth-header-icon"><span className="material-symbols-outlined">admin_panel_settings</span></div><span className="auth-header-text">Ghana Education Connect</span></Link></header>
+      <header className="auth-header"><Link to="/" className="auth-header-brand"><div className="auth-header-icon"><span className="material-symbols-outlined">admin_panel_settings</span></div><span className="auth-header-text">QCampus Connect</span></Link></header>
       <main className="auth-main"><div className="auth-card">
         <div className="auth-content">
           <div className="auth-title-container"><div className="auth-title-icon"><span className="material-symbols-outlined">shield_lock</span></div><h1 className="auth-title">Admin access</h1><p className="auth-subtitle">Sign in to review academic identity requests.</p></div>

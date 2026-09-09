@@ -323,31 +323,35 @@ const Register = () => {
           <div className="auth-content">
             <div className="auth-title-container center">
               <div className="auth-title-icon">
-                <span className="material-symbols-outlined" data-icon="school">school</span>
+                <span className="material-symbols-outlined" data-icon="school">
+                  school
+                </span>
               </div>
-              <h1 className="auth-title">Ghana Education Connect</h1>
-              <p className="auth-subtitle uppercase">Create Your Academic Identity</p>
+              <h1 className="auth-title">QCampus Connect</h1>
+              <p className="auth-subtitle uppercase">
+                Create Your Academic Identity
+              </p>
             </div>
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
               <div className="auth-field-group">
                 <label className="auth-label">Select Account Type</label>
                 <div className="auth-role-toggle">
-                  <button 
-                    type="button" 
-                    className={`role-btn ${role === 'student' ? 'active' : ''}`}
+                  <button
+                    type="button"
+                    className={`role-btn ${role === "student" ? "active" : ""}`}
                     onClick={() => {
-                      setRole('student');
+                      setRole("student");
                       setErrorsRecord({});
                     }}
                   >
                     Student
                   </button>
-                  <button 
-                    type="button" 
-                    className={`role-btn ${role === 'lecturer' ? 'active' : ''}`}
+                  <button
+                    type="button"
+                    className={`role-btn ${role === "lecturer" ? "active" : ""}`}
                     onClick={() => {
-                      setRole('lecturer');
+                      setRole("lecturer");
                       setErrorsRecord({});
                     }}
                   >
@@ -358,79 +362,131 @@ const Register = () => {
 
               <div className="auth-row">
                 <div className="auth-field-group">
-                  <label className="auth-label" htmlFor="first_name">First Name</label>
-                  <input 
-                    type="text" 
-                    id="first_name" 
-                    className={`auth-input ${errorsRecord.firstName ? 'error' : ''}`}
-                    placeholder="e.g. Kwame" 
+                  <label className="auth-label" htmlFor="first_name">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    id="first_name"
+                    className={`auth-input ${errorsRecord.firstName ? "error" : ""}`}
+                    placeholder="e.g. Kwame"
                     value={firstName}
                     onChange={(e) => {
                       setFirstName(e.target.value);
-                      clearFieldError('firstName');
+                      clearFieldError("firstName");
                     }}
                     aria-invalid={Boolean(errorsRecord.firstName)}
-                    aria-describedby={errorsRecord.firstName ? 'register-first-name-error' : undefined}
+                    aria-describedby={
+                      errorsRecord.firstName
+                        ? "register-first-name-error"
+                        : undefined
+                    }
                   />
-                  {errorsRecord.firstName && <p className="auth-field-error" id="register-first-name-error">{errorsRecord.firstName}</p>}
+                  {errorsRecord.firstName && (
+                    <p
+                      className="auth-field-error"
+                      id="register-first-name-error"
+                    >
+                      {errorsRecord.firstName}
+                    </p>
+                  )}
                 </div>
                 <div className="auth-field-group">
-                  <label className="auth-label" htmlFor="last_name">Last Name</label>
-                  <input 
-                    type="text" 
-                    id="last_name" 
-                    className={`auth-input ${errorsRecord.lastName ? 'error' : ''}`}
-                    placeholder="e.g. Mensah" 
+                  <label className="auth-label" htmlFor="last_name">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    id="last_name"
+                    className={`auth-input ${errorsRecord.lastName ? "error" : ""}`}
+                    placeholder="e.g. Mensah"
                     value={lastName}
                     onChange={(e) => {
                       setLastName(e.target.value);
-                      clearFieldError('lastName');
+                      clearFieldError("lastName");
                     }}
                     aria-invalid={Boolean(errorsRecord.lastName)}
-                    aria-describedby={errorsRecord.lastName ? 'register-last-name-error' : undefined}
+                    aria-describedby={
+                      errorsRecord.lastName
+                        ? "register-last-name-error"
+                        : undefined
+                    }
                   />
-                  {errorsRecord.lastName && <p className="auth-field-error" id="register-last-name-error">{errorsRecord.lastName}</p>}
+                  {errorsRecord.lastName && (
+                    <p
+                      className="auth-field-error"
+                      id="register-last-name-error"
+                    >
+                      {errorsRecord.lastName}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="auth-field-group">
-                <label className="auth-label" htmlFor="email">Institutional Email</label>
-                <input 
-                  type="email" 
-                  id="email" 
-                  className={`auth-input ${errorsRecord.email ? 'error' : ''}`}
-                  placeholder="username@uenr.edu.gh" 
+                <label className="auth-label" htmlFor="email">
+                  Institutional Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  className={`auth-input ${errorsRecord.email ? "error" : ""}`}
+                  placeholder="username@uenr.edu.gh"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    clearFieldError('email');
+                    clearFieldError("email");
                   }}
                   aria-invalid={Boolean(errorsRecord.email)}
-                  aria-describedby={errorsRecord.email ? 'register-email-error' : undefined}
+                  aria-describedby={
+                    errorsRecord.email ? "register-email-error" : undefined
+                  }
                 />
-                <p className="auth-input-hint">Please use your official @uenr.edu.gh</p>
-                {errorsRecord.email && <p className="auth-field-error" id="register-email-error">{errorsRecord.email}</p>}
+                <p className="auth-input-hint">
+                  Please use your official @uenr.edu.gh
+                </p>
+                {errorsRecord.email && (
+                  <p className="auth-field-error" id="register-email-error">
+                    {errorsRecord.email}
+                  </p>
+                )}
               </div>
 
               <div className="auth-field-group" ref={institutionRef}>
-                <label className="auth-label" htmlFor="institution">Institution</label>
+                <label className="auth-label" htmlFor="institution">
+                  Institution
+                </label>
                 <div className="institution-combobox-wrapper">
                   <div className="auth-input-wrapper">
-                    <span className="material-symbols-outlined auth-input-icon" style={{ left: '0.875rem' }}>school</span>
+                    <span
+                      className="material-symbols-outlined auth-input-icon"
+                      style={{ left: "0.875rem" }}
+                    >
+                      school
+                    </span>
                     <input
                       type="text"
                       id="institution"
-                      className={`auth-input ${errorsRecord.institution ? 'error' : ''}`}
-                      style={{ paddingLeft: '2.75rem', paddingRight: '1rem', borderRadius: '0.75rem', border: 'none' }}
+                      className={`auth-input ${errorsRecord.institution ? "error" : ""}`}
+                      style={{
+                        paddingLeft: "2.75rem",
+                        paddingRight: "1rem",
+                        borderRadius: "0.75rem",
+                        border: "none",
+                      }}
                       placeholder="University of Energy and Natural Resources (UENR)"
                       value={institution}
                       onChange={(e) => {
                         setInstitution(e.target.value);
-                        clearFieldError('institution');
+                        clearFieldError("institution");
                       }}
                       autoComplete="off"
                       aria-invalid={Boolean(errorsRecord.institution)}
-                      aria-describedby={errorsRecord.institution ? 'register-institution-error' : undefined}
+                      aria-describedby={
+                        errorsRecord.institution
+                          ? "register-institution-error"
+                          : undefined
+                      }
                     />
                     {/* Dropdown toggle icon commented out */}
                     {/* <span
@@ -470,36 +526,60 @@ const Register = () => {
                     </div>
                   )} */}
                 </div>
-                {errorsRecord.institution && <p className="auth-field-error" id="register-institution-error">{errorsRecord.institution}</p>}
+                {errorsRecord.institution && (
+                  <p
+                    className="auth-field-error"
+                    id="register-institution-error"
+                  >
+                    {errorsRecord.institution}
+                  </p>
+                )}
               </div>
 
               <div className="auth-field-group">
-                <label className="auth-label" htmlFor="id_number">{idLabel}</label>
-                <input 
-                  type="text" 
-                  id="id_number" 
-                  className={`auth-input ${errorsRecord.idNumber ? 'error' : ''}`}
-                  placeholder={idPlaceholder} 
+                <label className="auth-label" htmlFor="id_number">
+                  {idLabel}
+                </label>
+                <input
+                  type="text"
+                  id="id_number"
+                  className={`auth-input ${errorsRecord.idNumber ? "error" : ""}`}
+                  placeholder={idPlaceholder}
                   value={idNumber}
                   onChange={(e) => {
                     setIdNumber(e.target.value);
-                    clearFieldError('idNumber');
+                    clearFieldError("idNumber");
                   }}
                   aria-invalid={Boolean(errorsRecord.idNumber)}
-                  aria-describedby={errorsRecord.idNumber ? 'register-id-number-error' : undefined}
+                  aria-describedby={
+                    errorsRecord.idNumber
+                      ? "register-id-number-error"
+                      : undefined
+                  }
                 />
-                {errorsRecord.idNumber && <p className="auth-field-error" id="register-id-number-error">{errorsRecord.idNumber}</p>}
+                {errorsRecord.idNumber && (
+                  <p className="auth-field-error" id="register-id-number-error">
+                    {errorsRecord.idNumber}
+                  </p>
+                )}
               </div>
 
-              {role === 'lecturer' && (
+              {role === "lecturer" && (
                 <div className="auth-field-group">
-                  <label className="auth-label" htmlFor="rank">Academic Rank (Optional)</label>
+                  <label className="auth-label" htmlFor="rank">
+                    Academic Rank (Optional)
+                  </label>
                   <div className="auth-input-wrapper">
-                    <span className="material-symbols-outlined auth-input-icon" style={{ left: '0.875rem' }}>workspace_premium</span>
+                    <span
+                      className="material-symbols-outlined auth-input-icon"
+                      style={{ left: "0.875rem" }}
+                    >
+                      workspace_premium
+                    </span>
                     <select
                       id="rank"
                       className="auth-input"
-                      style={{ paddingLeft: '2.75rem', appearance: 'auto' }}
+                      style={{ paddingLeft: "2.75rem", appearance: "auto" }}
                       value={rank}
                       onChange={(e) => setRank(e.target.value)}
                     >
@@ -514,107 +594,153 @@ const Register = () => {
 
               <div className="auth-row">
                 <div className="auth-field-group">
-                  <label className="auth-label" htmlFor="password">Password</label>
+                  <label className="auth-label" htmlFor="password">
+                    Password
+                  </label>
                   <div className="auth-input-wrapper">
-                    <input 
-                      type={showPassword ? "text" : "password"} 
-                      id="password" 
-                      className={`auth-input ${errorsRecord.password ? 'error' : ''}`}
-                      style={{ paddingRight: '2.5rem' }}
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      id="password"
+                      className={`auth-input ${errorsRecord.password ? "error" : ""}`}
+                      style={{ paddingRight: "2.5rem" }}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
-                        clearFieldError('password');
+                        clearFieldError("password");
                       }}
                       aria-invalid={Boolean(errorsRecord.password)}
-                      aria-describedby={errorsRecord.password ? 'register-password-error' : undefined}
+                      aria-describedby={
+                        errorsRecord.password
+                          ? "register-password-error"
+                          : undefined
+                      }
                     />
                     <button
                       type="button"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="material-symbols-outlined" 
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      className="material-symbols-outlined"
                       onClick={() => setShowPassword(!showPassword)}
-                      style={{ 
-                        position: 'absolute', 
-                        right: '0.875rem', 
-                        color: 'var(--on-surface-variant)', 
-                        cursor: 'pointer', 
-                        userSelect: 'none',
-                        fontSize: '1.25rem',
-                        background: 'none',
-                        border: 'none',
+                      style={{
+                        position: "absolute",
+                        right: "0.875rem",
+                        color: "var(--on-surface-variant)",
+                        cursor: "pointer",
+                        userSelect: "none",
+                        fontSize: "1.25rem",
+                        background: "none",
+                        border: "none",
                         padding: 0,
-                        display: 'inline-flex',
-                        alignItems: 'center'
+                        display: "inline-flex",
+                        alignItems: "center",
                       }}
                     >
-                      {showPassword ? 'visibility_off' : 'visibility'}
+                      {showPassword ? "visibility_off" : "visibility"}
                     </button>
                   </div>
                   <div className="password-strength">
                     {[1, 2, 3, 4].map((barIndex) => {
                       let isFilled = false;
-                      if (strength.score >= 1 && barIndex === 1) isFilled = true;
-                      else if (strength.score >= 2 && barIndex <= 2) isFilled = true;
-                      else if (strength.score >= 3 && barIndex <= 3) isFilled = true;
-                      else if (strength.score >= 4 && barIndex <= 4) isFilled = true;
+                      if (strength.score >= 1 && barIndex === 1)
+                        isFilled = true;
+                      else if (strength.score >= 2 && barIndex <= 2)
+                        isFilled = true;
+                      else if (strength.score >= 3 && barIndex <= 3)
+                        isFilled = true;
+                      else if (strength.score >= 4 && barIndex <= 4)
+                        isFilled = true;
 
                       return (
-                        <div 
-                          key={barIndex} 
+                        <div
+                          key={barIndex}
                           className="strength-bar"
                           style={{
-                            backgroundColor: isFilled ? strength.color : 'var(--surface-container-highest)',
-                            transition: 'background-color 0.3s ease'
+                            backgroundColor: isFilled
+                              ? strength.color
+                              : "var(--surface-container-highest)",
+                            transition: "background-color 0.3s ease",
                           }}
                         />
                       );
                     })}
                   </div>
-                  <p className="strength-text" style={{ color: strength.color, transition: 'color 0.3s ease' }}>
+                  <p
+                    className="strength-text"
+                    style={{
+                      color: strength.color,
+                      transition: "color 0.3s ease",
+                    }}
+                  >
                     {strength.text}
                   </p>
-                  {errorsRecord.password && <p className="auth-field-error" id="register-password-error">{errorsRecord.password}</p>}
+                  {errorsRecord.password && (
+                    <p
+                      className="auth-field-error"
+                      id="register-password-error"
+                    >
+                      {errorsRecord.password}
+                    </p>
+                  )}
                 </div>
                 <div className="auth-field-group">
-                  <label className="auth-label" htmlFor="confirm_password">Confirm</label>
+                  <label className="auth-label" htmlFor="confirm_password">
+                    Confirm
+                  </label>
                   <div className="auth-input-wrapper">
-                    <input 
-                      type={showConfirmPassword ? "text" : "password"} 
-                      id="confirm_password" 
-                      className={`auth-input ${errorsRecord.confirmPassword ? 'error' : ''}`}
-                      style={{ paddingRight: '2.5rem' }}
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      id="confirm_password"
+                      className={`auth-input ${errorsRecord.confirmPassword ? "error" : ""}`}
+                      style={{ paddingRight: "2.5rem" }}
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
-                        clearFieldError('confirmPassword');
+                        clearFieldError("confirmPassword");
                       }}
                       aria-invalid={Boolean(errorsRecord.confirmPassword)}
-                      aria-describedby={errorsRecord.confirmPassword ? 'register-confirm-password-error' : undefined}
+                      aria-describedby={
+                        errorsRecord.confirmPassword
+                          ? "register-confirm-password-error"
+                          : undefined
+                      }
                     />
                     <button
                       type="button"
-                      aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-                      className="material-symbols-outlined" 
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      style={{ 
-                        position: 'absolute', 
-                        right: '0.875rem', 
-                        color: 'var(--on-surface-variant)', 
-                        cursor: 'pointer', 
-                        userSelect: 'none',
-                        fontSize: '1.25rem',
-                        background: 'none',
-                        border: 'none',
+                      aria-label={
+                        showConfirmPassword
+                          ? "Hide confirm password"
+                          : "Show confirm password"
+                      }
+                      className="material-symbols-outlined"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      style={{
+                        position: "absolute",
+                        right: "0.875rem",
+                        color: "var(--on-surface-variant)",
+                        cursor: "pointer",
+                        userSelect: "none",
+                        fontSize: "1.25rem",
+                        background: "none",
+                        border: "none",
                         padding: 0,
-                        display: 'inline-flex',
-                        alignItems: 'center'
+                        display: "inline-flex",
+                        alignItems: "center",
                       }}
                     >
-                      {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                      {showConfirmPassword ? "visibility_off" : "visibility"}
                     </button>
                   </div>
-                  {errorsRecord.confirmPassword && <p className="auth-field-error" id="register-confirm-password-error">{errorsRecord.confirmPassword}</p>}
+                  {errorsRecord.confirmPassword && (
+                    <p
+                      className="auth-field-error"
+                      id="register-confirm-password-error"
+                    >
+                      {errorsRecord.confirmPassword}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -622,32 +748,42 @@ const Register = () => {
                 ref={recaptchaRef}
                 onVerify={(token) => {
                   setRecaptchaToken(token);
-                  clearFieldError('recaptcha');
+                  clearFieldError("recaptcha");
                 }}
                 onExpired={() => {
-                  setRecaptchaToken('');
+                  setRecaptchaToken("");
                 }}
                 onError={() => {
-                  setRecaptchaToken('');
+                  setRecaptchaToken("");
                 }}
               />
               {errorsRecord.recaptcha && (
-                <p className="auth-field-error center" style={{ marginBottom: '0.75rem' }}>
+                <p
+                  className="auth-field-error center"
+                  style={{ marginBottom: "0.75rem" }}
+                >
                   {errorsRecord.recaptcha}
                 </p>
               )}
 
-              <button type="submit" className="auth-submit large mt-4" disabled={isSubmitting}>
-                <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_top' : 'how_to_reg'}</span>
-                {isSubmitting ? 'Registering...' : 'Register'}
+              <button
+                type="submit"
+                className="auth-submit large mt-4"
+                disabled={isSubmitting}
+              >
+                <span className="material-symbols-outlined">
+                  {isSubmitting ? "hourglass_top" : "how_to_reg"}
+                </span>
+                {isSubmitting ? "Registering..." : "Register"}
               </button>
-              {errorsRecord.form && <p className="auth-field-error center">{errorsRecord.form}</p>}
-
+              {errorsRecord.form && (
+                <p className="auth-field-error center">{errorsRecord.form}</p>
+              )}
             </form>
 
             <div className="auth-footer-text">
               <p>
-                Already have an account? 
+                Already have an account?
                 <Link to="/login">Login here</Link>
               </p>
             </div>
