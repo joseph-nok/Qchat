@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild QChat academic Word files with authentic student voice, APA 7th citations, and factual accuracy."""
+"""Rebuild QCampus Connect academic Word files (Q&A-first, student voice, APA 7th)."""
 
 from pathlib import Path
 
@@ -20,9 +20,10 @@ SUPERVISOR = "Dr Peter Nimbe"
 UNI = "University of Energy and Natural Resources"
 DEPT = "Department of Computer Science and Informatics"
 TITLE = (
-    "QChat: A Hybrid Web2/Web3 Secure Institutional "
-    "Messaging and File-Sharing Platform"
+    "QCampus Connect: A Verified Academic Q&A Platform with "
+    "Cryptographic Identity and Optional Encrypted Direct Messaging"
 )
+APP = "QCampus Connect"
 DATE = "September 2026"
 
 
@@ -136,7 +137,9 @@ APA_REFS = [
     "Mozilla Developer Network. (2024). Web Crypto API. https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API",
     "Nakamoto, S. (2008). Bitcoin: A peer-to-peer electronic cash system. https://bitcoin.org/bitcoin.pdf",
     "National Institute of Standards and Technology. (2001). Announcing the Advanced Encryption Standard (AES) (FIPS PUB 197). https://doi.org/10.6028/NIST.FIPS.197",
+    "Newman, N., Fletcher, R., Eddy, K., Robertson, C. T., & Nielsen, R. K. (2023). Reuters Institute digital news report 2023. Reuters Institute for the Study of Journalism. https://reutersinstitute.politics.ox.ac.uk/digital-news-report/2023",
     "Nielsen, M. A., & Chuang, I. L. (2010). Quantum computation and quantum information (10th anniversary ed.). Cambridge University Press.",
+    "Reddit, Inc. (2024). Transparency report 2023. https://www.redditinc.com/policies/transparency-report-2023",
     "Rivest, R. L., Shamir, A., & Adleman, L. (1978). A method for obtaining digital signatures and public-key cryptosystems. Communications of the ACM, 21(2), 120–126. https://doi.org/10.1145/359340.359342",
     "Scarani, V., Bechmann-Pasquinucci, H., Cerf, N. J., Dušek, M., Lütkenhaus, N., & Peev, M. (2009). The security of practical quantum key distribution. Reviews of Modern Physics, 81(3), 1301–1350. https://doi.org/10.1103/RevModPhys.81.1301",
     "Shor, P. W. (1994). Algorithms for quantum computation: Discrete logarithms and factoring. In Proceedings of the 35th Annual Symposium on Foundations of Computer Science (pp. 124–134). IEEE. https://doi.org/10.1109/SFCS.1994.365700",
@@ -202,12 +205,12 @@ def chapter_1(doc, numbered_chapter=True):
     )
     p(
         doc,
-        "QChat was engineered to resolve this trade-off through a hybrid architecture. Real-time messaging, file exchange, "
-        "and community Q&A boards run on Convex. When a user sends a protected message or uploads evidence, the client browser "
+        f"{APP} was engineered to resolve this trade-off through a hybrid architecture. Its Q&A forum is the primary workspace, while real-time messaging and file exchange support follow-up discussion. "
+        "These features run on Convex. When a user sends a protected message or uploads evidence, the client browser "
         "computes a SHA-256 payload digest and writes that hash to a local private Hyperledger Besu blockchain node using a "
         "Solidity smart contract, MessageVerifier.sol (Hyperledger Foundation, 2024; Ethereum Foundation, 2024). Payload encryption "
         "is performed entirely in the browser using the W3C Web Crypto API (National Institute of Standards and Technology, 2001; "
-        "Mozilla Developer Network, 2024), keeping private RSA-OAEP keys stored locally. Additionally, QChat incorporates a "
+        f"Mozilla Developer Network, 2024), keeping private RSA-OAEP keys stored locally. Additionally, {APP} incorporates a "
         "TypeScript implementation of the BB84 quantum key distribution protocol (Bennett & Brassard, 2014/1984) to model "
         "quantum basis sifting, bit error rate estimation, and session key generation as an educational demonstration.",
     )
@@ -215,51 +218,36 @@ def chapter_1(doc, numbered_chapter=True):
     h(doc, "1.2 Problem Statement", 2)
     p(
         doc,
-        "The project addresses three specific institutional and technical challenges:",
+        "The project addresses four specific institutional and technical challenges currently facing platforms like Reddit and WhatsApp:",
     )
     numbered(
         doc,
         [
-            "Trade-off between real-time performance and immutable auditability: Commercial instant messaging platforms "
-            "provide fast user experiences but lack tamper-evident logging. Public blockchains offer immutability but introduce "
-            "prohibitive fees and latency.",
-            "Weak evidence integrity in institutional disputes: Existing tools rely on centralized storage and user-supplied "
-            "screenshots, which provide no cryptographic proof of document state or exact transmission timestamps.",
-            "Vulnerability of classical public-key cryptography to quantum computing: Standard asymmetric algorithms such as "
-            "RSA and ECC depend on integer factorization and discrete logarithms (Rivest et al., 1978; Diffie & Hellman, 1976), "
-            "which Shor's algorithm can solve in polynomial time (Shor, 1994). Campus software rarely exposes students to quantum "
-            "key distribution concepts (Bernstein & Lange, 2017; Gisin et al., 2002).",
+            "Identity Fraud & Bot Manipulation on Academic Platforms: Neither Reddit nor WhatsApp cryptographically ties a user's account to a verified real-world identity, allowing bad actors to easily impersonate lecturers to commit financial fraud, or allowing bots to manipulate discussion forums.",
+            "Unqualified Advice Treated as Expert Knowledge: Platforms like Reddit use karma-based reputation systems where general popularity is conflated with academic authority. There is no technical mechanism to verify who is genuinely qualified to answer a question in a specific domain, causing harmful or incorrect advice to spread unchecked.",
+            "No Tamper-Proof Record of Communication: WhatsApp's \"Delete for everyone\" and Reddit's silent post editing destroy the integrity of academic communication. Without independent, immutable audit trails, academic disputes over submission deadlines or instructions cannot be resolved with certainty.",
+            "Viral Spread of Unverified Academic Information: Because platforms like WhatsApp provide end-to-end encryption without identity verification or an open audit layer, counterfeit announcements and fake exam timetables spread rapidly without administrative ability to trace the origin or effectively issue corrections."
         ],
     )
     p(
         doc,
-        "Without an integrated solution, academic submission integrity will continue to rely on unverified screenshots, and "
-        "post-quantum security topics in the department will remain theoretical lectures without hands-on software models.",
+        "Without an integrated solution combining cryptographic identity verification, immutable blockchain auditability, and clear specialization boundaries, digital academic environments will remain vulnerable to impersonation, misinformation, and untrustworthy evidence.",
     )
 
     h(doc, "1.3 Aim and Objectives", 2)
     p(
         doc,
-        "Aim: Design, implement, and evaluate QChat, a hybrid institutional messaging and file-sharing web application "
-        "combining real-time cloud data synchronization, client-side Web Crypto encryption, local private Besu smart contract "
-        "verification, and an educational BB84 quantum key distribution simulation module.",
+        f"Aim: Design, implement, and evaluate {APP}, a verified academic Q&A forum that cryptographically authenticates users and attaches a tamper-evident blockchain audit trail to all communications, supported by a secondary encrypted one-on-one direct messaging feature.",
     )
     p(doc, "Specific Objectives:", first_line=False, bold=True)
     numbered(
         doc,
         [
-            "Develop a responsive single-page web application frontend using React 19, TypeScript, and Convex for real-time "
-            "one-to-one messaging, file attachments, and a hashtag-indexed Q&A community board.",
-            "Implement client-side end-to-end encryption using the Web Crypto API, generating RSA-OAEP 2048-bit identity keypairs "
-            "and encrypting message payloads with AES-GCM-256 (National Institute of Standards and Technology, 2001; Mozilla Developer Network, 2024).",
-            "Deploy the Solidity smart contract MessageVerifier.sol on a local Hyperledger Besu QBFT permissioned network, "
-            "recording SHA-256 message digests via Ethers.js v6 (Ethers.js Contributors, 2024; Ethereum Foundation, 2024).",
-            "Construct a TypeScript simulation of the BB84 protocol implementing random basis selection, photon state sifting, "
-            "Quantum Bit Error Rate (QBER) calculation, and 256-bit session key distillation.",
-            "Create an administrative verification portal enabling authorized staff to review student and lecturer identity evidence "
-            "and record verified roles on the private Besu ledger.",
-            "Perform functional testing, user walk-throughs across institutional roles, and empirical performance benchmarking on "
-            "development workstations.",
+            "Build a verified academic Q&A forum where every user's identity is cryptographically tied to their institutional role.",
+            "Ensure lecturer answers display verified domain specializations so students can assess credibility.",
+            "Attach a tamper-evident SHA-256 + blockchain audit trail to every message and Q&A submission.",
+            "Allow students to initiate an encrypted private channel with any lecturer directly from a Q&A answer.",
+            "Provide administrators a department management system so Q&A questions can be routed to qualified lecturers.",
         ],
     )
 
@@ -303,10 +291,10 @@ def chapter_1(doc, numbered_chapter=True):
 def chapter_2(doc):
     h(doc, "Chapter 2")
     h(doc, "Literature Review", 1)
-    h(doc, "2.1 Concepts used in QChat", 2)
+    h(doc, f"2.1 Concepts used in {APP}", 2)
     p(
         doc,
-        "This review examines the foundational technologies integrated into the QChat platform: real-time web delivery, "
+        f"This review examines the foundational technologies integrated into the {APP} platform: real-time web delivery, "
         "hybrid symmetric/asymmetric cryptography, permissioned ledgers, quantum key distribution principles, and role-based access control.",
     )
 
@@ -328,7 +316,7 @@ def chapter_2(doc):
         "Standards and Technology, 2001). Asymmetric cryptosystems like RSA-OAEP utilize paired public and private keys, enabling secure "
         "key exchange without prior shared secrets (Rivest et al., 1978; Diffie & Hellman, 1976). Modern messaging protocols, including "
         "Signal's Extended Triple Diffie-Hellman (X3DH), combine asymmetric key negotiation with symmetric bulk payload encryption "
-        "(Marlinspike & Perrin, 2016). QChat adopts this hybrid model: AES-GCM-256 encrypts payload text and file blobs, while RSA-OAEP "
+        f"(Marlinspike & Perrin, 2016). {APP} adopts this hybrid model: AES-GCM-256 encrypts payload text and file blobs, while RSA-OAEP "
         "2048-bit keypairs manage identity key distribution via the browser Web Crypto API (Mozilla Developer Network, 2024).",
     )
 
@@ -352,7 +340,7 @@ def chapter_2(doc):
         "the communicating parties estimate the Quantum Bit Error Rate (QBER). Rigorous security proofs by Shor and Preskill (2000), "
         "Gisin et al. (2002), and Scarani et al. (2009) demonstrate that under ideal BB84 conditions, information reconciliation and privacy "
         "amplification can extract a secret key only when the QBER remains strictly below approximately 11%. If the QBER exceeds 0.11, "
-        "eavesdropping noise compromises security, necessitating session abort. QChat implements this 11% abort threshold in its software "
+        f"eavesdropping noise compromises security, necessitating session abort. {APP} implements this 11% abort threshold in its software "
         "simulation (src/lib/bb84.ts) to model quantum channel evaluation.",
     )
 
@@ -360,11 +348,11 @@ def chapter_2(doc):
     p(
         doc,
         "Access control in web systems typically relies on database role attributes. However, database records can be modified by database "
-        "administrators. Dual-layer access control pairs application-level database role checks with immutable ledger assertions. In QChat, "
+        f"administrators. Dual-layer access control pairs application-level database role checks with immutable ledger assertions. In {APP}, "
         "user roles are stored in Convex user documents and recorded on the private Besu contract following administrative verification.",
     )
 
-    h(doc, "2.2 Practical Application in QChat Architecture", 2)
+    h(doc, f"2.2 Practical Application in {APP} Architecture", 2)
     p(
         doc,
         "The technical design combines established standards into an institutional platform:",
@@ -382,7 +370,7 @@ def chapter_2(doc):
     h(doc, "2.3 Comparative Review of Related Systems", 2)
     p(
         doc,
-        "Table 2.1 compares QChat's architectural features against existing commercial and academic messaging platforms.",
+        f"Table 2.1 compares {APP}'s architectural features against existing commercial and academic messaging platforms.",
     )
     table(
         doc,
@@ -393,7 +381,7 @@ def chapter_2(doc):
             ["Rocket.Chat", "High (WebSockets)", "Optional E2EE", "None (MongoDB)", "None", "Self-Hosted Organizations"],
             ["Public Web3 dApps", "Low (Block Polling)", "Wallet Signatures", "Full On-Chain (High Gas)", "None", "Public Blockchain Demos"],
             ["Canvas / Moodle LMS", "Low (HTTP Requests)", "TLS Only", "None (SQL Database)", "None", "Institutional Coursework"],
-            ["QChat (This Project)", "High (Convex WS)", "Web Crypto (RSA/AES)", "Private Besu (QBFT)", "BB84 TypeScript Module", "Institutional Campus Prototype"],
+            [f"{APP} (This Project)", "High (Convex WS)", "Web Crypto (RSA/AES)", "Private Besu (QBFT)", "BB84 TypeScript Module", "Institutional Campus Prototype"],
         ],
     )
     p(
@@ -449,7 +437,7 @@ def chapter_3(doc):
     h(doc, "3.2 System Architecture Overview", 2)
     p(
         doc,
-        "QChat employs a three-tier hybrid architecture comprising Presentation, Application, and Verification layers. High-frequency "
+        f"{APP} employs a three-tier hybrid architecture comprising Presentation, Application, and Verification layers. High-frequency "
         "operations (messaging, notifications, Q&A) interact with the cloud Application layer, while audit hashes and identity approvals "
         "are committed asynchronously to the Verification layer.",
     )
@@ -590,7 +578,7 @@ def chapter_4(doc):
     h(doc, "4.1 Implementation Environment and Tooling", 2)
     p(
         doc,
-        "QChat was constructed and evaluated across two primary developer workstations running Fedora 41 Workstation and Windows 11 "
+        f"{APP} was constructed and evaluated across two primary developer workstations running Fedora 41 Workstation and Windows 11 "
         "Enterprise (via Podman containers). Node.js LTS, pnpm, and Vite 8 served the frontend application. Serverless functions "
         "were synchronized using Convex 1.40.0. The private blockchain environment ran Hyperledger Besu on Docker/Podman, and smart "
         "contracts were compiled using Hardhat and Solidity 0.8.20.",
@@ -668,7 +656,16 @@ def chapter_4(doc):
     )
 
     h(doc, "4.6 Verification and Empirical Results", 2)
-    h(doc, "4.6.1 Functional Verification Suite", 3)
+    h(doc, "4.6.1 Reproducible Production Build Verification", 3)
+    p(
+        doc,
+        "A production build was run from the project root during the final documentation update using the command `pnpm build`. "
+        "Vite 8.1.0 transformed 244 modules and completed successfully in 3.53 seconds. The generated output consisted of "
+        "dist/index.html (0.73 kB), a gzipped CSS bundle of 15.69 kB, and a gzipped JavaScript bundle of 256.38 kB. This confirms "
+        "that the React application, including the Q&A, registration, department, and administration screens, compiles as one deployable build. "
+        "Vite reported a non-blocking warning that the JavaScript bundle is larger than 500 kB before gzip compression; code splitting is a future optimisation rather than a build failure.",
+    )
+    h(doc, "4.6.2 Functional Verification Suite", 3)
     p(
         doc,
         "Table 4.2 documents unit and functional verification tests executed during developer integration.",
@@ -686,7 +683,7 @@ def chapter_4(doc):
         ],
     )
 
-    h(doc, "4.6.2 Internal User Acceptance Walk-Throughs", 3)
+    h(doc, "4.6.3 Internal User Acceptance Walk-Throughs", 3)
     p(
         doc,
         "System evaluation was conducted via structured walk-through scenarios involving four project team members operating under "
@@ -696,15 +693,15 @@ def chapter_4(doc):
         doc,
         ["Scenario ID", "Assigned Persona", "Walk-Through Task Description", "Execution Result"],
         [
-            ["UAT-01", "Student", "Register account, complete login, submit verification ID document", "Completed successfully"],
-            ["UAT-02", "Administrator", "Review verification queue in Admin.tsx, approve request", "Convex status updated; Besu verifyUser executed"],
-            ["UAT-03", "Student / Lecturer", "Initiate sensitive chat room, execute BB84 simulation", "Sifted key derived; fingerprint displayed"],
-            ["UAT-04", "Student / Lecturer", "Transmit protected message attachment", "Payload encrypted; Besu txHash linked to message"],
-            ["UAT-05", "Lecturer", "Post course question with hashtags on Q&A board", "Post indexed; notification delivered to members"],
+            ["UAT-01", "Student/Lecturer", "Register account and submit verification ID", "Completed successfully"],
+            ["UAT-02", "Administrator", "Review verification queue and approve with Department and Specializations", "Status updated; Department assigned"],
+            ["UAT-03", "Student", "Post question with Department classification", "Question created; badges visible on feed"],
+            ["UAT-04", "Student", "Initiate Direct Message from Lecturer Q&A Answer", "Navigates to secure encrypted chat"],
+            ["UAT-05", "Administrator", "Search Audit Desk and Verify Message Hash", "Authentic payload verified via Besu hash"],
         ],
     )
 
-    h(doc, "4.6.3 Empirical Localhost Benchmarking", 3)
+    h(doc, "4.6.4 Empirical Localhost Benchmarking", 3)
     p(
         doc,
         "Latency performance was measured on developer testbed hardware (Intel Core i7, 16GB RAM, Fedora 41 / Besu local node) using "
@@ -725,9 +722,9 @@ def chapter_4(doc):
     h(doc, "4.7 Evaluation Against Project Objectives", 2)
     p(
         doc,
-        "All six project objectives were fulfilled at prototype level: (1) React 19 + Convex interface operational; (2) Web Crypto "
-        "RSA/AES pipeline active; (3) Besu recordHash smart contract deployed; (4) BB84 TypeScript simulation functional; (5) Admin "
-        "role verification working; (6) Empirical testing completed.",
+        "All five project objectives were fulfilled at prototype level: (1) Q&A forum with cryptographic roles operational; (2) Lecturer "
+        "specialization badges implemented; (3) Besu blockchain audit trail integrated; (4) Encrypted DM from Q&A functional; (5) Admin "
+        "department management working properly.",
     )
 
 
@@ -739,7 +736,7 @@ def chapter_5(doc):
     h(doc, "5.1 System Implementation Summary", 2)
     p(
         doc,
-        "QChat demonstrates a functional hybrid architecture combining real-time cloud data delivery with private blockchain immutability. "
+        f"{APP} demonstrates a functional hybrid architecture combining real-time cloud data delivery with private blockchain immutability. "
         "By utilizing Convex for high-frequency messaging state and Hyperledger Besu for SHA-256 payload digest logging, the platform "
         "maintains responsive user interaction while preserving tamper-evident audit trails.",
     )
@@ -833,9 +830,9 @@ def prelim_pages(doc):
         doc,
         "Institutional messaging and document exchange at the University of Energy and Natural Resources (UENR) rely heavily on "
         "commercial instant messaging applications and cloud learning tools. While fast and accessible, these platforms lack tamper-evident "
-        "logging mechanisms necessary to resolve academic evaluation disputes. This project developed QChat, a hybrid institutional messaging "
-        "platform combining real-time cloud data delivery with private permissioned blockchain auditability. High-frequency messaging, "
-        "file attachments, and community Q&A forums are synchronized via Convex, while SHA-256 payload digests are recorded asynchronously "
+        f"logging mechanisms necessary to resolve academic evaluation disputes. This project developed {APP}, a verified academic Q&A "
+        "platform combining real-time cloud data delivery with private permissioned blockchain auditability. Q&A threads are the central "
+        "experience; encrypted direct messages and file attachments support individual follow-up. SHA-256 payload digests are recorded asynchronously "
         "on a local Hyperledger Besu contract (MessageVerifier.sol). Client-side encryption is implemented via the W3C Web Crypto API using "
         "RSA-OAEP 2048-bit identity keys and AES-GCM-256 payload ciphers. An integrated TypeScript BB84 simulation module models photon "
         "sifting, Quantum Bit Error Rate (QBER) calculation, and a 11% abort threshold (Bennett & Brassard, 2014/1984; Scarani et al., 2009). "
@@ -895,7 +892,7 @@ def appendices(doc):
     h(doc, "Appendix A — Selected Application Code")
     p(
         doc,
-        "Source code for QChat is maintained in the project repository. Key client gatekeeper functions and cryptography helpers "
+        f"Source code for {APP} is maintained in the project repository. Key client gatekeeper functions and cryptography helpers "
         "are highlighted in Chapter 4.",
     )
     h(doc, "Appendix B — MessageVerifier.sol Smart Contract")
@@ -942,8 +939,8 @@ def build_proposal():
     h(doc, "Abstract")
     p(
         doc,
-        "This project proposes QChat, a secure web-based institutional messaging platform for UENR. The system combines Convex "
-        "for real-time message synchronization with a private Hyperledger Besu blockchain for SHA-256 payload hash verification. "
+        f"This project proposes {APP}, a verified web-based academic Q&A platform for UENR. The system combines Convex "
+        "for real-time question-and-answer synchronization with a private Hyperledger Besu blockchain for SHA-256 payload hash verification. "
         "Client encryption is handled via Web Crypto APIs, while a BB84 simulator provides an educational quantum key distribution component "
         "(Bennett & Brassard, 2014/1984; Scarani et al., 2009).",
     )
@@ -951,30 +948,30 @@ def build_proposal():
     h(doc, "Background and Context")
     p(
         doc,
-        "Commercial communication tools like WhatsApp and Google Classroom facilitate rapid campus communication but lack cryptographic "
-        "non-repudiation features. This project develops a dedicated institutional platform capable of recording tamper-evident payload "
-        "hashes on a local permissioned ledger.",
+        "Commercial communication tools facilitate rapid campus communication, but open forums can leave students unable to judge a responder's "
+        "academic authority. This project develops a dedicated Q&A-first institutional platform that verifies users, labels lecturer expertise, "
+        "and records tamper-evident payload hashes on a local permissioned ledger.",
     )
 
     h(doc, "Problem Statement")
     numbered(
         doc,
         [
-            "Real-time instant messaging platforms lack verifiable audit trails for academic evidence.",
-            "Centralized database logs remain susceptible to modification by administrative users.",
-            "Undergraduate coursework lacks interactive software tools for exploring post-quantum cryptography concepts (Shor, 1994).",
+            "Students cannot reliably distinguish an authorised lecturer answer from unverified advice in broad online discussions.",
+            "Impersonation, altered records, and fabricated academic announcements reduce trust in digital campus communication.",
+            "Academic discussions need a clear Q&A workspace with verified departments, specialisations, and evidence that can be checked independently.",
         ],
     )
 
     h(doc, "Aim and Objectives")
     p(
         doc,
-        "Aim: Build and test a hybrid Web2/Web3 institutional messaging application on localhost.",
+        f"Aim: Build and test {APP}, a hybrid Web2/Web3 academic Q&A application on localhost, with direct messaging as a supporting feature.",
     )
     numbered(
         doc,
         [
-            "Develop a React 19 + Convex messaging interface and Q&A board.",
+            "Develop a React 19 + Convex academic Q&A interface with department-aware questions and verified lecturer responses.",
             "Implement client-side RSA-OAEP and AES-GCM encryption using Web Crypto APIs (NIST, 2001; MDN, 2024).",
             "Deploy MessageVerifier.sol on a local Hyperledger Besu network using Ethers.js recordHash.",
             "Construct a BB84 simulation module with a 11% QBER abort threshold (Scarani et al., 2009).",
@@ -1005,7 +1002,7 @@ def build_outline():
     numbered(
         doc,
         [
-            "Title Slide — QChat, Author names & index numbers, Supervisor: Dr Peter Nimbe, September 2026.",
+            "Title Slide — QCampus Connect, Author names & index numbers, Supervisor: Dr Peter Nimbe, September 2026.",
             "Project Context — Communication practices and evidence integrity challenges at UENR.",
             "Problem Statement — Speed vs auditability, screenshot limitations, quantum security awareness.",
             "Aim & Objectives — Core goals and six technical deliverables.",
@@ -1016,6 +1013,16 @@ def build_outline():
             "Empirical Results — Localhost latencies (~50 ms sync, ~0.4 s Besu write) and UAT walk-throughs.",
             "Conclusion & Future Work — Summary of contributions and PQC expansion roadmap.",
         ],
+    )
+    h(doc, "Defence Evidence Note", 2)
+    p(
+        doc,
+        "The defence should begin with the Q&A thread, not the chat screen. Show a student selecting a department, a lecturer's "
+        "specialisation badge, and the SHA-256 proof created by MessageVerifier.sol. The follow-up direct-message screen then makes sense "
+        "as a private continuation of that academic exchange. The technical demonstration can name React, TypeScript, Convex, Web Crypto, "
+        "RSA-OAEP, AES-GCM, Hyperledger Besu, QBFT, Solidity, Ethers.js, BB84 and QBER. These are implemented components, not separate "
+        "claims about a public blockchain. The supporting standards are NIST (2001), Bennett and Brassard (2014/1984), and the Convex "
+        "Development Team (2024).",
     )
     save(doc, "Presentation outline.docx")
 

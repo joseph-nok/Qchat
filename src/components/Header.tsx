@@ -6,8 +6,8 @@ const Header = () => {
     <header className="top-app-bar">
       <div className="top-app-bar-content">
         <div className="logo">
-          <span className="logo-text">QCampus Connect.</span>
-          <div className="logo-text"> Connected Campus. Trusted Conversations</div>
+          <span className="logo-text">QCampus Connect.</span> <br />
+          <span className="headertext"> Connected Campus. Trusted Conversations</span>
         </div>
         <div className="actions">
           <Link

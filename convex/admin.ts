@@ -12,6 +12,9 @@ const passwordHashFor = (password: string) => {
   return `qchat_${(hash >>> 0).toString(16)}`;
 };
 
+const normalizeDepartmentName = (name: string) =>
+  name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+
 const getAdminBySessionToken = async (ctx: QueryCtx | MutationCtx, sessionToken: string) =>
   await ctx.db
     .query("admins")
@@ -247,7 +250,7 @@ export const sendAuditReportToUser = mutation({
       const roomId = await ctx.db.insert("chatRooms", {
         participantIds: [args.userId],
         participantKey: `audit:${args.userId}`,
-        title: "QChat Audit & Verification Desk",
+        title: "QCampus Connect Audit & Verification Desk",
         lastMessageText: "VERIFICATION OF ACADEMIC SUBMISSION",
         lastMessageAt: now,
         createdAt: now,
@@ -278,7 +281,7 @@ export const sendAuditReportToUser = mutation({
     });
 
     await ctx.db.patch(room._id, {
-      lastMessageText: "VERIFICATION OF ACADEMIC SUBMISSION - QChat Cryptographic Audit Report",
+      lastMessageText: "VERIFICATION OF ACADEMIC SUBMISSION - QCampus Connect Cryptographic Audit Report",
       lastMessageAt: now,
       updatedAt: now,
     });
@@ -297,3 +300,225 @@ export const sendAuditReportToUser = mutation({
   },
 });
 
+export const addDepartment = mutation({
+  args: {
+    sessionToken: v.string(),
+    name: v.string(),
+    code: v.string(),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const name = args.name.trim().replace(/\s+/g, " ");
+    const normalizedName = normalizeDepartmentName(name);
+    let nameConflict = await ctx.db
+      .query("departments")
+      .withIndex("by_normalizedName", (q) => q.eq("normalizedName", normalizedName))
+      .first();
+    if (!nameConflict) {
+      nameConflict = await ctx.db
+        .query("departments")
+        .withIndex("by_name", (q) => q.eq("name", name))
+        .first();
+    }
+    if (nameConflict) {
+      throw new ConvexError("DEPARTMENT_NAME_EXISTS");
+    }
+
+    const code = args.code.trim().toUpperCase();
+    const existing = await ctx.db
+      .query("departments")
+      .withIndex("by_code", (q) => q.eq("code", code))
+      .first();
+
+    if (existing) {
+      throw new ConvexError("DEPARTMENT_CODE_EXISTS");
+    }
+
+    const now = Date.now();
+    const departmentId = await ctx.db.insert("departments", {
+      name,
+      normalizedName,
+      code,
+      description: args.description?.trim(),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { departmentId };
+  },
+});
+
+export const updateDepartment = mutation({
+  args: {
+    sessionToken: v.string(),
+    departmentId: v.id("departments"),
+    name: v.optional(v.string()),
+    code: v.optional(v.string()),
+    description: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const department = await ctx.db.get(args.departmentId);
+    if (!department) throw new ConvexError("DEPARTMENT_NOT_FOUND");
+
+    let code = department.code;
+    let name = department.name;
+    let normalizedName = department.normalizedName;
+    if (args.name !== undefined) {
+      name = args.name.trim().replace(/\s+/g, " ");
+      normalizedName = normalizeDepartmentName(name);
+      if (normalizedName !== department.normalizedName) {
+        const existing = await ctx.db
+          .query("departments")
+          .withIndex("by_normalizedName", (q) => q.eq("normalizedName", normalizedName))
+          .first();
+        if (existing && existing._id !== args.departmentId) {
+          throw new ConvexError("DEPARTMENT_NAME_EXISTS");
+        }
+      }
+    }
+    if (args.code !== undefined) {
+      code = args.code.trim().toUpperCase();
+      if (code !== department.code) {
+        const existing = await ctx.db
+          .query("departments")
+          .withIndex("by_code", (q) => q.eq("code", code))
+          .first();
+        if (existing && existing._id !== args.departmentId) {
+          throw new ConvexError("DEPARTMENT_CODE_EXISTS");
+        }
+      }
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.departmentId, {
+      ...(args.name !== undefined ? { name, normalizedName } : {}),
+      ...(args.code !== undefined ? { code } : {}),
+      ...(args.description !== undefined ? { description: args.description.trim() } : {}),
+      ...(args.isActive !== undefined ? { isActive: args.isActive } : {}),
+      updatedAt: now,
+    });
+
+    return { ok: true };
+  },
+});
+
+export const deleteDepartment = mutation({
+  args: {
+    sessionToken: v.string(),
+    departmentId: v.id("departments"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const department = await ctx.db.get(args.departmentId);
+    if (!department) throw new ConvexError("DEPARTMENT_NOT_FOUND");
+
+    const userInDept = await ctx.db
+      .query("users")
+      .withIndex("by_department", (q) => q.eq("departmentId", args.departmentId))
+      .first();
+
+    if (userInDept) {
+      throw new ConvexError("DEPARTMENT_HAS_USERS");
+    }
+
+    await ctx.db.delete(args.departmentId);
+    return { ok: true };
+  },
+});
+
+export const verifyUserWithDepartment = mutation({
+  args: {
+    sessionToken: v.string(),
+    userId: v.id("users"),
+    departmentId: v.optional(v.id("departments")),
+    specializations: v.optional(v.array(v.string())),
+    approved: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new ConvexError("USER_NOT_FOUND");
+
+    let departmentName: string | undefined = undefined;
+    if (args.departmentId) {
+      const dept = await ctx.db.get(args.departmentId);
+      if (dept) {
+        departmentName = dept.name;
+      }
+    }
+
+    const now = Date.now();
+    const verificationStatus = args.approved ? "approved" : "unverified";
+
+    await ctx.db.patch(args.userId, {
+      departmentId: args.departmentId,
+      departmentName,
+      specializations: args.specializations,
+      verificationStatus,
+      approved: args.approved,
+      updatedAt: now,
+    });
+
+    return { ok: true };
+  },
+});
+
+export const getDepartmentsWithCount = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const departments = await ctx.db.query("departments").order("asc").collect();
+
+    const result = [];
+    for (const dept of departments) {
+      const usersInDept = await ctx.db
+        .query("users")
+        .withIndex("by_department", (q) => q.eq("departmentId", dept._id))
+        .collect();
+
+      result.push({
+        _id: dept._id,
+        name: dept.name,
+        code: dept.code,
+        description: dept.description ?? "",
+        isActive: dept.isActive !== false,
+        createdAt: dept.createdAt,
+        userCount: usersInDept.length,
+      });
+    }
+
+    return result;
+  },
+});
+
+export const getPendingUsers = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const pendingUsers = await ctx.db
+      .query("users")
+      .withIndex("by_verificationStatus", (q) => q.eq("verificationStatus", "pending"))
+      .collect();
+
+    return pendingUsers.map((user) => ({
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      school: user.school,
+      idNumber: user.idNumber,
+      indexNumber: user.indexNumber,
+      staffId: user.staffId,
+      departmentId: user.departmentId,
+      departmentName: user.departmentName,
+      specializations: user.specializations ?? [],
+      verificationSubmittedAt: user.verificationSubmittedAt ?? user.updatedAt,
+      avatarUrl: user.avatarUrl ?? "",
+      evidenceUrl: user.verificationEvidenceUrl ?? "",
+    }));
+  },
+});

@@ -10,6 +10,7 @@ import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../component
 import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
 import { logHashToBlockchain } from '../services/web3Service';
+import LecturerProfileBadge from '../components/LecturerProfileBadge';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
 
@@ -21,6 +22,10 @@ type PublicUser = {
   role: 'student' | 'lecturer';
   school: string;
   avatarUrl?: string;
+  departmentId?: Id<'departments'> | null;
+  departmentName?: string | null;
+  specializations?: string[];
+  walletAddress?: string;
 };
 
 type QuestionFeedItem = {
@@ -32,6 +37,9 @@ type QuestionFeedItem = {
   date: number;
   answerCount: number;
   answered: boolean;
+  departmentId?: Id<'departments'>;
+  departmentName?: string;
+  topic?: string;
   attachmentName?: string;
   attachmentType?: string;
   attachmentSize?: number;
@@ -68,24 +76,6 @@ const parseTags = (value: string) =>
     .map((tag) => tag.trim())
     .filter(Boolean);
 
-const getInitials = (name: string) => name
-  .split(' ')
-  .filter(Boolean)
-  .slice(0, 2)
-  .map(part => part[0])
-  .join('')
-  .toUpperCase();
-
-const QAAvatar = ({ user, small = false }: { user: PublicUser; small?: boolean }) => (
-  <span className={`qa-avatar ${small ? 'small' : ''}`}>
-    {user.avatarUrl ? (
-      <img src={user.avatarUrl} alt={`${user.fullName} profile`} />
-    ) : (
-      getInitials(user.fullName)
-    )}
-  </span>
-);
-
 const QAPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,12 +104,16 @@ const QAPage = () => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [hashtags, setHashtags] = useState('');
+  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [topic, setTopic] = useState('');
   const [questionFile, setQuestionFile] = useState<File | null>(null);
   const [replyBody, setReplyBody] = useState('');
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+
+  const activeDepartments = useQuery(convexApi.qchat.getDepartments) as Array<{ _id: Id<'departments'>; name: string; code: string }> | undefined;
 
   useEffect(() => {
     if (!sessionToken && !authLoading) navigate('/login');
@@ -178,12 +172,16 @@ const QAPage = () => {
         console.error('Besu node registration error:', err);
       }
 
+      const selectedDept = (activeDepartments || []).find((d) => d._id === selectedDeptId);
       const attachment = questionFile ? await uploadAttachment(questionFile, generateUploadUrl) : {};
       const result = await askQuestion({
         sessionToken,
         title,
         body,
         hashtags: parseTags(hashtags),
+        departmentId: selectedDeptId ? (selectedDeptId as Id<'departments'>) : undefined,
+        departmentName: selectedDept ? selectedDept.name : undefined,
+        topic: topic.trim() || undefined,
         ...attachment,
       });
 
@@ -198,6 +196,8 @@ const QAPage = () => {
       setTitle('');
       setBody('');
       setHashtags('');
+      setSelectedDeptId('');
+      setTopic('');
       setQuestionFile(null);
       setShowAskForm(false);
       setSearchParams({ questionId: result.questionId });
@@ -337,6 +337,33 @@ const QAPage = () => {
                 <label htmlFor="qa-tags">Hashtags</label>
                 <input id="qa-tags" value={hashtags} onChange={(event) => setHashtags(event.target.value)} placeholder="#ComputerScience, #Calculus" />
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '1rem' }}>
+                <div className="form-group">
+                  <label htmlFor="qa-dept">Department (Optional)</label>
+                  <select
+                    id="qa-dept"
+                    value={selectedDeptId}
+                    onChange={(e) => setSelectedDeptId(e.target.value)}
+                    style={{ padding: '.65rem .85rem', border: '1px solid var(--outline-variant)', borderRadius: '.6rem', background: 'var(--surface-container-low)', color: 'var(--on-surface)', font: 'inherit', fontSize: '.82rem' }}
+                  >
+                    <option value="">-- Select Department --</option>
+                    {activeDepartments?.map((dept) => (
+                      <option key={dept._id} value={dept._id}>
+                        {dept.name} ({dept.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="qa-topic">Topic / Subject</label>
+                  <input
+                    id="qa-topic"
+                    value={topic}
+                    onChange={(event) => setTopic(event.target.value)}
+                    placeholder="e.g. Cryptography, Algorithms, Linear Algebra"
+                  />
+                </div>
+              </div>
               <div className="qa-form-actions">
                 <AttachmentPicker selectedFile={questionFile} onFileChange={(file) => handleFile(file, setQuestionFile)} onClear={() => setQuestionFile(null)} />
                 <button type="submit" className="modal-submit-btn" disabled={isSubmitting}>
@@ -373,13 +400,7 @@ const QAPage = () => {
                 <>
                   <article className="qa-question-panel">
                     <div className="qa-question-topline">
-                      <div className="qa-author">
-                        <QAAvatar user={thread.question.author} />
-                        <div>
-                          <strong>{thread.question.author.fullName}</strong>
-                          <span>{thread.question.author.school} · {formatDate(thread.question.createdAt)}</span>
-                        </div>
-                      </div>
+                      <LecturerProfileBadge author={thread.question.author} />
                       <span className={`qa-status ${thread.question.answered ? 'answered' : ''}`}>
                         {thread.question.answered ? '✓ Answered' : 'Open'}
                       </span>
@@ -387,7 +408,15 @@ const QAPage = () => {
                     <h2>{thread.question.title}</h2>
                     <p>{thread.question.body}</p>
                     <AttachmentLink attachment={thread.question} />
-                    <div className="qa-tags">{thread.question.hashtags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+                    <div className="qa-tags">
+                      {thread.question.departmentName && (
+                        <span style={{ background: '#dff1e9', color: '#126b50' }}>🏛️ {thread.question.departmentName}</span>
+                      )}
+                      {thread.question.topic && (
+                        <span style={{ background: '#eef2ff', color: '#3730a3' }}>📚 {thread.question.topic}</span>
+                      )}
+                      {thread.question.hashtags.map((tag) => <span key={tag}>{tag}</span>)}
+                    </div>
                     {thread.question.isMine && !thread.question.answered && (
                       <button type="button" className="qa-answer-btn" onClick={() => void handleMarkAnswered()}>
                         <span className="material-symbols-outlined">check_circle</span>
@@ -399,14 +428,8 @@ const QAPage = () => {
                   <div className="qa-answer-list">
                     {thread.answers.length > 0 ? thread.answers.map((answer) => (
                       <article key={answer._id} className={`qa-answer ${answer.isMine ? 'mine' : ''}`}>
-                        <div className="qa-author">
-                          <QAAvatar user={answer.author} small />
-                          <div>
-                            <strong>{answer.author.fullName}</strong>
-                            <span>{formatDate(answer.createdAt)}</span>
-                          </div>
-                        </div>
-                        {answer.body && <p>{answer.body}</p>}
+                        <LecturerProfileBadge author={answer.author} compact />
+                        {answer.body && <p style={{ marginTop: '.75rem' }}>{answer.body}</p>}
                         <AttachmentLink attachment={answer} />
                       </article>
                     )) : (
@@ -439,7 +462,15 @@ const QAPage = () => {
                     </div>
                     <h2>{question.title}</h2>
                     <p>{question.preview}</p>
-                    <div className="qa-tags">{question.hashtags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+                    <div className="qa-tags">
+                      {question.departmentName && (
+                        <span style={{ background: '#dff1e9', color: '#126b50' }}>🏛️ {question.departmentName}</span>
+                      )}
+                      {question.topic && (
+                        <span style={{ background: '#eef2ff', color: '#3730a3' }}>📚 {question.topic}</span>
+                      )}
+                      {question.hashtags.map((tag) => <span key={tag}>{tag}</span>)}
+                    </div>
                   </div>
                   <div className="qa-card-stats">
                     <span className={`qa-status ${question.answered ? 'answered' : ''}`}>{question.answered ? '✓ Answered' : 'Open'}</span>

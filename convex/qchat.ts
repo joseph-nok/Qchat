@@ -39,6 +39,77 @@ const passwordHashFor = (password: string) => {
   return `qchat_${(hash >>> 0).toString(16)}`;
 };
 
+const departmentCodeFromName = (name: string) => {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "DEPT";
+  if (words.length === 1) return words[0].replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase() || "DEPT";
+  return words
+    .map((word) => word.replace(/[^A-Za-z0-9]/g, "")[0] ?? "")
+    .join("")
+    .slice(0, 8)
+    .toUpperCase() || "DEPT";
+};
+
+const normalizeDepartmentName = (name: string) =>
+  name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+
+const ensureDepartmentByName = async (
+  ctx: MutationCtx,
+  rawName: string | undefined,
+) => {
+  const name = (rawName ?? "").trim().replace(/\s+/g, " ");
+  if (!name) {
+    return { departmentId: undefined as Id<"departments"> | undefined, departmentName: undefined as string | undefined };
+  }
+
+  const normalizedName = normalizeDepartmentName(name);
+  let existing = await ctx.db
+    .query("departments")
+    .withIndex("by_normalizedName", (q) => q.eq("normalizedName", normalizedName))
+    .first();
+  // A previously deployed record may predate normalizedName. Exact-name
+  // fallback upgrades it during the next registration without scanning.
+  if (!existing) {
+    existing = await ctx.db
+      .query("departments")
+      .withIndex("by_name", (q) => q.eq("name", name))
+      .first();
+  }
+  if (existing) {
+    if (existing.isActive === false || existing.normalizedName !== normalizedName) {
+      await ctx.db.patch(existing._id, {
+        ...(existing.isActive === false ? { isActive: true } : {}),
+        ...(existing.normalizedName !== normalizedName ? { normalizedName } : {}),
+        updatedAt: Date.now(),
+      });
+    }
+    return { departmentId: existing._id, departmentName: existing.name };
+  }
+
+  let code = departmentCodeFromName(name);
+  let suffix = 1;
+  while (
+    await ctx.db
+      .query("departments")
+      .withIndex("by_code", (q) => q.eq("code", code))
+      .first()
+  ) {
+    code = `${departmentCodeFromName(name)}${suffix}`.slice(0, 12).toUpperCase();
+    suffix += 1;
+  }
+
+  const now = Date.now();
+  const departmentId = await ctx.db.insert("departments", {
+    name,
+    normalizedName,
+    code,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { departmentId, departmentName: name };
+};
+
 const publicUser = (user: Doc<"users">) => {
   const verificationStatus = user.approved === true ? "approved" : user.verificationStatus;
   const approved = user.approved === true || verificationStatus === "approved";
@@ -61,6 +132,11 @@ const publicUser = (user: Doc<"users">) => {
     verificationStatus,
     approved,
     isVerified: approved,
+    walletAddress: user.walletAddress ?? "",
+    // New profile fields
+    departmentId: (user as any).departmentId ?? null,
+    departmentName: (user as any).departmentName ?? null,
+    specializations: (user as any).specializations ?? [],
   };
 };
 
@@ -160,6 +236,7 @@ export const registerUser = mutation({
     school: v.string(),
     idNumber: v.string(),
     password: v.string(),
+    department: v.optional(v.string()),
     publicKey: v.optional(v.string()),
     hasKeypair: v.optional(v.boolean()),
   },
@@ -180,6 +257,7 @@ export const registerUser = mutation({
     const school = args.school.trim();
     const now = Date.now();
     const sessionToken = `session:${email}:${crypto.randomUUID()}`;
+    const department = await ensureDepartmentByName(ctx, args.department);
 
     const userId = await ctx.db.insert("users", {
       firstName,
@@ -188,6 +266,8 @@ export const registerUser = mutation({
       email,
       role: args.role,
       school,
+      ...(department.departmentId ? { departmentId: department.departmentId } : {}),
+      ...(department.departmentName ? { departmentName: department.departmentName } : {}),
       idNumber: args.idNumber.trim().toUpperCase(),
       bio: "",
       avatarUrl: "",
@@ -333,6 +413,7 @@ export const registerUserWithRecaptcha = action({
     school: v.string(),
     idNumber: v.string(),
     password: v.string(),
+    department: v.optional(v.string()),
     publicKey: v.optional(v.string()),
     hasKeypair: v.optional(v.boolean()),
     recaptchaToken: v.string(),
@@ -356,6 +437,7 @@ export const registerUserWithRecaptcha = action({
       school: args.school,
       idNumber: args.idNumber,
       password: args.password,
+      department: args.department,
       publicKey: args.publicKey,
       hasKeypair: args.hasKeypair,
     });
@@ -433,6 +515,29 @@ export const getExploreUsers = query({
         isVerified: user.approved === true || user.verificationStatus === "approved",
       }))
       .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  },
+});
+
+export const getDepartments = query({
+  args: {},
+  handler: async (ctx) => {
+    const departments = await ctx.db
+      .query("departments")
+      .withIndex("by_name")
+      .collect();
+    return departments.filter((d) => d.isActive !== false);
+  },
+});
+
+export const getLecturersByDepartment = query({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, args) => {
+    const lecturers = await ctx.db
+      .query("users")
+      .withIndex("by_department", (q) => q.eq("departmentId", args.departmentId))
+      .filter((q) => q.eq(q.field("role"), "lecturer"))
+      .collect();
+    return lecturers.map(publicUser);
   },
 });
 
@@ -744,6 +849,9 @@ export const getQuestions = query({
         attachmentName: question.attachmentName,
         attachmentType: question.attachmentType,
         attachmentSize: question.attachmentSize,
+        departmentId: question.departmentId,
+        departmentName: question.departmentName,
+        topic: question.topic,
       });
     }
 
@@ -786,6 +894,8 @@ export const getQuestionThread = query({
         attachmentName: answer.attachmentName,
         attachmentType: answer.attachmentType,
         attachmentSize: answer.attachmentSize,
+        departmentId: answer.departmentId,
+        departmentName: answer.departmentName,
       });
     }
 
@@ -805,9 +915,21 @@ export const getQuestionThread = query({
         attachmentName: question.attachmentName,
         attachmentType: question.attachmentType,
         attachmentSize: question.attachmentSize,
+        departmentId: question.departmentId,
+        departmentName: question.departmentName,
+        topic: question.topic,
       },
       answers: renderedAnswers,
     };
+  },
+});
+
+export const getUserPublicProfile = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return null;
+    return publicUser(user);
   },
 });
 
@@ -979,6 +1101,10 @@ export const askQuestion = mutation({
     title: v.string(),
     body: v.string(),
     hashtags: v.array(v.string()),
+    // Optional classification fields
+    departmentId: v.optional(v.id("departments")),
+    departmentName: v.optional(v.string()),
+    topic: v.optional(v.string()),
     attachmentStorageId: v.optional(v.id("_storage")),
     attachmentName: v.optional(v.string()),
     attachmentType: v.optional(v.string()),
@@ -1008,6 +1134,10 @@ export const askQuestion = mutation({
         args.attachmentType,
         args.attachmentSize,
       )),
+      // Classification fields
+      departmentId: args.departmentId,
+      departmentName: args.departmentName,
+      topic: args.topic,
       answerCount: 0,
       answered: false,
       createdAt: now,
@@ -1023,6 +1153,9 @@ export const addAnswer = mutation({
     sessionToken: v.string(),
     questionId: v.id("questions"),
     body: v.string(),
+    // Optional classification fields for answer
+    departmentId: v.optional(v.id("departments")),
+    departmentName: v.optional(v.string()),
     attachmentStorageId: v.optional(v.id("_storage")),
     attachmentName: v.optional(v.string()),
     attachmentType: v.optional(v.string()),
@@ -1052,6 +1185,9 @@ export const addAnswer = mutation({
         args.attachmentType,
         args.attachmentSize,
       )),
+      // Classification fields
+      departmentId: args.departmentId,
+      departmentName: args.departmentName,
       createdAt: now,
     });
 
@@ -1077,6 +1213,9 @@ export const addAnswer = mutation({
     return { answerId };
   },
 });
+
+export const askQuestionV2 = askQuestion;
+export const addAnswerV2 = addAnswer;
 
 export const markQuestionAnswered = mutation({
   args: {
@@ -1181,11 +1320,13 @@ export const submitAcademicVerification = mutation({
     storageId: v.id("_storage"),
     school: v.string(),
     idNumber: v.optional(v.string()),
+    department: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const currentUser = await requireUser(ctx, args.sessionToken);
     const evidenceUrl = (await ctx.storage.getUrl(args.storageId)) ?? undefined;
     const now = Date.now();
+    const department = await ensureDepartmentByName(ctx, args.department);
 
     await ctx.db.insert("verificationRequests", {
       userId: currentUser._id,
@@ -1201,6 +1342,8 @@ export const submitAcademicVerification = mutation({
     await ctx.db.patch(currentUser._id, {
       school: args.school,
       ...(args.idNumber ? { idNumber: args.idNumber } : {}),
+      ...(department.departmentId ? { departmentId: department.departmentId } : {}),
+      ...(department.departmentName ? { departmentName: department.departmentName } : {}),
       verificationStatus: "pending",
       approved: false,
       verificationEvidenceStorageId: args.storageId,

@@ -29,6 +29,10 @@ export default defineSchema({
     avatarStorageId: v.optional(v.id("_storage")),
     avatarUrl: v.optional(v.string()),
     passwordHash: v.string(),
+    // Department affiliation and specializations for lecturers
+    departmentId: v.optional(v.id("departments")),
+    departmentName: v.optional(v.string()),
+    specializations: v.optional(v.array(v.string())),
     sessionToken: v.string(),
     verificationStatus: v.union(
       v.literal("unverified"),
@@ -46,11 +50,30 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_sessionToken", ["sessionToken"])
     .index("by_school", ["school"])
+    .index("by_department", ["departmentId"])
     .index("by_verificationStatus", ["verificationStatus"])
     .index("by_idNumber", ["idNumber"])
     .index("by_indexNumber", ["indexNumber"])
     .index("by_staffId", ["staffId"])
     .index("by_walletAddress", ["walletAddress"]),
+
+  // ---------------------------------------------------------------------
+  // Departments table – used to group lecturers and questions by academic unit
+  // ---------------------------------------------------------------------
+  departments: defineTable({
+    name: v.string(),
+    // Kept optional so existing department records remain deployable; new and
+    // edited records use this canonical value for case-insensitive lookups.
+    normalizedName: v.optional(v.string()),
+    code: v.string(),
+    description: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_name", ["name"])
+    .index("by_normalizedName", ["normalizedName"]),
 
   chatRooms: defineTable({
     participantIds: v.array(v.id("users")),
@@ -117,11 +140,17 @@ export default defineSchema({
     attachmentType: v.optional(v.string()),
     attachmentSize: v.optional(v.number()),
     answerCount: v.number(),
+    // Optional department and topic classification for questions
+    departmentId: v.optional(v.id("departments")),
+    departmentName: v.optional(v.string()),
+    topic: v.optional(v.string()),
     answered: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_createdAt", ["createdAt"])
+    .index("by_department", ["departmentId"])
+    .index("by_topic", ["topic"])
     .index("by_authorId_and_createdAt", ["authorId", "createdAt"]),
 
   answers: defineTable({
@@ -133,6 +162,9 @@ export default defineSchema({
     attachmentName: v.optional(v.string()),
     attachmentType: v.optional(v.string()),
     attachmentSize: v.optional(v.number()),
+    // Optional department info for answers (mirrors question classification)
+    departmentId: v.optional(v.id("departments")),
+    departmentName: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_questionId_and_createdAt", ["questionId", "createdAt"])

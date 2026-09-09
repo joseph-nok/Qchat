@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
 import AppHeader from '../components/AppHeader';
@@ -22,8 +22,8 @@ const UENR_INSTITUTION = 'University of Energy and Natural Resources (UENR)';
 //   'University for Development Studies (UDS)',
 // ];
 
-const DEPARTMENTS = [
-  'Computer Science and Engineering',
+const FALLBACK_DEPARTMENTS = [
+  'Computer Science and Informatics',
   'Electrical and Electronic Engineering',
   'Natural Resources Management',
   'Business Administration',
@@ -47,7 +47,7 @@ const statusCopy = {
   verified: {
     label: 'Verified Profile',
     heading: 'Profile verified',
-    body: 'Your academic identity is active and trusted across Qchat.',
+        body: 'Your academic identity is active and trusted across QCampus Connect.',
     icon: 'verified_user',
   },
 };
@@ -60,10 +60,11 @@ const VerifyProfile = () => {
   const { currentUser, sessionToken, isLoading: authLoading } = useAuth();
   const generateUploadUrl = useMutation(convexApi.qchat.generateUploadUrl);
   const submitAcademicVerification = useMutation(convexApi.qchat.submitAcademicVerification);
+  const liveDepartments = useQuery(convexApi.qchat.getDepartments);
 
   const [idNumber, setIdNumber] = useState('');
   const [institution, setInstitution] = useState(UENR_INSTITUTION);
-  const [department, setDepartment] = useState(DEPARTMENTS[0]);
+  const [department, setDepartment] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,6 +74,7 @@ const VerifyProfile = () => {
     if (!currentUser) return;
     setIdNumber(currentUser.idNumber || '');
     setInstitution(UENR_INSTITUTION);
+    if (currentUser.departmentName) setDepartment(currentUser.departmentName);
     setSubmitted(currentUser.verificationStatus === 'pending');
   }, [currentUser]);
 
@@ -141,6 +143,7 @@ const VerifyProfile = () => {
         storageId,
         school: institution,
         idNumber: idNumber.toUpperCase(),
+        department: department.trim(),
       });
       setSubmitted(true);
       setSelectedFile(null);
@@ -244,11 +247,23 @@ const VerifyProfile = () => {
 
                   <label className="verify-field">
                     <span>Department</span>
-                    <select value={department} disabled={formLocked} onChange={(event) => setDepartment(event.target.value)}>
-                      {DEPARTMENTS.map((item) => (
-                        <option key={item} value={item}>{item}</option>
+                    <input
+                      type="text"
+                      list="verify-department-options"
+                      value={department}
+                      disabled={formLocked}
+                      onChange={(event) => setDepartment(event.target.value)}
+                      placeholder="Type a department or pick from the list"
+                    />
+                    <datalist id="verify-department-options">
+                      {(liveDepartments && liveDepartments.length > 0
+                        ? liveDepartments.map((item: { name: string }) => item.name)
+                        : FALLBACK_DEPARTMENTS
+                      ).map((item: string) => (
+                        <option key={item} value={item} />
                       ))}
-                    </select>
+                    </datalist>
+                    <small>If the department is new it is stored and shown in later dropdowns.</small>
                   </label>
                 </div>
 

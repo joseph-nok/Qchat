@@ -83,7 +83,7 @@ const generateAuditReportText = (user: any, msg: any) => {
     padBoxLine('                    Department of Computer Science and Informatics'),
     padBoxLine(''),
     padBoxLine('                    VERIFICATION OF ACADEMIC SUBMISSION'),
-    padBoxLine('                    QChat Cryptographic Audit Report'),
+    padBoxLine('                    QCampus Connect Cryptographic Audit Report'),
     padBoxLine(''),
     divider,
     padBoxLine(''),
@@ -120,17 +120,17 @@ const generateAuditReportText = (user: any, msg: any) => {
     divider,
     padBoxLine(''),
     padBoxLine(`  The academic submission "${assignment}" has been cryptographically verified`),
-    padBoxLine('  using the QChat blockchain audit system. The evidence is:'),
+    padBoxLine('  using the QCampus Connect blockchain audit system. The evidence is:'),
     padBoxLine(''),
     divider,
     padBoxLine(''),
-    padBoxLine('  Issued by:          QChat Verification System'),
+    padBoxLine('  Issued by:          QCampus Connect Verification System'),
     padBoxLine(`  Issued Date:        ${issuedDate}`),
     padBoxLine(`  Verification ID:    ${verificationId}`),
     padBoxLine('  Cryptographic Proof: ✅ Attached (Blockchain transaction)'),
     padBoxLine(''),
     padBoxLine('  This verification is cryptographically binding and can be independently'),
-    padBoxLine('  verified by anyone with access to the QChat blockchain node.'),
+    padBoxLine('  verified by anyone with access to the QCampus Connect blockchain node.'),
     padBoxLine(''),
     divider,
     padBoxLine(''),
@@ -148,8 +148,8 @@ const Admin = () => {
   ) as AdminUser[] | undefined;
   const reviewVerificationRequest = useMutation(convexApi.admin.reviewVerificationRequest);
 
-  // Mode switcher: 'queue' (Identity Review) | 'verification' (User Submission Verification)
-  const [viewMode, setViewMode] = useState<'queue' | 'verification'>('verification');
+  // Mode switcher: 'queue' (Identity Review) | 'verification' (User Submission Verification) | 'departments' (Department Management)
+  const [viewMode, setViewMode] = useState<'queue' | 'verification' | 'departments'>('verification');
 
   // Registration queue states
   const [activeStatus, setActiveStatus] = useState<'pending' | 'all'>('pending');
@@ -165,7 +165,31 @@ const Admin = () => {
   const [isSendingReport, setIsSendingReport] = useState(false);
   const [sendSuccessMessage, setSendSuccessMessage] = useState('');
 
+  // Department Management states
+  const [deptName, setDeptName] = useState('');
+  const [deptCode, setDeptCode] = useState('');
+  const [deptDescription, setDeptDescription] = useState('');
+  const [editingDeptId, setEditingDeptId] = useState<Id<'departments'> | null>(null);
+  const [deptFeedback, setDeptFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSubmittingDept, setIsSubmittingDept] = useState(false);
+
+  // Department assignment state in registration queue mode
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  const [selectedSpecializations, setSelectedSpecializations] = useState('');
+
   const sendAuditReportToUser = useMutation(convexApi.admin.sendAuditReportToUser);
+
+  // Live Convex queries for department management & verification
+  const departmentsWithCount = useQuery(
+    convexApi.admin.getDepartmentsWithCount,
+    adminSessionToken ? { sessionToken: adminSessionToken } : 'skip'
+  );
+  const activeDepartments = useQuery(convexApi.qchat.getDepartments);
+
+  const addDepartment = useMutation(convexApi.admin.addDepartment);
+  const updateDepartment = useMutation(convexApi.admin.updateDepartment);
+  const deleteDepartment = useMutation(convexApi.admin.deleteDepartment);
+  const verifyUserWithDepartment = useMutation(convexApi.admin.verifyUserWithDepartment);
 
   // Live Convex queries for verification mode
   const searchedUser = useQuery(
@@ -212,13 +236,110 @@ const Admin = () => {
   const selectedUser = members.find((user) => user.requestId === selectedId) ?? reviewQueue[0];
 
   const handleReview = async (requestId: Id<'verificationRequests'>, status: 'approved' | 'rejected') => {
-    if (!adminSessionToken) return;
+    if (!adminSessionToken || !selectedUser) return;
     setIsReviewing(true);
     try {
-      await reviewVerificationRequest({ sessionToken: adminSessionToken, requestId, status });
+      if (status === 'approved') {
+        const specs = selectedSpecializations
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        await verifyUserWithDepartment({
+          sessionToken: adminSessionToken,
+          userId: selectedUser.userId,
+          departmentId: selectedDeptId ? (selectedDeptId as Id<'departments'>) : undefined,
+          specializations: specs.length > 0 ? specs : undefined,
+          approved: true,
+        });
+
+        await reviewVerificationRequest({ sessionToken: adminSessionToken, requestId, status: 'approved' });
+      } else {
+        await reviewVerificationRequest({ sessionToken: adminSessionToken, requestId, status: 'rejected' });
+      }
       setSelectedId(null);
+      setSelectedDeptId('');
+      setSelectedSpecializations('');
     } finally {
       setIsReviewing(false);
+    }
+  };
+
+  const handleSaveDepartment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminSessionToken || !deptName.trim() || !deptCode.trim()) return;
+    setIsSubmittingDept(true);
+    setDeptFeedback(null);
+    try {
+      if (editingDeptId) {
+        await updateDepartment({
+          sessionToken: adminSessionToken,
+          departmentId: editingDeptId,
+          name: deptName.trim(),
+          code: deptCode.trim(),
+          description: deptDescription.trim() || undefined,
+        });
+        setDeptFeedback({ type: 'success', text: '✅ Department updated successfully.' });
+      } else {
+        await addDepartment({
+          sessionToken: adminSessionToken,
+          name: deptName.trim(),
+          code: deptCode.trim(),
+          description: deptDescription.trim() || undefined,
+        });
+        setDeptFeedback({ type: 'success', text: '✅ Department created successfully.' });
+      }
+      setDeptName('');
+      setDeptCode('');
+      setDeptDescription('');
+      setEditingDeptId(null);
+    } catch (err: any) {
+      setDeptFeedback({
+        type: 'error',
+        text: err.message === 'DEPARTMENT_CODE_EXISTS'
+          ? '❌ Department code already exists.'
+          : err.message === 'DEPARTMENT_NAME_EXISTS'
+            ? '❌ A department with that name already exists.'
+            : err.message || 'Failed to save department.',
+      });
+    } finally {
+      setIsSubmittingDept(false);
+    }
+  };
+
+  const handleEditDepartment = (dept: any) => {
+    setEditingDeptId(dept._id);
+    setDeptName(dept.name);
+    setDeptCode(dept.code);
+    setDeptDescription(dept.description || '');
+    setDeptFeedback(null);
+  };
+
+  const handleToggleDeptStatus = async (dept: any) => {
+    if (!adminSessionToken) return;
+    try {
+      await updateDepartment({
+        sessionToken: adminSessionToken,
+        departmentId: dept._id,
+        isActive: !dept.isActive,
+      });
+    } catch (err: any) {
+      alert(err.message || 'Failed to update status.');
+    }
+  };
+
+  const handleDeleteDepartment = async (deptId: Id<'departments'>) => {
+    if (!adminSessionToken || !confirm('Are you sure you want to delete this department?')) return;
+    try {
+      await deleteDepartment({ sessionToken: adminSessionToken, departmentId: deptId });
+      if (editingDeptId === deptId) {
+        setEditingDeptId(null);
+        setDeptName('');
+        setDeptCode('');
+        setDeptDescription('');
+      }
+    } catch (err: any) {
+      alert(err.message === 'DEPARTMENT_HAS_USERS' ? '❌ Cannot delete department that has assigned users.' : err.message || 'Failed to delete department.');
     }
   };
 
@@ -307,6 +428,13 @@ const Admin = () => {
               type="button"
             >
               <span className="material-symbols-outlined">how_to_reg</span> Identity Registration Queue ({pendingCount})
+            </button>
+            <button
+              className={`admin-mode-btn ${viewMode === 'departments' ? 'active' : ''}`}
+              onClick={() => setViewMode('departments')}
+              type="button"
+            >
+              <span className="material-symbols-outlined">domain</span> Department Management ({departmentsWithCount?.length || 0})
             </button>
           </nav>
 
@@ -637,10 +765,41 @@ const Admin = () => {
                       <div className="admin-detail-facts"><div><span>Institution</span><strong>{selectedUser.school}</strong></div><div><span>Role</span><strong>{selectedUser.role === 'lecturer' ? 'Lecturer' : 'Student'}</strong></div><div><span>Submitted</span><strong>{formatSubmittedDate(selectedUser.verificationSubmittedAt)}</strong></div></div>
                       <div className="admin-evidence-card"><div className="admin-evidence-icon"><span className="material-symbols-outlined">badge</span></div><div><strong>Academic credentials</strong><p>{selectedUser.evidenceUrl ? 'Evidence submitted for this application.' : 'No evidence link is attached to this application.'}</p></div>{selectedUser.evidenceUrl && <a href={selectedUser.evidenceUrl} target="_blank" rel="noreferrer" aria-label="Open academic credentials"><span className="material-symbols-outlined">open_in_new</span></a>}</div>
                       {statusFor(selectedUser) === 'pending' && (
-                        <div className="admin-actions">
-                          <button type="button" className="admin-reject" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'rejected')}><span className="material-symbols-outlined">close</span>Reject</button>
-                          <button type="button" className="admin-approve" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'approved')}><span className="material-symbols-outlined">verified</span>{isReviewing ? 'Saving...' : 'Approve identity'}</button>
-                        </div>
+                        <>
+                          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
+                            <div className="dept-form-field">
+                              <label>Assign Department (Optional)</label>
+                              <select
+                                value={selectedDeptId}
+                                onChange={(e) => setSelectedDeptId(e.target.value)}
+                              >
+                                <option value="">-- Select Department --</option>
+                                {activeDepartments?.map((dept: any) => (
+                                  <option key={dept._id} value={dept._id}>
+                                    {dept.name} ({dept.code})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {selectedUser.role === 'lecturer' && (
+                              <div className="dept-form-field">
+                                <label>Specializations (Comma-separated)</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Cryptography, Cybersecurity, AI"
+                                  value={selectedSpecializations}
+                                  onChange={(e) => setSelectedSpecializations(e.target.value)}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="admin-actions">
+                            <button type="button" className="admin-reject" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'rejected')}><span className="material-symbols-outlined">close</span>Reject</button>
+                            <button type="button" className="admin-approve" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'approved')}><span className="material-symbols-outlined">verified</span>{isReviewing ? 'Saving...' : 'Approve identity'}</button>
+                          </div>
+                        </>
                       )}
                     </>
                   ) : (
@@ -649,6 +808,152 @@ const Admin = () => {
                 </aside>
               </div>
             </>
+          )}
+
+          {/* MODE 3: DEPARTMENT MANAGEMENT */}
+          {viewMode === 'departments' && (
+            <div className="departments-workspace">
+              {/* Department List */}
+              <section className="departments-card">
+                <h2>🏛️ Academic Departments</h2>
+                <p>Manage university departments, course codes, and view user assignments across departments.</p>
+
+                {!departmentsWithCount ? (
+                  <div className="admin-loading" style={{ minHeight: '10rem' }}>Loading departments...</div>
+                ) : departmentsWithCount.length === 0 ? (
+                  <div className="admin-empty">
+                    <span className="material-symbols-outlined">domain_disabled</span>
+                    <p>No departments created yet.</p>
+                    <small>Use the form on the right to add your first academic department.</small>
+                  </div>
+                ) : (
+                  <div className="messages-table-wrap">
+                    <table className="messages-table">
+                      <thead>
+                        <tr>
+                          <th>Code</th>
+                          <th>Department Name</th>
+                          <th>Description</th>
+                          <th>Users</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {departmentsWithCount.map((dept: any) => (
+                          <tr key={dept._id}>
+                            <td><strong className="mono-val">{dept.code}</strong></td>
+                            <td><strong>{dept.name}</strong></td>
+                            <td>{dept.description || '—'}</td>
+                            <td><span className="stat-tag">{dept.userCount} users</span></td>
+                            <td>
+                              <span className={dept.isActive ? 'dept-badge-active' : 'dept-badge-inactive'}>
+                                {dept.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '.3rem' }}>
+                                <button
+                                  className="dept-action-icon"
+                                  title="Edit department"
+                                  type="button"
+                                  onClick={() => handleEditDepartment(dept)}
+                                >
+                                  <span className="material-symbols-outlined">edit</span>
+                                </button>
+                                <button
+                                  className="dept-action-icon"
+                                  title={dept.isActive ? 'Deactivate department' : 'Activate department'}
+                                  type="button"
+                                  onClick={() => handleToggleDeptStatus(dept)}
+                                >
+                                  <span className="material-symbols-outlined">{dept.isActive ? 'toggle_on' : 'toggle_off'}</span>
+                                </button>
+                                <button
+                                  className="dept-action-icon delete"
+                                  title="Delete department"
+                                  type="button"
+                                  onClick={() => handleDeleteDepartment(dept._id)}
+                                >
+                                  <span className="material-symbols-outlined">delete</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              {/* Add / Edit Department Form */}
+              <section className="departments-card">
+                <h2>{editingDeptId ? '✏️ Edit Department' : '➕ Add New Department'}</h2>
+                <p>{editingDeptId ? 'Update department code or details.' : 'Create an academic department for classifying lecturers, students, and Q&A threads.'}</p>
+
+                {deptFeedback && (
+                  <div className={`send-feedback ${deptFeedback.type === 'error' ? 'tampered' : ''}`} style={{ marginBottom: '1rem' }}>
+                    {deptFeedback.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveDepartment} className="dept-form">
+                  <div className="dept-form-field">
+                    <label>Department Code *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. CS, ENG, MATH, PHYS"
+                      value={deptCode}
+                      onChange={(e) => setDeptCode(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="dept-form-field">
+                    <label>Department Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Department of Computer Science"
+                      value={deptName}
+                      onChange={(e) => setDeptName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="dept-form-field">
+                    <label>Description (Optional)</label>
+                    <textarea
+                      rows={3}
+                      placeholder="Brief description of this academic unit"
+                      value={deptDescription}
+                      onChange={(e) => setDeptDescription(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="dept-form-actions">
+                    <button className="dept-btn-primary" type="submit" disabled={isSubmittingDept}>
+                      {isSubmittingDept ? 'Saving...' : editingDeptId ? 'Update Department' : 'Create Department'}
+                    </button>
+                    {editingDeptId && (
+                      <button
+                        className="dept-btn-secondary"
+                        type="button"
+                        onClick={() => {
+                          setEditingDeptId(null);
+                          setDeptName('');
+                          setDeptCode('');
+                          setDeptDescription('');
+                          setDeptFeedback(null);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </section>
+            </div>
           )}
         </div>
       </main>

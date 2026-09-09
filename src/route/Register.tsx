@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useAction, useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
 import { isNetworkError, toErrorText } from '../lib/convexErrors';
@@ -15,6 +15,7 @@ type RegisterErrorsRecord = {
   lastName?: string;
   email?: string;
   institution?: string;
+  department?: string;
   idNumber?: string;
   password?: string;
   confirmPassword?: string;
@@ -54,6 +55,7 @@ const Register = () => {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [institution, setInstitution] = useState('University of Energy and Natural Resources (UENR)');
+  const [department, setDepartment] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [rank, setRank] = useState('');
   const [password, setPassword] = useState('');
@@ -68,6 +70,7 @@ const Register = () => {
 
   const registerUser = useMutation(convexApi.qchat.registerUser);
   const registerUserWithRecaptcha = useAction(convexApi.qchat.registerUserWithRecaptcha);
+  const departments = useQuery(convexApi.qchat.getDepartments);
 
   // Close dropdown when clicking outside (commented out as dropdown is disabled)
   // useEffect(() => {
@@ -132,6 +135,7 @@ const Register = () => {
     const errors: RegisterErrorsRecord = {};
     const trimmedEmail = email.trim();
     const trimmedInstitution = institution.trim();
+    const trimmedDepartment = department.trim();
     const trimmedIdNumber = idNumber.trim();
 
     if (!firstName.trim()) errors.firstName = "Enter your first name.";
@@ -161,6 +165,10 @@ const Register = () => {
       if (!isUENR) {
         errors.institution = "Only University of Energy and Natural Resources (UENR) is accepted.";
       }
+    }
+
+    if (!trimmedDepartment) {
+      errors.department = "Enter or select your department.";
     }
 
     if (!trimmedIdNumber) {
@@ -273,6 +281,7 @@ const Register = () => {
           email,
           role,
           school: institution,
+          department: department.trim(),
           idNumber,
           password,
           publicKey: publicKeyBase64,
@@ -286,6 +295,7 @@ const Register = () => {
           email,
           role,
           school: institution,
+          department: department.trim(),
           idNumber,
           password,
           publicKey: publicKeyBase64,
@@ -532,6 +542,42 @@ const Register = () => {
                     id="register-institution-error"
                   >
                     {errorsRecord.institution}
+                  </p>
+                )}
+              </div>
+
+              <div className="auth-field-group">
+                <label className="auth-label" htmlFor="department">
+                  Department
+                </label>
+                <input
+                  type="text"
+                  id="department"
+                  list="register-department-options"
+                  className={`auth-input ${errorsRecord.department ? "error" : ""}`}
+                  placeholder="Computer Science and Informatics"
+                  value={department}
+                  onChange={(e) => {
+                    setDepartment(e.target.value);
+                    clearFieldError("department");
+                  }}
+                  autoComplete="off"
+                  aria-invalid={Boolean(errorsRecord.department)}
+                  aria-describedby={
+                    errorsRecord.department ? "register-department-error" : undefined
+                  }
+                />
+                <datalist id="register-department-options">
+                  {(departments ?? []).map((item: { _id: string; name: string }) => (
+                    <option key={item._id} value={item.name} />
+                  ))}
+                </datalist>
+                <p className="auth-field-hint" style={{ marginTop: "0.4rem", fontSize: "0.8rem", opacity: 0.8 }}>
+                  Pick an existing department or type a new one. New names are saved and appear in later dropdowns.
+                </p>
+                {errorsRecord.department && (
+                  <p className="auth-field-error" id="register-department-error">
+                    {errorsRecord.department}
                   </p>
                 )}
               </div>

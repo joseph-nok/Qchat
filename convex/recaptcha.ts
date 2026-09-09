@@ -97,6 +97,7 @@ export const registerUserWithRecaptcha = action({
     school: v.string(),
     idNumber: v.string(),
     password: v.string(),
+    department: v.optional(v.string()),
     publicKey: v.optional(v.string()),
     hasKeypair: v.optional(v.boolean()),
     recaptchaToken: v.string(),
@@ -120,6 +121,7 @@ export const registerUserWithRecaptcha = action({
       school: args.school,
       idNumber: args.idNumber,
       password: args.password,
+      department: args.department,
       publicKey: args.publicKey,
       hasKeypair: args.hasKeypair,
     });

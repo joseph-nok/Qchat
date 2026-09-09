@@ -123,21 +123,21 @@ export const run = mutation({
   args: {},
   handler: async (ctx) => {
     const timestamp = now();
-    const adminEmail = "admin@qchat.local";
+  const adminEmail = "admin@qcampus.local";
     const existingAdmin = await ctx.db
       .query("admins")
       .withIndex("by_email", (q) => q.eq("email", adminEmail))
       .first();
     if (existingAdmin) {
       await ctx.db.patch(existingAdmin._id, {
-        displayName: "Qchat Administrator",
+        displayName: "QCampus Connect Administrator",
         passwordHash: passwordHashFor("Admin@12345"),
         updatedAt: timestamp,
       });
     } else {
       await ctx.db.insert("admins", {
         email: adminEmail,
-        displayName: "Qchat Administrator",
+        displayName: "QCampus Connect Administrator",
         passwordHash: passwordHashFor("Admin@12345"),
         sessionToken: `admin-seed:${crypto.randomUUID()}`,
         createdAt: timestamp,
@@ -177,7 +177,7 @@ export const run = mutation({
       const user = testUsers[index];
       const submittedAt = timestamp - (index + 1) * 1000 * 60 * 60 * 3;
       const evidenceUrl =
-        `https://qchat-demo.local/verification/${user.email.replaceAll("@", "-at-")}.pdf`;
+        `https://qcampus-connect-demo.local/verification/${user.email.replaceAll("@", "-at-")}.pdf`;
 
       const existingRequest = await ctx.db
         .query("verificationRequests")
@@ -280,7 +280,7 @@ export const run = mutation({
         attachmentName: "assignment.pdf",
         attachmentType: "application/pdf",
         attachmentSize: 1048576,
-        attachmentUrl: "https://qchat-demo.local/submissions/assignment.pdf",
+        attachmentUrl: "https://qcampus-connect-demo.local/submissions/assignment.pdf",
         blockchainTxHash: "0x5c16c49d32067cc9f506a8eb2e94e76d35d0cf2c9fe1ee8bb58791248f3a91c5",
         readBy: [oseiId, peterId],
         createdAt: roomZeroCreatedAt + 1000 * 60 * 20,
@@ -293,7 +293,7 @@ export const run = mutation({
         attachmentName: "lab_data_logs.csv",
         attachmentType: "text/csv",
         attachmentSize: 45020,
-        attachmentUrl: "https://qchat-demo.local/submissions/lab_data_logs.csv",
+        attachmentUrl: "https://qcampus-connect-demo.local/submissions/lab_data_logs.csv",
         blockchainTxHash: "0x8a92b31f7c8d9e0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
         readBy: [oseiId, peterId],
         createdAt: roomZeroCreatedAt + 1000 * 60 * 30,

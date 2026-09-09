@@ -198,3 +198,30 @@
 }
 @media (max-width: 700px) { .search-input-group { flex-direction: column; } .audit-grid { grid-template-columns: 1fr; } }
 
+/* Department Management Panel */
+.departments-workspace { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(18rem, .8fr); gap: 1rem; align-items: start; }
+.departments-card { padding: 1.5rem; border: 1px solid #e2dacb; border-radius: 1rem; background: #fffdf9; box-shadow: 0 14px 32px -25px rgba(48, 42, 29, .4); }
+.departments-card h2 { margin: 0 0 .3rem; color: #1e2625; font-size: 1.25rem; font-weight: 900; }
+.departments-card p { margin: 0 0 1.2rem; color: #787062; font-size: .82rem; }
+
+.dept-form { display: flex; flex-direction: column; gap: .85rem; }
+.dept-form-field { display: flex; flex-direction: column; gap: .3rem; }
+.dept-form-field label { color: #6a6254; font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .05em; }
+.dept-form-field input, .dept-form-field textarea, .dept-form-field select { padding: .65rem .85rem; border: 1px solid #dcd4c3; border-radius: .6rem; background: #ffffff; color: #202625; font: inherit; font-size: .82rem; outline: none; }
+.dept-form-field input:focus, .dept-form-field textarea:focus, .dept-form-field select:focus { border-color: #16584d; box-shadow: 0 0 0 3px rgba(22, 88, 77, .12); }
+
+.dept-form-actions { display: flex; gap: .5rem; margin-top: .5rem; }
+.dept-btn-primary { flex: 1; padding: .7rem; border: 0; border-radius: .6rem; background: #16584d; color: white; font: inherit; font-size: .8rem; font-weight: 900; cursor: pointer; }
+.dept-btn-primary:hover { background: #11473e; }
+.dept-btn-primary:disabled { opacity: .65; cursor: not-allowed; }
+.dept-btn-secondary { padding: .7rem 1rem; border: 1px solid #dcd4c3; border-radius: .6rem; background: transparent; color: #6a6254; font: inherit; font-size: .8rem; font-weight: 850; cursor: pointer; }
+
+.dept-badge-active { padding: .2rem .5rem; border-radius: 999px; background: #dff1e9; color: #126b50; font-size: .68rem; font-weight: 900; }
+.dept-badge-inactive { padding: .2rem .5rem; border-radius: 999px; background: #f0ece0; color: #766d5e; font-size: .68rem; font-weight: 900; }
+
+.dept-action-icon { border: 0; background: transparent; color: #6a6254; cursor: pointer; padding: .25rem; border-radius: .4rem; }
+.dept-action-icon:hover { background: #efe9da; color: #16584d; }
+.dept-action-icon.delete:hover { background: #fce8e6; color: #ac4b3d; }
+@media (max-width: 900px) { .departments-workspace { grid-template-columns: 1fr; } }
+
+
