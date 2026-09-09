@@ -14,7 +14,7 @@ const LandingPage = () => {
           <div className="hero-content">
             <div className="hero-text-area">
               <h1 className="hero-title">
-                Ghana Education <br />
+                QCampus Connect <br />
                 <span className="highlight">Connect.</span>
               </h1>
               {/* <p className="hero-subtitle">
