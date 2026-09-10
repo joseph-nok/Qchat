@@ -177,7 +177,11 @@ export default defineSchema({
     questionId: v.optional(v.id("questions")),
     answerId: v.optional(v.id("answers")),
     roomId: v.optional(v.id("chatRooms")),
-    type: v.union(v.literal("question_reply"), v.literal("bb84_key_exchange")),
+    type: v.union(
+      v.literal("question_reply"),
+      v.literal("bb84_key_exchange"),
+      v.literal("department_question"),
+    ),
     title: v.string(),
     body: v.string(),
     read: v.boolean(),

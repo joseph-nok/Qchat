@@ -92,9 +92,36 @@ const QAPage = () => {
   const questionIdParam = searchParams.get('questionId');
   const [newQuestionId, setNewQuestionId] = useState<Id<'questions'> | null>(null);
 
-  const questions = useQuery(convexApi.qchat.getQuestions, sessionToken ? { sessionToken } : 'skip') as QuestionFeedItem[] | undefined;
+  // Department queries and feed filtering state
+  const departments = useQuery(convexApi.qchat.getDepartments) as Array<{
+    _id: Id<'departments'>;
+    name: string;
+    code: string;
+    description?: string;
+  }> | undefined;
+
+  const [feedFilterMode, setFeedFilterMode] = useState<'all' | 'my_questions' | 'department'>('all');
+  const [feedDepartmentId, setFeedDepartmentId] = useState<Id<'departments'> | null>(null);
+
+  const queryArgs = useMemo(() => {
+    if (!sessionToken) return 'skip' as const;
+    if (currentUser?.role === 'lecturer') {
+      return { sessionToken };
+    }
+    if (feedFilterMode === 'my_questions') {
+      return { sessionToken, filter: 'my_questions' };
+    }
+    if (feedFilterMode === 'department' && feedDepartmentId) {
+      return { sessionToken, departmentId: feedDepartmentId };
+    }
+    return { sessionToken };
+  }, [sessionToken, currentUser?.role, feedFilterMode, feedDepartmentId]);
+
+  const questions = useQuery(convexApi.qchat.getQuestions, queryArgs) as QuestionFeedItem[] | undefined;
   const notifications = useQuery(convexApi.qchat.getNotifications, sessionToken ? { sessionToken } : 'skip') as Array<{
     _id: string;
+    type?: string;
+    title?: string;
     body: string;
     questionId: Id<'questions'>;
     read: boolean;
@@ -119,6 +146,7 @@ const QAPage = () => {
   const askQuestion = useMutation(convexApi.qchat.askQuestion);
   const addAnswer = useMutation(convexApi.qchat.addAnswer);
   const markQuestionAnswered = useMutation(convexApi.qchat.markQuestionAnswered);
+  const markNotificationRead = useMutation(convexApi.qchat.markNotificationRead);
 
   const [showAskForm, setShowAskForm] = useState(false);
   const [title, setTitle] = useState('');
@@ -126,6 +154,12 @@ const QAPage = () => {
   const [hashtags, setHashtags] = useState('');
   const [topic, setTopic] = useState('');
   const [questionFile, setQuestionFile] = useState<File | null>(null);
+
+  // Target Department selection for asking question
+  const [targetDepartmentId, setTargetDepartmentId] = useState<Id<'departments'> | null>(null);
+  const [targetDeptSearch, setTargetDeptSearch] = useState('');
+  const [isTargetDeptOpen, setIsTargetDeptOpen] = useState(false);
+
   const [replyBody, setReplyBody] = useState('');
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -181,6 +215,9 @@ const QAPage = () => {
     };
 
     addSuggestion(currentUser?.departmentName, 'Department');
+    for (const dept of departments ?? []) {
+      addSuggestion(dept.name, 'Department');
+    }
     for (const question of questions ?? []) {
       addSuggestion(question.departmentName, 'Department');
       addSuggestion(question.topic, 'Topic');
@@ -188,7 +225,42 @@ const QAPage = () => {
     }
 
     return [...suggestions.values()].slice(0, 7);
-  }, [currentUser?.departmentName, questions, searchTerm]);
+  }, [currentUser?.departmentName, departments, questions, searchTerm]);
+
+  const selectedTargetDept = useMemo(() => {
+    if (targetDepartmentId && departments) {
+      const found = departments.find((d) => d._id === targetDepartmentId);
+      if (found) return found;
+    }
+    if (currentUser?.departmentId && departments) {
+      const found = departments.find((d) => d._id === currentUser.departmentId);
+      if (found) return found;
+    }
+    return departments?.[0] ?? null;
+  }, [departments, targetDepartmentId, currentUser?.departmentId]);
+
+  const filteredDepartments = useMemo(() => {
+    if (!departments) return [];
+    const q = targetDeptSearch.trim().toLowerCase();
+    if (!q) return departments;
+    return departments.filter(
+      (dept) =>
+        dept.name.toLowerCase().includes(q) ||
+        dept.code.toLowerCase().includes(q) ||
+        (dept.description && dept.description.toLowerCase().includes(q))
+    );
+  }, [departments, targetDeptSearch]);
+
+  const handleNotificationClick = async (notification: { _id: string; questionId: Id<'questions'>; read: boolean }) => {
+    if (!notification.read && sessionToken) {
+      try {
+        await markNotificationRead({ sessionToken, notificationId: notification._id as Id<'notifications'> });
+      } catch {
+        // Ignore
+      }
+    }
+    setSearchParams({ questionId: notification.questionId });
+  };
 
   const handleFile = (file: File | null, setter: (file: File | null) => void) => {
     if (!file) return;
@@ -233,12 +305,17 @@ const QAPage = () => {
       }
 
       const attachment = questionFile ? await uploadAttachment(questionFile, generateUploadUrl) : {};
+      const finalDeptId = selectedTargetDept?._id || targetDepartmentId || currentUser?.departmentId;
+      const finalDeptName = selectedTargetDept?.name || currentUser?.departmentName;
+
       const result = await askQuestion({
         sessionToken,
         title,
         body,
         hashtags: parseTags(hashtags),
         topic: topic.trim() || undefined,
+        departmentId: finalDeptId || undefined,
+        departmentName: finalDeptName || undefined,
         ...attachment,
       });
 
@@ -365,10 +442,15 @@ const QAPage = () => {
                   type="button"
                   key={notification._id}
                   className={`qa-notification ${notification.read ? '' : 'unread'}`}
-                  onClick={() => setSearchParams({ questionId: notification.questionId })}
+                  onClick={() => void handleNotificationClick(notification)}
                 >
-                  <span className="material-symbols-outlined">notifications</span>
-                  <span>{notification.body}</span>
+                  <span className="material-symbols-outlined">
+                    {notification.type === 'department_question' ? 'help_outline' : 'notifications'}
+                  </span>
+                  <div className="qa-notification-body">
+                    {notification.title && <strong className="qa-notification-title">{notification.title}</strong>}
+                    <span>{notification.body}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -395,13 +477,96 @@ const QAPage = () => {
                 <input id="qa-tags" value={hashtags} onChange={(event) => setHashtags(event.target.value)} placeholder="#ComputerScience, #Calculus" />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '1rem' }}>
-                <div className="form-group">
-                  <label>Department</label>
-                  <div className="qa-department-lock">
-                    <span className="material-symbols-outlined">domain</span>
-                    {currentUser.departmentName || 'Department verification required'}
+                <div className="form-group qa-target-dept-box">
+                  <label htmlFor="qa-target-dept">Target Department</label>
+                  <div className="qa-target-dept-display">
+                    <div className="qa-target-dept-info">
+                      <span className="material-symbols-outlined">domain</span>
+                      <div className="qa-target-dept-text">
+                        <strong>{selectedTargetDept?.name ?? currentUser.departmentName ?? 'Select Department'}</strong>
+                        {selectedTargetDept?.code && <span className="qa-dept-code-pill">{selectedTargetDept.code}</span>}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="qa-change-dept-btn"
+                      onClick={() => setIsTargetDeptOpen((prev) => !prev)}
+                    >
+                      {isTargetDeptOpen ? 'Close' : 'Select / Search'}
+                    </button>
                   </div>
+
+                  {isTargetDeptOpen && (
+                    <div className="qa-dept-dropdown-panel">
+                      <div className="qa-dept-search-wrap">
+                        <span className="material-symbols-outlined">search</span>
+                        <input
+                          type="text"
+                          className="qa-dept-search-input"
+                          placeholder="Search department name or code..."
+                          value={targetDeptSearch}
+                          onChange={(e) => setTargetDeptSearch(e.target.value)}
+                          autoFocus
+                        />
+                        {targetDeptSearch && (
+                          <button
+                            type="button"
+                            className="qa-dept-search-clear"
+                            onClick={() => setTargetDeptSearch('')}
+                          >
+                            <span className="material-symbols-outlined">close</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="qa-dept-options-list">
+                        {filteredDepartments.map((dept) => {
+                          const isSelected = (selectedTargetDept?._id ?? currentUser.departmentId) === dept._id;
+                          const isUserHomeDept = currentUser.departmentId === dept._id;
+                          return (
+                            <button
+                              key={dept._id}
+                              type="button"
+                              className={`qa-dept-option-item ${isSelected ? 'selected' : ''}`}
+                              onClick={() => {
+                                setTargetDepartmentId(dept._id);
+                                setIsTargetDeptOpen(false);
+                                setTargetDeptSearch('');
+                              }}
+                            >
+                              <span className="material-symbols-outlined">
+                                {isSelected ? 'check_circle' : 'apartment'}
+                              </span>
+                              <div className="qa-dept-option-details">
+                                <span className="qa-dept-option-name">{dept.name}</span>
+                                {dept.description && <small className="qa-dept-option-desc">{dept.description}</small>}
+                              </div>
+                              <div className="qa-dept-option-tags">
+                                {isUserHomeDept && <span className="qa-dept-home-tag">Your Dept</span>}
+                                <span className="qa-dept-code-pill">{dept.code}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {filteredDepartments.length === 0 && (
+                          <div className="qa-dept-no-results">No departments match &quot;{targetDeptSearch}&quot;</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTargetDept && currentUser.departmentId && selectedTargetDept._id !== currentUser.departmentId && (
+                    <div className="qa-cross-dept-callout">
+                      <span className="material-symbols-outlined">info</span>
+                      <div>
+                        <strong>Cross-Department Question</strong>
+                        <p>
+                          You are asking in <strong>{selectedTargetDept.name}</strong>. Only verified lecturers in <strong>{selectedTargetDept.name}</strong> will receive this question and be eligible to answer.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div className="form-group">
                   <label htmlFor="qa-topic">Topic / Subject</label>
                   <input
@@ -464,7 +629,71 @@ const QAPage = () => {
               </div>
             )}
           </div>
-          <p className="qa-department-scope"><span className="material-symbols-outlined">visibility</span> Showing questions from {currentUser.departmentName || 'your verified department'}.</p>
+
+          {currentUser.role === 'student' && !questionIdParam && (
+            <div className="qa-feed-filter-bar">
+              <div className="qa-filter-pills">
+                <button
+                  type="button"
+                  className={`qa-filter-pill ${feedFilterMode === 'all' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFeedFilterMode('all');
+                    setFeedDepartmentId(null);
+                  }}
+                >
+                  <span className="material-symbols-outlined">dynamic_feed</span>
+                  My Feed
+                </button>
+                <button
+                  type="button"
+                  className={`qa-filter-pill ${feedFilterMode === 'my_questions' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFeedFilterMode('my_questions');
+                    setFeedDepartmentId(null);
+                  }}
+                >
+                  <span className="material-symbols-outlined">contact_support</span>
+                  My Questions
+                </button>
+              </div>
+
+              <div className="qa-dept-filter-select-wrap">
+                <span className="material-symbols-outlined">filter_list</span>
+                <select
+                  className="qa-dept-filter-select"
+                  value={feedFilterMode === 'department' && feedDepartmentId ? feedDepartmentId : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      setFeedFilterMode('department');
+                      setFeedDepartmentId(val as Id<'departments'>);
+                    } else {
+                      setFeedFilterMode('all');
+                      setFeedDepartmentId(null);
+                    }
+                  }}
+                >
+                  <option value="">Browse Department (All)</option>
+                  {departments?.map((dept) => (
+                    <option key={dept._id} value={dept._id}>
+                      {dept.name} ({dept.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <p className="qa-department-scope">
+            <span className="material-symbols-outlined">visibility</span>
+            {currentUser.role === 'lecturer'
+              ? `Showing questions directed to ${currentUser.departmentName || 'your verified department'} (Lecturer View).`
+              : feedFilterMode === 'my_questions'
+              ? 'Showing all questions asked by you across departments.'
+              : feedFilterMode === 'department' && feedDepartmentId
+              ? `Showing questions in ${departments?.find((d) => d._id === feedDepartmentId)?.name || 'selected department'}.`
+              : `Showing questions from ${currentUser.departmentName || 'your verified department'} and your cross-department questions.`}
+          </p>
 
           {questionIdParam ? (
             <section className="qa-thread">
@@ -514,19 +743,45 @@ const QAPage = () => {
                         <AttachmentLink attachment={answer} onImageClick={setLightboxImage} />
                       </article>
                     )) : (
-                      <div className="no-conversations"><span className="material-symbols-outlined no-conv-icon">forum</span><p>No answers yet. Be the first to help.</p></div>
+                      <div className="no-conversations">
+                        <span className="material-symbols-outlined no-conv-icon">
+                          {currentUser.role === 'lecturer' && currentUser.departmentId === thread.question.departmentId ? 'forum' : 'pending'}
+                        </span>
+                        <p>
+                          {currentUser.role === 'lecturer' && currentUser.departmentId === thread.question.departmentId
+                            ? 'No answers yet. Share your guidance as a lecturer.'
+                            : `Waiting for a lecturer from ${thread.question.departmentName || 'this department'} to answer.`}
+                        </p>
+                      </div>
                     )}
                   </div>
 
-                  <form className="qa-reply-box" onSubmit={(event) => void handleReply(event)}>
-                    <textarea value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="Write an answer..." />
-                    <div className="qa-form-actions">
-                      <AttachmentPicker selectedFile={replyFile} onFileChange={(file) => handleFile(file, setReplyFile)} onClear={() => setReplyFile(null)} />
-                      <button type="submit" className="chat-drawer-send-btn" disabled={isSubmitting || (!replyBody.trim() && !replyFile)}>
-                        <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_top' : 'send'}</span>
-                      </button>
+                  {currentUser.role === 'lecturer' && currentUser.departmentId === thread.question.departmentId ? (
+                    <form className="qa-reply-box" onSubmit={(event) => void handleReply(event)}>
+                      <div className="qa-reply-box-header">
+                        <span className="material-symbols-outlined">verified</span>
+                        <span>Answering as verified lecturer for <strong>{thread.question.departmentName}</strong></span>
+                      </div>
+                      <textarea value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="Write an academic answer..." />
+                      <div className="qa-form-actions">
+                        <AttachmentPicker selectedFile={replyFile} onFileChange={(file) => handleFile(file, setReplyFile)} onClear={() => setReplyFile(null)} />
+                        <button type="submit" className="chat-drawer-send-btn" disabled={isSubmitting || (!replyBody.trim() && !replyFile)}>
+                          <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_top' : 'send'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="qa-lecturer-only-notice">
+                      <span className="material-symbols-outlined">school</span>
+                      <div>
+                        <h4>Department Lecturers Only</h4>
+                        <p>
+                          Only verified lecturers in <strong>{thread.question.departmentName || 'this department'}</strong> can answer this question.
+                          {thread.question.isMine && !thread.question.answered ? ' You will be notified once a lecturer answers.' : ''}
+                        </p>
+                      </div>
                     </div>
-                  </form>
+                  )}
                 </>
               )}
             </section>

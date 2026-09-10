@@ -829,18 +829,72 @@ export const resetBB84KeyExchange = mutation({
 export const getQuestions = query({
   args: {
     sessionToken: v.string(),
+    departmentId: v.optional(v.id("departments")),
+    filter: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const currentUser = await getUserBySessionToken(ctx, args.sessionToken);
-    if (!currentUser?.departmentId) return [];
+    if (!currentUser) return [];
 
-    const questions = await ctx.db
-      .query("questions")
-      .withIndex("by_departmentId_and_createdAt", (q) =>
-        q.eq("departmentId", currentUser.departmentId),
-      )
-      .order("desc")
-      .take(75);
+    let questions: any[] = [];
+
+    if (currentUser.role === "lecturer") {
+      // Lecturers ONLY see questions directed to their department
+      if (!currentUser.departmentId) return [];
+      questions = await ctx.db
+        .query("questions")
+        .withIndex("by_departmentId_and_createdAt", (q) =>
+          q.eq("departmentId", currentUser.departmentId),
+        )
+        .order("desc")
+        .take(75);
+    } else {
+      // Students
+      if (args.filter === "my_questions") {
+        questions = await ctx.db
+          .query("questions")
+          .withIndex("by_authorId_and_createdAt", (q) =>
+            q.eq("authorId", currentUser._id),
+          )
+          .order("desc")
+          .take(75);
+      } else if (args.departmentId) {
+        questions = await ctx.db
+          .query("questions")
+          .withIndex("by_departmentId_and_createdAt", (q) =>
+            q.eq("departmentId", args.departmentId),
+          )
+          .order("desc")
+          .take(75);
+      } else {
+        // Default student feed: Questions in student's own department + all questions asked by this student across departments
+        const deptQuestions = currentUser.departmentId
+          ? await ctx.db
+              .query("questions")
+              .withIndex("by_departmentId_and_createdAt", (q) =>
+                q.eq("departmentId", currentUser.departmentId),
+              )
+              .order("desc")
+              .take(50)
+          : [];
+
+        const myQuestions = await ctx.db
+          .query("questions")
+          .withIndex("by_authorId_and_createdAt", (q) =>
+            q.eq("authorId", currentUser._id),
+          )
+          .order("desc")
+          .take(50);
+
+        const map = new Map<string, (typeof deptQuestions)[0]>();
+        for (const q of [...myQuestions, ...deptQuestions]) {
+          map.set(q._id, q);
+        }
+        questions = Array.from(map.values())
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 75);
+      }
+    }
 
     const rows = [];
     for (const question of questions) {
@@ -882,8 +936,13 @@ export const getQuestionThread = query({
     if (!currentUser) return null;
 
     const question = await ctx.db.get(args.questionId);
-    if (!question || !currentUser.departmentId || question.departmentId !== currentUser.departmentId) {
-      return null;
+    if (!question) return null;
+
+    // Lecturers can ONLY see questions from their own department (or ones they authored)
+    if (currentUser.role === "lecturer") {
+      if (question.departmentId !== currentUser.departmentId && question.authorId !== currentUser._id) {
+        return null;
+      }
     }
 
     const author = await ctx.db.get(question.authorId);
@@ -1041,6 +1100,23 @@ export const markBB84NotificationRead = mutation({
   },
 });
 
+export const markNotificationRead = mutation({
+  args: {
+    sessionToken: v.string(),
+    notificationId: v.id("notifications"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await requireUser(ctx, args.sessionToken);
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification || notification.userId !== currentUser._id) {
+      return { ok: false };
+    }
+
+    await ctx.db.patch(args.notificationId, { read: true });
+    return { ok: true };
+  },
+});
+
 export const sendMessage = mutation({
   args: {
     sessionToken: v.string(),
@@ -1120,7 +1196,7 @@ export const askQuestion = mutation({
     title: v.string(),
     body: v.string(),
     hashtags: v.array(v.string()),
-    // Optional classification fields
+    // Target department classification fields
     departmentId: v.optional(v.id("departments")),
     departmentName: v.optional(v.string()),
     topic: v.optional(v.string()),
@@ -1131,9 +1207,6 @@ export const askQuestion = mutation({
   },
   handler: async (ctx, args) => {
     const currentUser = await requireUser(ctx, args.sessionToken);
-    if (!currentUser.departmentId || !currentUser.departmentName) {
-      throw new Error("Complete your department verification before posting a question.");
-    }
     const title = args.title.trim().replace(/\s+/g, " ");
     const body = args.body.trim();
     if (title.length < 6) {
@@ -1141,6 +1214,22 @@ export const askQuestion = mutation({
     }
     if (body.length < 12) {
       throw new Error("Question details must be at least 12 characters.");
+    }
+
+    let targetDeptId = currentUser.departmentId;
+    let targetDeptName = currentUser.departmentName;
+
+    if (args.departmentId) {
+      const targetDept = await ctx.db.get(args.departmentId);
+      if (!targetDept || targetDept.isActive === false) {
+        throw new Error("Selected department is not valid or active.");
+      }
+      targetDeptId = targetDept._id;
+      targetDeptName = targetDept.name;
+    }
+
+    if (!targetDeptId || !targetDeptName) {
+      throw new Error("Please select a target department for your question.");
     }
 
     const now = Date.now();
@@ -1155,15 +1244,36 @@ export const askQuestion = mutation({
         args.attachmentType,
         args.attachmentSize,
       ),
-      // Classification fields
-      departmentId: currentUser.departmentId,
-      departmentName: currentUser.departmentName,
+      // Classification fields: targeted department
+      departmentId: targetDeptId,
+      departmentName: targetDeptName,
       topic: args.topic,
       answerCount: 0,
       answered: false,
       createdAt: now,
       updatedAt: now,
     });
+
+    // Push notification ONLY to lecturers in this target department
+    const lecturers = await ctx.db
+      .query("users")
+      .withIndex("by_department", (q) => q.eq("departmentId", targetDeptId))
+      .filter((q) => q.eq(q.field("role"), "lecturer"))
+      .collect();
+
+    for (const lecturer of lecturers) {
+      if (lecturer._id === currentUser._id) continue;
+      await ctx.db.insert("notifications", {
+        userId: lecturer._id,
+        actorId: currentUser._id,
+        questionId,
+        type: "department_question",
+        title: `New Question in ${targetDeptName}`,
+        body: `${currentUser.fullName} asked "${title}" in ${targetDeptName}`,
+        read: false,
+        createdAt: now,
+      });
+    }
 
     return { questionId };
   },
@@ -1188,8 +1298,12 @@ export const addAnswer = mutation({
     if (!question) {
       throw new Error("Question not found.");
     }
+    // Only lecturers from the question's target department are allowed to answer
+    if (currentUser.role !== "lecturer") {
+      throw new Error("Only lecturers can answer questions.");
+    }
     if (!currentUser.departmentId || question.departmentId !== currentUser.departmentId) {
-      throw new Error("You can only answer questions from your department.");
+      throw new Error(`Only lecturers from ${question.departmentName ?? "the target department"} can answer this question.`);
     }
 
     const body = args.body.trim();
@@ -1208,9 +1322,8 @@ export const addAnswer = mutation({
         args.attachmentType,
         args.attachmentSize,
       ),
-      // Classification fields
-      departmentId: args.departmentId,
-      departmentName: args.departmentName,
+      departmentId: currentUser.departmentId,
+      departmentName: currentUser.departmentName,
       createdAt: now,
     });
 
@@ -1226,8 +1339,8 @@ export const addAnswer = mutation({
         questionId: args.questionId,
         answerId,
         type: "question_reply",
-        title: "New answer on your question",
-        body: `${currentUser.fullName} replied to "${question.title}"`,
+        title: `New answer from ${currentUser.fullName}`,
+        body: `${currentUser.fullName} (${currentUser.departmentName ?? "Lecturer"}) replied to "${question.title}"`,
         read: false,
         createdAt: now,
       });
