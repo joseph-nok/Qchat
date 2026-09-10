@@ -572,9 +572,7 @@ const Register = () => {
                     <option key={item._id} value={item.name} />
                   ))}
                 </datalist>
-                <p className="auth-field-hint" style={{ marginTop: "0.4rem", fontSize: "0.8rem", opacity: 0.8 }}>
-                  Pick an existing department or type a new one. New names are saved and appear in later dropdowns.
-                </p>
+                
                 {errorsRecord.department && (
                   <p className="auth-field-error" id="register-department-error">
                     {errorsRecord.department}
