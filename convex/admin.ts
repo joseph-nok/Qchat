@@ -73,6 +73,8 @@ export const getVerificationRequests = query({
         role: user.role,
         school: request.school,
         idNumber: request.idNumber,
+        departmentId: request.departmentId ?? user.departmentId ?? null,
+        departmentName: request.departmentName ?? user.departmentName ?? "",
         avatarUrl: user.avatarUrl ?? "",
         evidenceUrl: request.evidenceUrl ?? user.verificationEvidenceUrl ?? "",
         verificationStatus: request.status,

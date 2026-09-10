@@ -155,20 +155,14 @@ const normalizeHashtags = (hashtags: string[]) => {
   return [...unique].slice(0, 8);
 };
 
-const attachmentFields = async (
-  ctx: MutationCtx,
+const attachmentFields = (
   attachmentStorageId?: Id<"_storage">,
   attachmentName?: string,
   attachmentType?: string,
   attachmentSize?: number,
 ) => {
-  const attachmentUrl = attachmentStorageId
-    ? (await ctx.storage.getUrl(attachmentStorageId)) ?? undefined
-    : undefined;
-
   return {
     ...(attachmentStorageId ? { attachmentStorageId } : {}),
-    ...(attachmentUrl ? { attachmentUrl } : {}),
     ...(attachmentName ? { attachmentName } : {}),
     ...(attachmentType ? { attachmentType } : {}),
     ...(attachmentSize ? { attachmentSize } : {}),
@@ -237,6 +231,7 @@ export const registerUser = mutation({
     idNumber: v.string(),
     password: v.string(),
     department: v.optional(v.string()),
+    rank: v.optional(v.string()),
     publicKey: v.optional(v.string()),
     hasKeypair: v.optional(v.boolean()),
   },
@@ -255,6 +250,10 @@ export const registerUser = mutation({
     const lastName = args.lastName.trim();
     const fullName = `${firstName} ${lastName}`.trim();
     const school = args.school.trim();
+    const rank = args.role === "lecturer" ? args.rank?.trim() : undefined;
+    if (rank && !["Dr", "Prof", "Engineer"].includes(rank)) {
+      throw new Error("Select a valid academic rank.");
+    }
     const now = Date.now();
     const sessionToken = `session:${email}:${crypto.randomUUID()}`;
     const department = await ensureDepartmentByName(ctx, args.department);
@@ -268,6 +267,7 @@ export const registerUser = mutation({
       school,
       ...(department.departmentId ? { departmentId: department.departmentId } : {}),
       ...(department.departmentName ? { departmentName: department.departmentName } : {}),
+      ...(rank ? { rank } : {}),
       idNumber: args.idNumber.trim().toUpperCase(),
       bio: "",
       avatarUrl: "",
@@ -414,6 +414,7 @@ export const registerUserWithRecaptcha = action({
     idNumber: v.string(),
     password: v.string(),
     department: v.optional(v.string()),
+    rank: v.optional(v.string()),
     publicKey: v.optional(v.string()),
     hasKeypair: v.optional(v.boolean()),
     recaptchaToken: v.string(),
@@ -438,6 +439,7 @@ export const registerUserWithRecaptcha = action({
       idNumber: args.idNumber,
       password: args.password,
       department: args.department,
+      rank: args.rank,
       publicKey: args.publicKey,
       hasKeypair: args.hasKeypair,
     });
@@ -509,6 +511,9 @@ export const getExploreUsers = query({
         role: user.role,
         school: user.school,
         institution: user.school,
+        rank: user.rank ?? "",
+        departmentId: user.departmentId ?? null,
+        departmentName: user.departmentName ?? "",
         bio: user.bio ?? "",
         avatarUrl: user.avatarUrl ?? "",
         verificationStatus: user.approved === true ? "approved" : user.verificationStatus,
@@ -823,12 +828,17 @@ export const resetBB84KeyExchange = mutation({
 
 export const getQuestions = query({
   args: {
-    sessionToken: v.optional(v.string()),
+    sessionToken: v.string(),
   },
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
+    const currentUser = await getUserBySessionToken(ctx, args.sessionToken);
+    if (!currentUser?.departmentId) return [];
+
     const questions = await ctx.db
       .query("questions")
-      .withIndex("by_createdAt")
+      .withIndex("by_departmentId_and_createdAt", (q) =>
+        q.eq("departmentId", currentUser.departmentId),
+      )
       .order("desc")
       .take(75);
 
@@ -846,6 +856,9 @@ export const getQuestions = query({
         date: question.createdAt,
         answerCount: question.answerCount,
         answered: question.answered,
+        attachmentUrl: question.attachmentStorageId
+          ? (await ctx.storage.getUrl(question.attachmentStorageId)) ?? question.attachmentUrl
+          : question.attachmentUrl,
         attachmentName: question.attachmentName,
         attachmentType: question.attachmentType,
         attachmentSize: question.attachmentSize,
@@ -869,7 +882,9 @@ export const getQuestionThread = query({
     if (!currentUser) return null;
 
     const question = await ctx.db.get(args.questionId);
-    if (!question) return null;
+    if (!question || !currentUser.departmentId || question.departmentId !== currentUser.departmentId) {
+      return null;
+    }
 
     const author = await ctx.db.get(question.authorId);
     if (!author) return null;
@@ -890,7 +905,9 @@ export const getQuestionThread = query({
         author: publicUser(answerAuthor),
         createdAt: answer.createdAt,
         isMine: answer.authorId === currentUser._id,
-        attachmentUrl: answer.attachmentUrl,
+        attachmentUrl: answer.attachmentStorageId
+          ? (await ctx.storage.getUrl(answer.attachmentStorageId)) ?? answer.attachmentUrl
+          : answer.attachmentUrl,
         attachmentName: answer.attachmentName,
         attachmentType: answer.attachmentType,
         attachmentSize: answer.attachmentSize,
@@ -911,7 +928,9 @@ export const getQuestionThread = query({
         answered: question.answered,
         answerCount: question.answerCount,
         isMine: question.authorId === currentUser._id,
-        attachmentUrl: question.attachmentUrl,
+        attachmentUrl: question.attachmentStorageId
+          ? (await ctx.storage.getUrl(question.attachmentStorageId)) ?? question.attachmentUrl
+          : question.attachmentUrl,
         attachmentName: question.attachmentName,
         attachmentType: question.attachmentType,
         attachmentSize: question.attachmentSize,
@@ -1112,6 +1131,9 @@ export const askQuestion = mutation({
   },
   handler: async (ctx, args) => {
     const currentUser = await requireUser(ctx, args.sessionToken);
+    if (!currentUser.departmentId || !currentUser.departmentName) {
+      throw new Error("Complete your department verification before posting a question.");
+    }
     const title = args.title.trim().replace(/\s+/g, " ");
     const body = args.body.trim();
     if (title.length < 6) {
@@ -1127,16 +1149,15 @@ export const askQuestion = mutation({
       title,
       body,
       hashtags: normalizeHashtags(args.hashtags),
-      ...(await attachmentFields(
-        ctx,
+      ...attachmentFields(
         args.attachmentStorageId,
         args.attachmentName,
         args.attachmentType,
         args.attachmentSize,
-      )),
+      ),
       // Classification fields
-      departmentId: args.departmentId,
-      departmentName: args.departmentName,
+      departmentId: currentUser.departmentId,
+      departmentName: currentUser.departmentName,
       topic: args.topic,
       answerCount: 0,
       answered: false,
@@ -1167,6 +1188,9 @@ export const addAnswer = mutation({
     if (!question) {
       throw new Error("Question not found.");
     }
+    if (!currentUser.departmentId || question.departmentId !== currentUser.departmentId) {
+      throw new Error("You can only answer questions from your department.");
+    }
 
     const body = args.body.trim();
     if (!body && !args.attachmentStorageId) {
@@ -1178,13 +1202,12 @@ export const addAnswer = mutation({
       questionId: args.questionId,
       authorId: currentUser._id,
       body,
-      ...(await attachmentFields(
-        ctx,
+      ...attachmentFields(
         args.attachmentStorageId,
         args.attachmentName,
         args.attachmentType,
         args.attachmentSize,
-      )),
+      ),
       // Classification fields
       departmentId: args.departmentId,
       departmentName: args.departmentName,
@@ -1284,6 +1307,7 @@ export const updateProfile = mutation({
     fullName: v.string(),
     bio: v.optional(v.string()),
     school: v.string(),
+    rank: v.optional(v.string()),
     avatarStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
@@ -1295,6 +1319,10 @@ export const updateProfile = mutation({
 
     const [firstName, ...remainingName] = cleanedName.split(" ");
     const lastName = remainingName.join(" ") || currentUser.lastName;
+    const rank = currentUser.role === "lecturer" ? args.rank?.trim() : undefined;
+    if (rank && !["Dr", "Prof", "Engineer"].includes(rank)) {
+      throw new Error("Select a valid academic rank.");
+    }
     const avatarUrl = args.avatarStorageId
       ? (await ctx.storage.getUrl(args.avatarStorageId)) ?? undefined
       : undefined;
@@ -1305,6 +1333,7 @@ export const updateProfile = mutation({
       fullName: cleanedName,
       bio: args.bio?.trim() ?? "",
       school: args.school.trim(),
+      ...(currentUser.role === "lecturer" ? { rank } : {}),
       ...(args.avatarStorageId ? { avatarStorageId: args.avatarStorageId } : {}),
       ...(avatarUrl ? { avatarUrl } : {}),
       updatedAt: Date.now(),
@@ -1332,6 +1361,8 @@ export const submitAcademicVerification = mutation({
       userId: currentUser._id,
       school: args.school,
       ...(args.idNumber ? { idNumber: args.idNumber } : {}),
+      ...(department.departmentId ? { departmentId: department.departmentId } : {}),
+      ...(department.departmentName ? { departmentName: department.departmentName } : {}),
       evidenceStorageId: args.storageId,
       ...(evidenceUrl ? { evidenceUrl } : {}),
       approved: false,

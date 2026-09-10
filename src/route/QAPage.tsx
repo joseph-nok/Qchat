@@ -6,7 +6,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import AppHeader from '../components/AppHeader';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
-import { AttachmentLink, AttachmentPicker, uploadAttachment } from '../components/AttachmentTools';
+import { AttachmentLink, AttachmentPicker, isImageAttachment, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
 import { logHashToBlockchain } from '../services/web3Service';
@@ -21,6 +21,7 @@ type PublicUser = {
   fullName: string;
   role: 'student' | 'lecturer';
   school: string;
+  rank?: string;
   avatarUrl?: string;
   departmentId?: Id<'departments'> | null;
   departmentName?: string | null;
@@ -43,6 +44,7 @@ type QuestionFeedItem = {
   attachmentName?: string;
   attachmentType?: string;
   attachmentSize?: number;
+  attachmentUrl?: string;
 };
 
 type QuestionThread = {
@@ -76,17 +78,21 @@ const parseTags = (value: string) =>
     .map((tag) => tag.trim())
     .filter(Boolean);
 
+const formatAcademicName = (user: Pick<PublicUser, 'fullName' | 'role' | 'rank'>) => {
+  const rank = user.role === 'lecturer' ? user.rank?.trim() : '';
+  return rank && !user.fullName.startsWith(`${rank} `)
+    ? `${rank} ${user.fullName}`
+    : user.fullName;
+};
+
 const QAPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, sessionToken, isLoading: authLoading } = useAuth();
-  const questionId = searchParams.get('questionId') as Id<'questions'> | null;
+  const questionIdParam = searchParams.get('questionId');
+  const [newQuestionId, setNewQuestionId] = useState<Id<'questions'> | null>(null);
 
   const questions = useQuery(convexApi.qchat.getQuestions, sessionToken ? { sessionToken } : 'skip') as QuestionFeedItem[] | undefined;
-  const thread = useQuery(
-    convexApi.qchat.getQuestionThread,
-    sessionToken && questionId ? { sessionToken, questionId } : 'skip',
-  ) as QuestionThread | null | undefined;
   const notifications = useQuery(convexApi.qchat.getNotifications, sessionToken ? { sessionToken } : 'skip') as Array<{
     _id: string;
     body: string;
@@ -94,6 +100,20 @@ const QAPage = () => {
     read: boolean;
     createdAt: number;
   }> | undefined;
+  // Search parameters are untyped runtime input. Only pass an ID to Convex
+  // after it has come from a question or notification returned by the app.
+  // This prevents values like "undefined" from reaching v.id("questions").
+  const questionId = useMemo(() => {
+    if (!questionIdParam) return null;
+    const knownQuestion = questionIdParam === newQuestionId
+      || questions?.some((question) => question._id === questionIdParam)
+      || notifications?.some((notification) => notification.questionId === questionIdParam);
+    return knownQuestion ? questionIdParam as Id<'questions'> : null;
+  }, [newQuestionId, notifications, questionIdParam, questions]);
+  const thread = useQuery(
+    convexApi.qchat.getQuestionThread,
+    sessionToken && questionId ? { sessionToken, questionId } : 'skip',
+  ) as QuestionThread | null | undefined;
 
   const generateUploadUrl = useMutation(convexApi.qchat.generateUploadUrl);
   const askQuestion = useMutation(convexApi.qchat.askQuestion);
@@ -104,31 +124,71 @@ const QAPage = () => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [hashtags, setHashtags] = useState('');
-  const [selectedDeptId, setSelectedDeptId] = useState('');
   const [topic, setTopic] = useState('');
   const [questionFile, setQuestionFile] = useState<File | null>(null);
   const [replyBody, setReplyBody] = useState('');
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
-
-  const activeDepartments = useQuery(convexApi.qchat.getDepartments) as Array<{ _id: Id<'departments'>; name: string; code: string }> | undefined;
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!sessionToken && !authLoading) navigate('/login');
   }, [authLoading, navigate, sessionToken]);
 
-  const userName = currentUser?.fullName ?? 'Academic Member';
+  useEffect(() => {
+    if (questionIdParam && questions !== undefined && notifications !== undefined && !questionId) {
+      setError('That question link is no longer valid.');
+      setSearchParams({}, { replace: true });
+    }
+  }, [notifications, questionId, questionIdParam, questions, setSearchParams]);
+
+  useEffect(() => {
+    if (!lightboxImage) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLightboxImage(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [lightboxImage]);
+
+  const userName = currentUser ? formatAcademicName(currentUser) : 'Academic Member';
   const userRole = currentUser?.role === 'lecturer' ? 'Lecturer' : 'Student';
 
   const filteredQuestions = useMemo(() => {
-    const filter = tagFilter.trim().toLowerCase();
+    const filter = searchTerm.trim().replace(/^#/, '').toLowerCase();
     if (!filter) return questions ?? [];
-    return (questions ?? []).filter((question) =>
-      question.hashtags.some((tag) => tag.toLowerCase().includes(filter)),
-    );
-  }, [questions, tagFilter]);
+    return (questions ?? []).filter((question) => [
+      question.title,
+      question.preview,
+      question.topic ?? '',
+      question.departmentName ?? '',
+      ...question.hashtags,
+    ].some((value) => value.toLowerCase().includes(filter)));
+  }, [questions, searchTerm]);
+
+  const searchSuggestions = useMemo(() => {
+    const filter = searchTerm.trim().replace(/^#/, '').toLowerCase();
+    if (!filter) return [];
+
+    const suggestions = new Map<string, { label: string; type: 'Topic' | 'Hashtag' | 'Department' }>();
+    const addSuggestion = (label: string | undefined, type: 'Topic' | 'Hashtag' | 'Department') => {
+      if (!label || !label.toLowerCase().includes(filter)) return;
+      const key = `${type}:${label.toLowerCase()}`;
+      if (!suggestions.has(key)) suggestions.set(key, { label, type });
+    };
+
+    addSuggestion(currentUser?.departmentName, 'Department');
+    for (const question of questions ?? []) {
+      addSuggestion(question.departmentName, 'Department');
+      addSuggestion(question.topic, 'Topic');
+      question.hashtags.forEach((tag) => addSuggestion(tag.replace(/^#/, ''), 'Hashtag'));
+    }
+
+    return [...suggestions.values()].slice(0, 7);
+  }, [currentUser?.departmentName, questions, searchTerm]);
 
   const handleFile = (file: File | null, setter: (file: File | null) => void) => {
     if (!file) return;
@@ -172,15 +232,12 @@ const QAPage = () => {
         console.error('Besu node registration error:', err);
       }
 
-      const selectedDept = (activeDepartments || []).find((d) => d._id === selectedDeptId);
       const attachment = questionFile ? await uploadAttachment(questionFile, generateUploadUrl) : {};
       const result = await askQuestion({
         sessionToken,
         title,
         body,
         hashtags: parseTags(hashtags),
-        departmentId: selectedDeptId ? (selectedDeptId as Id<'departments'>) : undefined,
-        departmentName: selectedDept ? selectedDept.name : undefined,
         topic: topic.trim() || undefined,
         ...attachment,
       });
@@ -196,10 +253,10 @@ const QAPage = () => {
       setTitle('');
       setBody('');
       setHashtags('');
-      setSelectedDeptId('');
       setTopic('');
       setQuestionFile(null);
       setShowAskForm(false);
+      setNewQuestionId(result.questionId);
       setSearchParams({ questionId: result.questionId });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post your question.');
@@ -339,20 +396,11 @@ const QAPage = () => {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '1rem' }}>
                 <div className="form-group">
-                  <label htmlFor="qa-dept">Department (Optional)</label>
-                  <select
-                    id="qa-dept"
-                    value={selectedDeptId}
-                    onChange={(e) => setSelectedDeptId(e.target.value)}
-                    style={{ padding: '.65rem .85rem', border: '1px solid var(--outline-variant)', borderRadius: '.6rem', background: 'var(--surface-container-low)', color: 'var(--on-surface)', font: 'inherit', fontSize: '.82rem' }}
-                  >
-                    <option value="">-- Select Department --</option>
-                    {activeDepartments?.map((dept) => (
-                      <option key={dept._id} value={dept._id}>
-                        {dept.name} ({dept.code})
-                      </option>
-                    ))}
-                  </select>
+                  <label>Department</label>
+                  <div className="qa-department-lock">
+                    <span className="material-symbols-outlined">domain</span>
+                    {currentUser.departmentName || 'Department verification required'}
+                  </div>
                 </div>
                 <div className="form-group">
                   <label htmlFor="qa-topic">Topic / Subject</label>
@@ -374,18 +422,51 @@ const QAPage = () => {
             </form>
           )}
 
-          <div className="search-wrapper qa-search">
-            <span className="material-symbols-outlined search-icon">tag</span>
+          <div className="qa-search-combobox">
+            <span className="material-symbols-outlined search-icon">search</span>
             <input
               type="text"
               className="search-input"
-              placeholder="Filter by hashtag..."
-              value={tagFilter}
-              onChange={(event) => setTagFilter(event.target.value)}
+              placeholder="Search topics, hashtags, or your department..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => window.setTimeout(() => setIsSearchFocused(false), 120)}
+              role="combobox"
+              aria-expanded={isSearchFocused && searchSuggestions.length > 0}
+              aria-controls="qa-search-suggestions"
+              aria-autocomplete="list"
             />
+            {searchTerm && (
+              <button className="explore-clear-btn" type="button" onClick={() => setSearchTerm('')} aria-label="Clear Q&A search">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            )}
+            {isSearchFocused && searchSuggestions.length > 0 && (
+              <div className="qa-search-suggestions" id="qa-search-suggestions" role="listbox">
+                {searchSuggestions.map((suggestion) => (
+                  <button
+                    key={`${suggestion.type}-${suggestion.label}`}
+                    type="button"
+                    role="option"
+                    className="qa-search-suggestion"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setSearchTerm(suggestion.type === 'Hashtag' ? `#${suggestion.label.replace(/^#/, '')}` : suggestion.label);
+                      setIsSearchFocused(false);
+                    }}
+                  >
+                    <span className="material-symbols-outlined">{suggestion.type === 'Department' ? 'domain' : suggestion.type === 'Hashtag' ? 'tag' : 'menu_book'}</span>
+                    <span>{suggestion.label}</span>
+                    <small>{suggestion.type}</small>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+          <p className="qa-department-scope"><span className="material-symbols-outlined">visibility</span> Showing questions from {currentUser.departmentName || 'your verified department'}.</p>
 
-          {questionId ? (
+          {questionIdParam ? (
             <section className="qa-thread">
               <button type="button" className="qa-back-btn" onClick={() => setSearchParams({})}>
                 <span className="material-symbols-outlined">arrow_back</span>
@@ -407,7 +488,7 @@ const QAPage = () => {
                     </div>
                     <h2>{thread.question.title}</h2>
                     <p>{thread.question.body}</p>
-                    <AttachmentLink attachment={thread.question} />
+                    <AttachmentLink attachment={thread.question} onImageClick={setLightboxImage} />
                     <div className="qa-tags">
                       {thread.question.departmentName && (
                         <span style={{ background: '#dff1e9', color: '#126b50' }}>🏛️ {thread.question.departmentName}</span>
@@ -430,7 +511,7 @@ const QAPage = () => {
                       <article key={answer._id} className={`qa-answer ${answer.isMine ? 'mine' : ''}`}>
                         <LecturerProfileBadge author={answer.author} compact />
                         {answer.body && <p style={{ marginTop: '.75rem' }}>{answer.body}</p>}
-                        <AttachmentLink attachment={answer} />
+                        <AttachmentLink attachment={answer} onImageClick={setLightboxImage} />
                       </article>
                     )) : (
                       <div className="no-conversations"><span className="material-symbols-outlined no-conv-icon">forum</span><p>No answers yet. Be the first to help.</p></div>
@@ -455,9 +536,16 @@ const QAPage = () => {
                 <div className="no-conversations"><span className="material-symbols-outlined no-conv-icon">hourglass_top</span><p>Loading questions...</p></div>
               ) : filteredQuestions.length > 0 ? filteredQuestions.map((question) => (
                 <button type="button" key={question._id} className="qa-card" onClick={() => setSearchParams({ questionId: question._id })}>
+                  <div className={`qa-feed-media ${isImageAttachment(question) && question.attachmentUrl ? 'has-image' : ''}`} aria-hidden="true">
+                    {isImageAttachment(question) && question.attachmentUrl ? (
+                      <img src={question.attachmentUrl} alt="" className="reddit-medium-thumbnail" />
+                    ) : (
+                      <span className="material-symbols-outlined">{question.attachmentName ? 'attach_file' : 'article'}</span>
+                    )}
+                  </div>
                   <div className="qa-card-main">
                     <div className="qa-card-meta">
-                      <span>{question.author.fullName}</span>
+                      <span>{formatAcademicName(question.author)}</span>
                       <span>{formatDate(question.date)}</span>
                     </div>
                     <h2>{question.title}</h2>
@@ -479,7 +567,7 @@ const QAPage = () => {
                   </div>
                 </button>
               )) : (
-                <div className="no-conversations"><span className="material-symbols-outlined no-conv-icon">quiz</span><p>No questions match this topic yet.</p></div>
+                <div className="no-conversations"><span className="material-symbols-outlined no-conv-icon">quiz</span><p>{searchTerm ? 'No questions match that search yet.' : 'No questions have been posted for your department yet.'}</p></div>
               )}
             </section>
           )}
@@ -487,6 +575,19 @@ const QAPage = () => {
       </main>
 
       <Footer />
+      {lightboxImage && (
+        <div className="qa-image-lightbox" role="dialog" aria-modal="true" aria-label={`Image preview: ${lightboxImage.name}`} onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setLightboxImage(null);
+        }}>
+          <div className="qa-image-lightbox-content">
+            <button type="button" className="qa-image-lightbox-close" onClick={() => setLightboxImage(null)} aria-label="Close image preview">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <img src={lightboxImage.url} alt={lightboxImage.name} />
+            <p>{lightboxImage.name}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

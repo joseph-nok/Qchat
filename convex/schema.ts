@@ -150,6 +150,7 @@ export default defineSchema({
   })
     .index("by_createdAt", ["createdAt"])
     .index("by_department", ["departmentId"])
+    .index("by_departmentId_and_createdAt", ["departmentId", "createdAt"])
     .index("by_topic", ["topic"])
     .index("by_authorId_and_createdAt", ["authorId", "createdAt"]),
 
@@ -190,6 +191,10 @@ export default defineSchema({
     userId: v.id("users"),
     school: v.string(),
     idNumber: v.optional(v.string()),
+    // Preserve the registrant's choice with the request so the review queue
+    // can display the department that was submitted for verification.
+    departmentId: v.optional(v.id("departments")),
+    departmentName: v.optional(v.string()),
     evidenceStorageId: v.optional(v.id("_storage")),
     evidenceUrl: v.optional(v.string()),
     approved: v.boolean(),

@@ -20,6 +20,8 @@ type AdminUser = {
   email: string;
   role: 'student' | 'lecturer';
   school: string;
+  departmentId: Id<'departments'> | null;
+  departmentName: string;
   avatarUrl?: string;
   verificationStatus: 'unverified' | 'pending' | 'approved';
   verificationSubmittedAt: number;
@@ -235,6 +237,11 @@ const Admin = () => {
 
   const selectedUser = members.find((user) => user.requestId === selectedId) ?? reviewQueue[0];
 
+  useEffect(() => {
+    setSelectedDeptId(selectedUser?.departmentId ?? '');
+    setSelectedSpecializations('');
+  }, [selectedUser?.requestId, selectedUser?.departmentId]);
+
   const handleReview = async (requestId: Id<'verificationRequests'>, status: 'approved' | 'rejected') => {
     if (!adminSessionToken || !selectedUser) return;
     setIsReviewing(true);
@@ -394,20 +401,39 @@ const Admin = () => {
       <main className="app-main admin-main">
         <div className="admin-main-inner">
           <div className="admin-eyebrow">
-            <span className="material-symbols-outlined">admin_panel_settings</span> Administration / Audit & Verification Desk
+            <span className="material-symbols-outlined">
+              admin_panel_settings
+            </span>{" "}
+            Administration / Audit & Verification Desk
           </div>
 
           <div className="admin-page-header">
             <div>
               <h1 className="admin-title">Verification & Audit Desk</h1>
-              <p className="admin-subtitle">Verify academic submissions and user identities using real-world identifiers.</p>
+              <p className="admin-subtitle">
+                Verify academic submissions and user identities using real-world
+                identifiers.
+              </p>
             </div>
             <div className="admin-header-actions">
               <div className="admin-date-chip">
-                <span className="material-symbols-outlined">calendar_today</span>
-                {new Intl.DateTimeFormat('en-GH', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}
+                <span className="material-symbols-outlined">
+                  calendar_today
+                </span>
+                {new Intl.DateTimeFormat("en-GH", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                }).format(new Date())}
               </div>
-              <button className="admin-logout" type="button" onClick={() => { clearAdminSessionToken(); navigate('/admin/login'); }}>
+              <button
+                className="admin-logout"
+                type="button"
+                onClick={() => {
+                  clearAdminSessionToken();
+                  navigate("/admin/login");
+                }}
+              >
                 Sign out
               </button>
             </div>
@@ -416,54 +442,65 @@ const Admin = () => {
           {/* Mode Switcher Tabs */}
           <nav className="admin-mode-nav" aria-label="Admin Section Toggles">
             <button
-              className={`admin-mode-btn ${viewMode === 'verification' ? 'active' : ''}`}
-              onClick={() => setViewMode('verification')}
+              className={`admin-mode-btn ${viewMode === "verification" ? "active" : ""}`}
+              onClick={() => setViewMode("verification")}
               type="button"
             >
-              <span className="material-symbols-outlined">verified_user</span> User Submission Verification
+              <span className="material-symbols-outlined">verified_user</span>{" "}
+              User Submission Verification
             </button>
             <button
-              className={`admin-mode-btn ${viewMode === 'queue' ? 'active' : ''}`}
-              onClick={() => setViewMode('queue')}
+              className={`admin-mode-btn ${viewMode === "queue" ? "active" : ""}`}
+              onClick={() => setViewMode("queue")}
               type="button"
             >
-              <span className="material-symbols-outlined">how_to_reg</span> Identity Registration Queue ({pendingCount})
+              <span className="material-symbols-outlined">how_to_reg</span>{" "}
+              Identity Registration Queue ({pendingCount})
             </button>
             <button
-              className={`admin-mode-btn ${viewMode === 'departments' ? 'active' : ''}`}
-              onClick={() => setViewMode('departments')}
+              className={`admin-mode-btn ${viewMode === "departments" ? "active" : ""}`}
+              onClick={() => setViewMode("departments")}
               type="button"
             >
-              <span className="material-symbols-outlined">domain</span> Department Management ({departmentsWithCount?.length || 0})
+              <span className="material-symbols-outlined">domain</span>{" "}
+              Department Management ({departmentsWithCount?.length || 0})
             </button>
           </nav>
 
           {/* MODE 1: USER SUBMISSION VERIFICATION (SEARCH BY EMAIL, INDEX NUMBER, STAFF ID) */}
-          {viewMode === 'verification' && (
+          {viewMode === "verification" && (
             <div className="verification-workspace">
               {/* Search Card */}
               <section className="verification-search-card">
                 <h2>🔍 Search User Submission Verification</h2>
-                <p>Lookup any student or lecturer by their real-world identifier (Email, Index Number, or Staff ID) to audit blockchain proof and file authenticity.</p>
+                <p>
+                  Lookup any student or lecturer by their real-world identifier
+                  (Email, Index Number, or Staff ID) to audit blockchain proof
+                  and file authenticity.
+                </p>
 
-                <div className="search-type-selector" role="radiogroup" aria-label="Identifier Type">
+                <div
+                  className="search-type-selector"
+                  role="radiogroup"
+                  aria-label="Identifier Type"
+                >
                   <button
-                    className={`search-type-btn ${searchType === 'indexNumber' ? 'active' : ''}`}
-                    onClick={() => setSearchType('indexNumber')}
+                    className={`search-type-btn ${searchType === "indexNumber" ? "active" : ""}`}
+                    onClick={() => setSearchType("indexNumber")}
                     type="button"
                   >
                     🆔 Student Index Number
                   </button>
                   <button
-                    className={`search-type-btn ${searchType === 'staffId' ? 'active' : ''}`}
-                    onClick={() => setSearchType('staffId')}
+                    className={`search-type-btn ${searchType === "staffId" ? "active" : ""}`}
+                    onClick={() => setSearchType("staffId")}
                     type="button"
                   >
                     🏛️ Lecturer Staff ID (PS***)
                   </button>
                   <button
-                    className={`search-type-btn ${searchType === 'email' ? 'active' : ''}`}
-                    onClick={() => setSearchType('email')}
+                    className={`search-type-btn ${searchType === "email" ? "active" : ""}`}
+                    onClick={() => setSearchType("email")}
                     type="button"
                   >
                     📧 Email Address
@@ -476,14 +513,23 @@ const Admin = () => {
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
                     placeholder={
-                      searchType === 'indexNumber' ? 'Enter index number (e.g. UEB3509022)' :
-                      searchType === 'staffId' ? 'Enter staff ID (e.g. PS001, PS123)' :
-                      'Enter institutional email (e.g. osei@uenr.edu.gh)'
+                      searchType === "indexNumber"
+                        ? "Enter index number (e.g. UEB3509022)"
+                        : searchType === "staffId"
+                          ? "Enter staff ID (e.g. PS001, PS123)"
+                          : "Enter institutional email (e.g. osei@uenr.edu.gh)"
                     }
-                    onKeyDown={(e) => e.key === 'Enter' && handleExecuteVerificationSearch()}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleExecuteVerificationSearch()
+                    }
                   />
-                  <button className="search-submit-btn" type="button" onClick={handleExecuteVerificationSearch}>
-                    <span className="material-symbols-outlined">search</span> Verify Submissions
+                  <button
+                    className="search-submit-btn"
+                    type="button"
+                    onClick={handleExecuteVerificationSearch}
+                  >
+                    <span className="material-symbols-outlined">search</span>{" "}
+                    Verify Submissions
                   </button>
                 </div>
 
@@ -503,28 +549,48 @@ const Admin = () => {
 
               {/* User Result Card */}
               {searchedUser === undefined && activeQueryValue ? (
-                <div className="admin-loading" style={{ minHeight: '10rem' }}>Searching Convex database...</div>
+                <div className="admin-loading" style={{ minHeight: "10rem" }}>
+                  Searching Convex database...
+                </div>
               ) : searchedUser ? (
                 <>
                   <section className="verification-user-card">
                     <div className="vuser-header">
                       <div className="vuser-identity">
-                        <span className="vuser-avatar">{searchedUser.avatarUrl ? <img src={searchedUser.avatarUrl} alt="" /> : getInitials(searchedUser.fullName)}</span>
+                        <span className="vuser-avatar">
+                          {searchedUser.avatarUrl ? (
+                            <img src={searchedUser.avatarUrl} alt="" />
+                          ) : (
+                            getInitials(searchedUser.fullName)
+                          )}
+                        </span>
                         <div className="vuser-name">
                           <h3>👤 {searchedUser.fullName}</h3>
-                          <p>{searchedUser.email} • {searchedUser.school}</p>
+                          <p>
+                            {searchedUser.email} • {searchedUser.school}
+                          </p>
                         </div>
                       </div>
                       <span className={`vuser-badge ${searchedUser.role}`}>
-                        <span className="material-symbols-outlined">{searchedUser.role === 'lecturer' ? 'school' : 'person'}</span>
-                        {searchedUser.role === 'lecturer' ? 'Lecturer' : 'Student'}
+                        <span className="material-symbols-outlined">
+                          {searchedUser.role === "lecturer"
+                            ? "school"
+                            : "person"}
+                        </span>
+                        {searchedUser.role === "lecturer"
+                          ? "Lecturer"
+                          : "Student"}
                       </span>
                     </div>
 
                     <div className="vuser-grid">
                       <div className="vuser-item">
                         <span>Identifier</span>
-                        <strong>{searchedUser.role === 'student' ? searchedUser.indexNumber || searchedUser.idNumber : searchedUser.staffId || searchedUser.idNumber}</strong>
+                        <strong>
+                          {searchedUser.role === "student"
+                            ? searchedUser.indexNumber || searchedUser.idNumber
+                            : searchedUser.staffId || searchedUser.idNumber}
+                        </strong>
                       </div>
                       <div className="vuser-item">
                         <span>Institution</span>
@@ -532,11 +598,17 @@ const Admin = () => {
                       </div>
                       <div className="vuser-item">
                         <span>Verification Status</span>
-                        <strong>{searchedUser.verificationStatus === 'approved' ? '✅ Verified on Blockchain' : '⏳ Pending'}</strong>
+                        <strong>
+                          {searchedUser.verificationStatus === "approved"
+                            ? "✅ Verified on Blockchain"
+                            : "⏳ Pending"}
+                        </strong>
                       </div>
                       <div className="vuser-item">
                         <span>Wallet Address</span>
-                        <span className="mono-val">{searchedUser.walletAddress}</span>
+                        <span className="mono-val">
+                          {searchedUser.walletAddress}
+                        </span>
                       </div>
                     </div>
                   </section>
@@ -544,18 +616,32 @@ const Admin = () => {
                   {/* Submissions & Messages History Table */}
                   <section className="submissions-card">
                     <div className="submissions-header">
-                      <h3>📨 Submission & Communication History (Last 30 Days)</h3>
+                      <h3>
+                        📨 Submission & Communication History (Last 30 Days)
+                      </h3>
                       <div className="submissions-stats">
-                        <span className="stat-tag">Total: {userMessages?.length || 0}</span>
-                        <span className="stat-tag verified">✅ Verified: {userMessages?.filter((m: any) => m.blockchainVerified).length || 0}</span>
-                        <span className="stat-tag tampered">⚠️ Tampered: 0</span>
+                        <span className="stat-tag">
+                          Total: {userMessages?.length || 0}
+                        </span>
+                        <span className="stat-tag verified">
+                          ✅ Verified:{" "}
+                          {userMessages?.filter(
+                            (m: any) => m.blockchainVerified,
+                          ).length || 0}
+                        </span>
+                        <span className="stat-tag tampered">
+                          ⚠️ Tampered: 0
+                        </span>
                       </div>
                     </div>
 
                     {!userMessages || userMessages.length === 0 ? (
                       <div className="admin-empty">
                         <span className="material-symbols-outlined">inbox</span>
-                        <p>No submission records found for this user in the last 30 days.</p>
+                        <p>
+                          No submission records found for this user in the last
+                          30 days.
+                        </p>
                       </div>
                     ) : (
                       <div className="messages-table-wrap">
@@ -572,35 +658,70 @@ const Admin = () => {
                           </thead>
                           <tbody>
                             {userMessages.map((msg: any) => (
-                              <tr key={msg._id} className={msg.blockchainVerified && msg.hashMatches ? 'authentic' : 'tampered'}>
+                              <tr
+                                key={msg._id}
+                                className={
+                                  msg.blockchainVerified && msg.hashMatches
+                                    ? "authentic"
+                                    : "tampered"
+                                }
+                              >
                                 <td>{formatIsoDateTime(msg.createdAt)}</td>
-                                <td>{msg.text ? (msg.text.length > 35 ? `${msg.text.slice(0, 35)}...` : msg.text) : '—'}</td>
+                                <td>
+                                  {msg.text
+                                    ? msg.text.length > 35
+                                      ? `${msg.text.slice(0, 35)}...`
+                                      : msg.text
+                                    : "—"}
+                                </td>
                                 <td>
                                   {msg.attachmentName ? (
-                                    <a className="file-pill" href={msg.attachmentUrl || '#'} target="_blank" rel="noreferrer">
+                                    <a
+                                      className="file-pill"
+                                      href={msg.attachmentUrl || "#"}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
                                       📎 {msg.attachmentName}
                                     </a>
                                   ) : (
-                                    <span style={{ color: '#a09788' }}>None</span>
+                                    <span style={{ color: "#a09788" }}>
+                                      None
+                                    </span>
                                   )}
                                 </td>
                                 <td>
                                   {msg.blockchainVerified ? (
-                                    <span className="badge-authentic">✅ Recorded</span>
+                                    <span className="badge-authentic">
+                                      ✅ Recorded
+                                    </span>
                                   ) : (
-                                    <span className="badge-pending">⏳ Unrecorded</span>
+                                    <span className="badge-pending">
+                                      ⏳ Unrecorded
+                                    </span>
                                   )}
                                 </td>
                                 <td>
                                   {msg.blockchainVerified && msg.hashMatches ? (
-                                    <span className="badge-authentic">✅ Authentic</span>
+                                    <span className="badge-authentic">
+                                      ✅ Authentic
+                                    </span>
                                   ) : (
-                                    <span className="badge-tampered">⚠️ TAMPERED!</span>
+                                    <span className="badge-tampered">
+                                      ⚠️ TAMPERED!
+                                    </span>
                                   )}
                                 </td>
                                 <td>
-                                  <button className="proof-btn" type="button" onClick={() => setSelectedMessage(msg)}>
-                                    <span className="material-symbols-outlined">find_in_page</span> View Proof
+                                  <button
+                                    className="proof-btn"
+                                    type="button"
+                                    onClick={() => setSelectedMessage(msg)}
+                                  >
+                                    <span className="material-symbols-outlined">
+                                      find_in_page
+                                    </span>{" "}
+                                    View Proof
                                   </button>
                                 </td>
                               </tr>
@@ -613,9 +734,15 @@ const Admin = () => {
                 </>
               ) : activeQueryValue ? (
                 <div className="admin-empty verification-search-card">
-                  <span className="material-symbols-outlined">person_search</span>
+                  <span className="material-symbols-outlined">
+                    person_search
+                  </span>
                   <p>User not found in Convex database!</p>
-                  <small>No user document matched search type "{searchType}" with value "{activeQueryValue}". Please try a quick test pill above.</small>
+                  <small>
+                    No user document matched search type "{searchType}" with
+                    value "{activeQueryValue}". Please try a quick test pill
+                    above.
+                  </small>
                 </div>
               ) : null}
 
@@ -624,8 +751,17 @@ const Admin = () => {
                 <div className="audit-modal-overlay">
                   <div className="audit-modal">
                     <div className="audit-modal-header">
-                      <h3><span className="material-symbols-outlined">verified</span> Cryptographic Audit Trail</h3>
-                      <button className="audit-close-btn" type="button" onClick={() => setSelectedMessage(null)}>
+                      <h3>
+                        <span className="material-symbols-outlined">
+                          verified
+                        </span>{" "}
+                        Cryptographic Audit Trail
+                      </h3>
+                      <button
+                        className="audit-close-btn"
+                        type="button"
+                        onClick={() => setSelectedMessage(null)}
+                      >
                         <span className="material-symbols-outlined">close</span>
                       </button>
                     </div>
@@ -637,15 +773,27 @@ const Admin = () => {
                       </div>
                       <div className="audit-item">
                         <label>Sender Identity</label>
-                        <span>{searchedUser.fullName} ({searchedUser.role === 'student' ? searchedUser.indexNumber || searchedUser.idNumber : searchedUser.staffId || searchedUser.idNumber})</span>
+                        <span>
+                          {searchedUser.fullName} (
+                          {searchedUser.role === "student"
+                            ? searchedUser.indexNumber || searchedUser.idNumber
+                            : searchedUser.staffId || searchedUser.idNumber}
+                          )
+                        </span>
                       </div>
                       <div className="audit-item">
                         <label>Convex Database Timestamp</label>
-                        <span>{formatIsoDateTime(selectedMessage.createdAt)}<span className="tag-mutable">⚠️ Mutable DB</span></span>
+                        <span>
+                          {formatIsoDateTime(selectedMessage.createdAt)}
+                          <span className="tag-mutable">⚠️ Mutable DB</span>
+                        </span>
                       </div>
                       <div className="audit-item">
                         <label>Blockchain Block Timestamp</label>
-                        <span>{selectedMessage.blockchainTimestamp}<span className="tag-immutable">✅ IMMUTABLE</span></span>
+                        <span>
+                          {selectedMessage.blockchainTimestamp}
+                          <span className="tag-immutable">✅ IMMUTABLE</span>
+                        </span>
                       </div>
                       <div className="audit-item">
                         <label>Blockchain Block Number</label>
@@ -653,29 +801,45 @@ const Admin = () => {
                       </div>
                       <div className="audit-item">
                         <label>Sender Address Verification</label>
-                        <span style={{ color: '#059669', fontWeight: 900 }}>✅ Matches Registered User Wallet</span>
+                        <span style={{ color: "#059669", fontWeight: 900 }}>
+                          ✅ Matches Registered User Wallet
+                        </span>
                       </div>
                       <div className="audit-item full-width">
                         <label>Blockchain Transaction Hash</label>
-                        <span className="mono-val">{selectedMessage.blockchainTxHash}</span>
+                        <span className="mono-val">
+                          {selectedMessage.blockchainTxHash}
+                        </span>
                       </div>
                       <div className="audit-item full-width">
                         <label>Content SHA-256 Hash</label>
-                        <span className="mono-val">{selectedMessage.storedHash}</span>
+                        <span className="mono-val">
+                          {selectedMessage.storedHash}
+                        </span>
                       </div>
                     </div>
 
                     <div className="audit-verdict-box success">
                       <h4>✅ VERDICT: AUTHENTIC SUBMISSION</h4>
-                      <p>Cryptographic hash matches the Hyperledger Besu blockchain record. Content and timestamp have not been altered.</p>
+                      <p>
+                        Cryptographic hash matches the Hyperledger Besu
+                        blockchain record. Content and timestamp have not been
+                        altered.
+                      </p>
                     </div>
 
                     <div className="audit-report-preview-box">
-                      <label>📜 Formatted Audit Report (Sent directly to user)</label>
-                      <pre className="audit-report-pre">{generateAuditReportText(searchedUser, selectedMessage)}</pre>
+                      <label>
+                        📜 Formatted Audit Report (Sent directly to user)
+                      </label>
+                      <pre className="audit-report-pre">
+                        {generateAuditReportText(searchedUser, selectedMessage)}
+                      </pre>
                     </div>
 
-                    {sendSuccessMessage && <div className="send-feedback">{sendSuccessMessage}</div>}
+                    {sendSuccessMessage && (
+                      <div className="send-feedback">{sendSuccessMessage}</div>
+                    )}
 
                     <div className="audit-actions">
                       <button
@@ -684,9 +848,19 @@ const Admin = () => {
                         disabled={isSendingReport}
                         onClick={handleSendAuditReport}
                       >
-                        <span className="material-symbols-outlined">send</span> {isSendingReport ? 'Sending Report...' : 'Send Audit Report to User'}
+                        <span className="material-symbols-outlined">send</span>{" "}
+                        {isSendingReport
+                          ? "Sending Report..."
+                          : "Send Audit Report to User"}
                       </button>
-                      <button className="btn-modal-close" type="button" onClick={() => { setSelectedMessage(null); setSendSuccessMessage(''); }}>
+                      <button
+                        className="btn-modal-close"
+                        type="button"
+                        onClick={() => {
+                          setSelectedMessage(null);
+                          setSendSuccessMessage("");
+                        }}
+                      >
                         Close
                       </button>
                     </div>
@@ -697,59 +871,129 @@ const Admin = () => {
           )}
 
           {/* MODE 2: REGISTRATION QUEUE (ORIGINAL DESK) */}
-          {viewMode === 'queue' && (
+          {viewMode === "queue" && (
             <>
-              <section className="admin-stats" aria-label="Verification overview">
+              <section
+                className="admin-stats"
+                aria-label="Verification overview"
+              >
                 <div className="admin-stat admin-stat-primary">
                   <span className="admin-stat-label">Needs review</span>
                   <strong>{pendingCount}</strong>
-                  <span className="admin-stat-foot"><span className="material-symbols-outlined">priority_high</span> Pending applications</span>
+                  <span className="admin-stat-foot">
+                    <span className="material-symbols-outlined">
+                      priority_high
+                    </span>{" "}
+                    Pending applications
+                  </span>
                 </div>
                 <div className="admin-stat">
                   <span className="admin-stat-label">Verified members</span>
                   <strong>{approvedCount}</strong>
-                  <span className="admin-stat-foot"><span className="material-symbols-outlined">verified</span> Approved identities</span>
+                  <span className="admin-stat-foot">
+                    <span className="material-symbols-outlined">verified</span>{" "}
+                    Approved identities
+                  </span>
                 </div>
                 <div className="admin-stat">
                   <span className="admin-stat-label">Directory size</span>
                   <strong>{members.length}</strong>
-                  <span className="admin-stat-foot"><span className="material-symbols-outlined">groups</span> Registered members</span>
+                  <span className="admin-stat-foot">
+                    <span className="material-symbols-outlined">groups</span>{" "}
+                    Registered members
+                  </span>
                 </div>
               </section>
 
               <div className="admin-workspace">
                 <section className="admin-queue-panel">
                   <div className="admin-panel-heading">
-                    <div><span className="admin-section-kicker">Review queue</span><h2>Identity requests</h2></div>
-                    <span className="admin-count-badge">{reviewQueue.length} visible</span>
+                    <div>
+                      <span className="admin-section-kicker">Review queue</span>
+                      <h2>Identity requests</h2>
+                    </div>
+                    <span className="admin-count-badge">
+                      {reviewQueue.length} visible
+                    </span>
                   </div>
                   <div className="admin-toolbar">
                     <div className="admin-search">
                       <span className="material-symbols-outlined">search</span>
-                      <input aria-label="Search verification requests" placeholder="Search by name, email, or institution" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+                      <input
+                        aria-label="Search verification requests"
+                        placeholder="Search by name, email, or institution"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                      />
                     </div>
-                    <div className="admin-tabs" role="tablist" aria-label="Request status">
-                      <button className={activeStatus === 'pending' ? 'active' : ''} onClick={() => setActiveStatus('pending')}>Pending <span>{pendingCount}</span></button>
-                      <button className={activeStatus === 'all' ? 'active' : ''} onClick={() => setActiveStatus('all')}>All members</button>
+                    <div
+                      className="admin-tabs"
+                      role="tablist"
+                      aria-label="Request status"
+                    >
+                      <button
+                        className={activeStatus === "pending" ? "active" : ""}
+                        onClick={() => setActiveStatus("pending")}
+                      >
+                        Pending <span>{pendingCount}</span>
+                      </button>
+                      <button
+                        className={activeStatus === "all" ? "active" : ""}
+                        onClick={() => setActiveStatus("all")}
+                      >
+                        All members
+                      </button>
                     </div>
                   </div>
 
                   {reviewQueue.length === 0 ? (
                     <div className="admin-empty">
-                      <span className="material-symbols-outlined">task_alt</span>
+                      <span className="material-symbols-outlined">
+                        task_alt
+                      </span>
                       <p>No requests match this view.</p>
-                      <small>New identity submissions will appear here for review.</small>
+                      <small>
+                        New identity submissions will appear here for review.
+                      </small>
                     </div>
                   ) : (
                     <div className="admin-request-list">
                       {reviewQueue.map((user) => {
                         const status = statusFor(user);
                         return (
-                          <button type="button" className={`admin-request ${selectedUser?.requestId === user.requestId ? 'selected' : ''}`} key={user.requestId} onClick={() => setSelectedId(user.requestId)}>
-                            <span className="admin-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.fullName)}</span>
-                            <span className="admin-request-copy"><strong>{user.fullName}</strong><span>{user.school}</span><small>{user.role === 'lecturer' ? 'Lecturer' : 'Student'} · Submitted {formatSubmittedDate(user.verificationSubmittedAt)}</small></span>
-                            <span className={`admin-status-dot ${status}`} aria-label={status} />
-                            <span className="material-symbols-outlined admin-chevron">chevron_right</span>
+                          <button
+                            type="button"
+                            className={`admin-request ${selectedUser?.requestId === user.requestId ? "selected" : ""}`}
+                            key={user.requestId}
+                            onClick={() => setSelectedId(user.requestId)}
+                          >
+                            <span className="admin-avatar">
+                              {user.avatarUrl ? (
+                                <img src={user.avatarUrl} alt="" />
+                              ) : (
+                                getInitials(user.fullName)
+                              )}
+                            </span>
+                            <span className="admin-request-copy">
+                              <strong>{user.fullName}</strong>
+                              <span>{user.school}</span>
+                              <small>
+                                {user.role === "lecturer"
+                                  ? "Lecturer"
+                                  : "Student"}{" "}
+                                · Submitted{" "}
+                                {formatSubmittedDate(
+                                  user.verificationSubmittedAt,
+                                )}
+                              </small>
+                            </span>
+                            <span
+                              className={`admin-status-dot ${status}`}
+                              aria-label={status}
+                            />
+                            <span className="material-symbols-outlined admin-chevron">
+                              chevron_right
+                            </span>
                           </button>
                         );
                       })}
@@ -760,20 +1004,101 @@ const Admin = () => {
                 <aside className="admin-detail-panel">
                   {selectedUser ? (
                     <>
-                      <div className="admin-detail-top"><span className="admin-section-kicker">Application details</span><span className={`admin-status-pill ${statusFor(selectedUser)}`}>{statusFor(selectedUser)}</span></div>
-                      <div className="admin-detail-profile"><span className="admin-detail-avatar">{selectedUser.avatarUrl ? <img src={selectedUser.avatarUrl} alt="" /> : getInitials(selectedUser.fullName)}</span><h2>{selectedUser.fullName}</h2><p>{selectedUser.email}</p></div>
-                      <div className="admin-detail-facts"><div><span>Institution</span><strong>{selectedUser.school}</strong></div><div><span>Role</span><strong>{selectedUser.role === 'lecturer' ? 'Lecturer' : 'Student'}</strong></div><div><span>Submitted</span><strong>{formatSubmittedDate(selectedUser.verificationSubmittedAt)}</strong></div></div>
-                      <div className="admin-evidence-card"><div className="admin-evidence-icon"><span className="material-symbols-outlined">badge</span></div><div><strong>Academic credentials</strong><p>{selectedUser.evidenceUrl ? 'Evidence submitted for this application.' : 'No evidence link is attached to this application.'}</p></div>{selectedUser.evidenceUrl && <a href={selectedUser.evidenceUrl} target="_blank" rel="noreferrer" aria-label="Open academic credentials"><span className="material-symbols-outlined">open_in_new</span></a>}</div>
-                      {statusFor(selectedUser) === 'pending' && (
+                      <div className="admin-detail-top">
+                        <span className="admin-section-kicker">
+                          Application details
+                        </span>
+                        <span
+                          className={`admin-status-pill ${statusFor(selectedUser)}`}
+                        >
+                          {statusFor(selectedUser)}
+                        </span>
+                      </div>
+                      <div className="admin-detail-profile">
+                        <span className="admin-detail-avatar">
+                          {selectedUser.avatarUrl ? (
+                            <img src={selectedUser.avatarUrl} alt="" />
+                          ) : (
+                            getInitials(selectedUser.fullName)
+                          )}
+                        </span>
+                        <h2>{selectedUser.fullName}</h2>
+                        <p>{selectedUser.email}</p>
+                      </div>
+                      <div className="admin-detail-facts">
+                        <div>
+                          <span>Institution</span>
+                          <strong>{selectedUser.school}</strong>
+                        </div>
+                        <div>
+                          <span>Role</span>
+                          <strong>
+                            {selectedUser.role === "lecturer"
+                              ? "Lecturer"
+                              : "Student"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Submitted</span>
+                          <strong>
+                            {formatSubmittedDate(
+                              selectedUser.verificationSubmittedAt,
+                            )}
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Registered department</span>
+                          <strong>{selectedUser.departmentName || 'Not provided'}</strong>
+                        </div>
+                      </div>
+                      <div className="admin-evidence-card">
+                        <div className="admin-evidence-icon">
+                          <span className="material-symbols-outlined">
+                            badge
+                          </span>
+                        </div>
+                        <div>
+                          <strong>Academic credentials</strong>
+                          <p>
+                            {selectedUser.evidenceUrl
+                              ? "Evidence submitted for this application."
+                              : "No evidence link is attached to this application."}
+                          </p>
+                        </div>
+                        {selectedUser.evidenceUrl && (
+                          <a
+                            href={selectedUser.evidenceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="Open academic credentials"
+                          >
+                            <span className="material-symbols-outlined">
+                              open_in_new
+                            </span>
+                          </a>
+                        )}
+                      </div>
+                      {statusFor(selectedUser) === "pending" && (
                         <>
-                          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
+                          <div
+                            style={{
+                              marginTop: "1rem",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: ".6rem",
+                            }}
+                          >
                             <div className="dept-form-field">
-                              <label>Assign Department (Optional)</label>
+                              <label>Registered Department</label>
                               <select
                                 value={selectedDeptId}
-                                onChange={(e) => setSelectedDeptId(e.target.value)}
+                                onChange={(e) =>
+                                  setSelectedDeptId(e.target.value)
+                                }
                               >
-                                <option value="">-- Select Department --</option>
+                                <option value="">
+                                  -- Select Department --
+                                </option>
                                 {activeDepartments?.map((dept: any) => (
                                   <option key={dept._id} value={dept._id}>
                                     {dept.name} ({dept.code})
@@ -782,28 +1107,65 @@ const Admin = () => {
                               </select>
                             </div>
 
-                            {selectedUser.role === 'lecturer' && (
+                            {selectedUser.role === "lecturer" && (
                               <div className="dept-form-field">
                                 <label>Specializations (Comma-separated)</label>
                                 <input
                                   type="text"
                                   placeholder="e.g. Cryptography, Cybersecurity, AI"
                                   value={selectedSpecializations}
-                                  onChange={(e) => setSelectedSpecializations(e.target.value)}
+                                  onChange={(e) =>
+                                    setSelectedSpecializations(e.target.value)
+                                  }
                                 />
                               </div>
                             )}
                           </div>
 
                           <div className="admin-actions">
-                            <button type="button" className="admin-reject" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'rejected')}><span className="material-symbols-outlined">close</span>Reject</button>
-                            <button type="button" className="admin-approve" disabled={isReviewing} onClick={() => void handleReview(selectedUser.requestId, 'approved')}><span className="material-symbols-outlined">verified</span>{isReviewing ? 'Saving...' : 'Approve identity'}</button>
+                            <button
+                              type="button"
+                              className="admin-reject"
+                              disabled={isReviewing}
+                              onClick={() =>
+                                void handleReview(
+                                  selectedUser.requestId,
+                                  "rejected",
+                                )
+                              }
+                            >
+                              <span className="material-symbols-outlined">
+                                close
+                              </span>
+                              Reject
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-approve"
+                              disabled={isReviewing}
+                              onClick={() =>
+                                void handleReview(
+                                  selectedUser.requestId,
+                                  "approved",
+                                )
+                              }
+                            >
+                              <span className="material-symbols-outlined">
+                                verified
+                              </span>
+                              {isReviewing ? "Saving..." : "Approve identity"}
+                            </button>
                           </div>
                         </>
                       )}
                     </>
                   ) : (
-                    <div className="admin-empty admin-detail-empty"><span className="material-symbols-outlined">fact_check</span><p>Select a request to inspect its details.</p></div>
+                    <div className="admin-empty admin-detail-empty">
+                      <span className="material-symbols-outlined">
+                        fact_check
+                      </span>
+                      <p>Select a request to inspect its details.</p>
+                    </div>
                   )}
                 </aside>
               </div>
@@ -811,20 +1173,30 @@ const Admin = () => {
           )}
 
           {/* MODE 3: DEPARTMENT MANAGEMENT */}
-          {viewMode === 'departments' && (
+          {viewMode === "departments" && (
             <div className="departments-workspace">
               {/* Department List */}
               <section className="departments-card">
                 <h2>🏛️ Academic Departments</h2>
-                <p>Manage university departments, course codes, and view user assignments across departments.</p>
+                <p>
+                  Manage university departments, course codes, and view user
+                  assignments across departments.
+                </p>
 
                 {!departmentsWithCount ? (
-                  <div className="admin-loading" style={{ minHeight: '10rem' }}>Loading departments...</div>
+                  <div className="admin-loading" style={{ minHeight: "10rem" }}>
+                    Loading departments...
+                  </div>
                 ) : departmentsWithCount.length === 0 ? (
                   <div className="admin-empty">
-                    <span className="material-symbols-outlined">domain_disabled</span>
+                    <span className="material-symbols-outlined">
+                      domain_disabled
+                    </span>
                     <p>No departments created yet.</p>
-                    <small>Use the form on the right to add your first academic department.</small>
+                    <small>
+                      Use the form on the right to add your first academic
+                      department.
+                    </small>
                   </div>
                 ) : (
                   <div className="messages-table-wrap">
@@ -842,40 +1214,66 @@ const Admin = () => {
                       <tbody>
                         {departmentsWithCount.map((dept: any) => (
                           <tr key={dept._id}>
-                            <td><strong className="mono-val">{dept.code}</strong></td>
-                            <td><strong>{dept.name}</strong></td>
-                            <td>{dept.description || '—'}</td>
-                            <td><span className="stat-tag">{dept.userCount} users</span></td>
                             <td>
-                              <span className={dept.isActive ? 'dept-badge-active' : 'dept-badge-inactive'}>
-                                {dept.isActive ? 'Active' : 'Inactive'}
+                              <strong className="mono-val">{dept.code}</strong>
+                            </td>
+                            <td>
+                              <strong>{dept.name}</strong>
+                            </td>
+                            <td>{dept.description || "—"}</td>
+                            <td>
+                              <span className="stat-tag">
+                                {dept.userCount} users
                               </span>
                             </td>
                             <td>
-                              <div style={{ display: 'flex', gap: '.3rem' }}>
+                              <span
+                                className={
+                                  dept.isActive
+                                    ? "dept-badge-active"
+                                    : "dept-badge-inactive"
+                                }
+                              >
+                                {dept.isActive ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", gap: ".3rem" }}>
                                 <button
                                   className="dept-action-icon"
                                   title="Edit department"
                                   type="button"
                                   onClick={() => handleEditDepartment(dept)}
                                 >
-                                  <span className="material-symbols-outlined">edit</span>
+                                  <span className="material-symbols-outlined">
+                                    edit
+                                  </span>
                                 </button>
                                 <button
                                   className="dept-action-icon"
-                                  title={dept.isActive ? 'Deactivate department' : 'Activate department'}
+                                  title={
+                                    dept.isActive
+                                      ? "Deactivate department"
+                                      : "Activate department"
+                                  }
                                   type="button"
                                   onClick={() => handleToggleDeptStatus(dept)}
                                 >
-                                  <span className="material-symbols-outlined">{dept.isActive ? 'toggle_on' : 'toggle_off'}</span>
+                                  <span className="material-symbols-outlined">
+                                    {dept.isActive ? "toggle_on" : "toggle_off"}
+                                  </span>
                                 </button>
                                 <button
                                   className="dept-action-icon delete"
                                   title="Delete department"
                                   type="button"
-                                  onClick={() => handleDeleteDepartment(dept._id)}
+                                  onClick={() =>
+                                    handleDeleteDepartment(dept._id)
+                                  }
                                 >
-                                  <span className="material-symbols-outlined">delete</span>
+                                  <span className="material-symbols-outlined">
+                                    delete
+                                  </span>
                                 </button>
                               </div>
                             </td>
@@ -889,18 +1287,29 @@ const Admin = () => {
 
               {/* Add / Edit Department Form */}
               <section className="departments-card">
-                <h2>{editingDeptId ? '✏️ Edit Department' : '➕ Add New Department'}</h2>
-                <p>{editingDeptId ? 'Update department code or details.' : 'Create an academic department for classifying lecturers, students, and Q&A threads.'}</p>
+                <h2>
+                  {editingDeptId
+                    ? "✏️ Edit Department"
+                    : "➕ Add New Department"}
+                </h2>
+                <p>
+                  {editingDeptId
+                    ? "Update department code or details."
+                    : "Create an academic department for classifying lecturers, students, and Q&A threads."}
+                </p>
 
                 {deptFeedback && (
-                  <div className={`send-feedback ${deptFeedback.type === 'error' ? 'tampered' : ''}`} style={{ marginBottom: '1rem' }}>
+                  <div
+                    className={`send-feedback ${deptFeedback.type === "error" ? "tampered" : ""}`}
+                    style={{ marginBottom: "1rem" }}
+                  >
                     {deptFeedback.text}
                   </div>
                 )}
 
                 <form onSubmit={handleSaveDepartment} className="dept-form">
                   <div className="dept-form-field">
-                    <label>Department Code *</label>
+                    <label>Department's Abrevaition *</label>
                     <input
                       type="text"
                       required
@@ -932,8 +1341,16 @@ const Admin = () => {
                   </div>
 
                   <div className="dept-form-actions">
-                    <button className="dept-btn-primary" type="submit" disabled={isSubmittingDept}>
-                      {isSubmittingDept ? 'Saving...' : editingDeptId ? 'Update Department' : 'Create Department'}
+                    <button
+                      className="dept-btn-primary"
+                      type="submit"
+                      disabled={isSubmittingDept}
+                    >
+                      {isSubmittingDept
+                        ? "Saving..."
+                        : editingDeptId
+                          ? "Update Department"
+                          : "Add New Department"}
                     </button>
                     {editingDeptId && (
                       <button
@@ -941,9 +1358,9 @@ const Admin = () => {
                         type="button"
                         onClick={() => {
                           setEditingDeptId(null);
-                          setDeptName('');
-                          setDeptCode('');
-                          setDeptDescription('');
+                          setDeptName("");
+                          setDeptCode("");
+                          setDeptDescription("");
                           setDeptFeedback(null);
                         }}
                       >

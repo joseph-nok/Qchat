@@ -171,24 +171,12 @@ const EditProfile = () => {
         avatarStorageId = uploadResult.storageId;
       }
 
-      const rankPrefixes = ['Dr', 'Prof', 'Engineer'];
-      let baseFullName = form.fullName.trim();
-      for (const prefix of rankPrefixes) {
-        if (baseFullName.startsWith(prefix + ' ')) {
-          baseFullName = baseFullName.slice(prefix.length + 1).trim();
-          break;
-        }
-      }
-
-      const effectiveFullName = (profile?.role === 'lecturer' && form.rank) 
-        ? `${form.rank.trim()} ${baseFullName}` 
-        : baseFullName;
-
       await updateProfile({
         sessionToken,
-        fullName: effectiveFullName,
+        fullName: form.fullName.trim(),
         bio: form.bio,
         school: form.school,
+        rank: profile?.role === 'lecturer' ? form.rank?.trim() || undefined : undefined,
         avatarStorageId,
       });
       setSelectedAvatarFile(null);

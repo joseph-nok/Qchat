@@ -268,20 +268,17 @@ const Register = () => {
       const exportedPublic = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
       const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
 
-      const formattedFirstName = (role === 'lecturer' && rank.trim()) 
-        ? `${rank.trim()} ${firstName.trim()}` 
-        : firstName.trim();
-
       // 3. Register user with Convex action (verifying reCAPTCHA) or fallback to mutation
       let user;
       if (registerUserWithRecaptcha) {
         user = await registerUserWithRecaptcha({
-          firstName: formattedFirstName,
+          firstName: firstName.trim(),
           lastName: lastName.trim(),
           email,
           role,
           school: institution,
           department: department.trim(),
+          rank: role === 'lecturer' ? rank.trim() || undefined : undefined,
           idNumber,
           password,
           publicKey: publicKeyBase64,
@@ -290,12 +287,13 @@ const Register = () => {
         });
       } else {
         user = await registerUser({
-          firstName: formattedFirstName,
+          firstName: firstName.trim(),
           lastName: lastName.trim(),
           email,
           role,
           school: institution,
           department: department.trim(),
+          rank: role === 'lecturer' ? rank.trim() || undefined : undefined,
           idNumber,
           password,
           publicKey: publicKeyBase64,

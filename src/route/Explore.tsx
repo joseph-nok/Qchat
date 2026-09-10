@@ -21,6 +21,9 @@ type ExploreUser = {
   role: 'student' | 'lecturer';
   school: string;
   institution: string;
+  rank: string;
+  departmentId: Id<'departments'> | null;
+  departmentName: string;
   avatarUrl?: string;
   verificationStatus: 'unverified' | 'pending' | 'approved';
   isVerified: boolean;
@@ -47,6 +50,13 @@ const getInitials = (name: string) => name
   .map((part) => part[0])
   .join('')
   .toUpperCase();
+
+const formatAcademicName = (user: Pick<ExploreUser, 'fullName' | 'role' | 'rank'>) => {
+  const rank = user.role === 'lecturer' ? user.rank?.trim() : '';
+  return rank && !user.fullName.startsWith(`${rank} `)
+    ? `${rank} ${user.fullName}`
+    : user.fullName;
+};
 
 const Explore = () => {
   const navigate = useNavigate();
@@ -202,7 +212,7 @@ const Explore = () => {
 
                     <div className="explore-card-info">
                       <div className="explore-name-row">
-                        <h3 className="explore-name">{user.fullName}</h3>
+                        <h3 className="explore-name">{formatAcademicName(user)}</h3>
                         <span className={`explore-role-badge ${isLecturer ? 'lecturer' : 'student'}`}>
                           <span className="material-symbols-outlined" style={{ fontSize: '0.75rem', fontVariationSettings: "'FILL' 1" }}>
                             {isLecturer ? 'school' : 'person'}
@@ -219,6 +229,11 @@ const Explore = () => {
                       <p className="explore-institution">
                         <span className="material-symbols-outlined" style={{ fontSize: '0.875rem' }}>account_balance</span>
                         <span className="explore-detail-text">{user.school}</span>
+                      </p>
+
+                      <p className="explore-department">
+                        <span className="material-symbols-outlined" style={{ fontSize: '0.875rem' }}>domain</span>
+                        <span className="explore-detail-text">{user.departmentName || 'Department not provided'}</span>
                       </p>
                     </div>
 

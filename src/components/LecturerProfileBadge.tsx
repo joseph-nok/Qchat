@@ -12,6 +12,7 @@ type PublicAuthor = {
   fullName: string;
   role: 'student' | 'lecturer';
   school: string;
+  rank?: string;
   avatarUrl?: string;
   departmentId?: Id<'departments'> | null;
   departmentName?: string | null;
@@ -23,6 +24,13 @@ interface LecturerProfileBadgeProps {
   author: PublicAuthor;
   compact?: boolean;
 }
+
+const formatAcademicName = (author: PublicAuthor) => {
+  const rank = author.role === 'lecturer' ? author.rank?.trim() : '';
+  return rank && !author.fullName.startsWith(`${rank} `)
+    ? `${rank} ${author.fullName}`
+    : author.fullName;
+};
 
 export const LecturerProfileBadge = ({ author, compact = false }: LecturerProfileBadgeProps) => {
   const navigate = useNavigate();
@@ -73,7 +81,7 @@ export const LecturerProfileBadge = ({ author, compact = false }: LecturerProfil
 
         <div className="lpb-info" onClick={() => setShowModal(true)}>
           <div className="lpb-name-row">
-            <strong className="lpb-name">{author.fullName}</strong>
+            <strong className="lpb-name">{formatAcademicName(author)}</strong>
             {isLecturer && <span className="lpb-role-tag">🏛️ Lecturer</span>}
           </div>
 
@@ -121,7 +129,7 @@ export const LecturerProfileBadge = ({ author, compact = false }: LecturerProfil
               <div className="vuser-avatar" style={{ margin: '0 auto 1rem', width: '4.5rem', height: '4.5rem', fontSize: '1.5rem' }}>
                 {author.avatarUrl ? <img src={author.avatarUrl} alt={author.fullName} /> : getInitials(author.fullName)}
               </div>
-              <h3 style={{ margin: '0 0 .3rem', color: '#1e2625' }}>{author.fullName}</h3>
+              <h3 style={{ margin: '0 0 .3rem', color: '#1e2625' }}>{formatAcademicName(author)}</h3>
               <p style={{ margin: '0 0 1rem', color: '#6a6254', fontSize: '.85rem' }}>
                 {isLecturer ? '🏛️ Lecturer' : '🎓 Student'} • {author.school}
               </p>
