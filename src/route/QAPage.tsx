@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
 import { logHashToBlockchain } from '../services/web3Service';
 import LecturerProfileBadge from '../components/LecturerProfileBadge';
+import { verifyAcademicQuestion } from '../services/academicVerifier';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
 
@@ -156,6 +157,8 @@ const QAPage = () => {
   const [replyBody, setReplyBody] = useState('');
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [moderationReason, setModerationReason] = useState('');
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -277,14 +280,32 @@ const QAPage = () => {
 
   const handleAsk = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!sessionToken || isSubmitting) return;
+    if (!sessionToken || isSubmitting || isVerifying) return;
 
     const postTitle = title;
     const postBody = body;
     const postTextToAnchor = `${postTitle}\n${postBody}`;
 
-    setIsSubmitting(true);
     setError('');
+    setModerationReason('');
+
+    // AI Academic Verification before proceeding with mutation
+    setIsVerifying(true);
+    let verification: { isAcademic: boolean; reason: string };
+    try {
+      verification = await verifyAcademicQuestion(postTextToAnchor);
+    } catch {
+      verification = { isAcademic: true, reason: '' };
+    } finally {
+      setIsVerifying(false);
+    }
+
+    if (verification.isAcademic === false) {
+      setModerationReason(verification.reason);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       // 1. Retrieve user-isolated private key from IndexedDB
       const activeUserId = currentUser?._id || localStorage.getItem('qchat_active_user_id');
@@ -335,6 +356,7 @@ const QAPage = () => {
       setHashtags('');
       setTopic('');
       setQuestionFile(null);
+      setModerationReason('');
       setShowAskForm(false);
       setNewQuestionId(result.questionId);
       setSearchParams({ questionId: result.questionId });
@@ -432,7 +454,14 @@ const QAPage = () => {
               <h1 className="page-title">Q&A</h1>
               <p className="page-subtitle">Ask, answer, and follow academic threads in realtime.</p>
             </div>
-            <button type="button" className="new-chat-btn" onClick={() => setShowAskForm((value) => !value)}>
+            <button
+              type="button"
+              className="new-chat-btn"
+              onClick={() => {
+                setShowAskForm((value) => !value);
+                setModerationReason('');
+              }}
+            >
               <span className="material-symbols-outlined">{showAskForm ? 'close' : 'add'}</span>
               {showAskForm ? 'Close' : 'Ask Question'}
             </button>
@@ -446,13 +475,52 @@ const QAPage = () => {
 
           {showAskForm && (
             <form className="qa-form" onSubmit={(event) => void handleAsk(event)}>
+              {moderationReason && (
+                <div
+                  className="qa-moderation-reason"
+                  style={{
+                    color: 'var(--error, #ba1a1a)',
+                    backgroundColor: 'rgba(186, 26, 26, 0.08)',
+                    border: '1px solid var(--error, #ba1a1a)',
+                    borderRadius: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.625rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                  }}
+                  role="alert"
+                >
+                  <span className="material-symbols-outlined" style={{ color: 'var(--error, #ba1a1a)', fontSize: '1.25rem', flexShrink: 0 }}>
+                    error
+                  </span>
+                  <span>{moderationReason}</span>
+                </div>
+              )}
               <div className="form-group">
                 <label htmlFor="qa-title">Title</label>
-                <input id="qa-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What are you trying to understand?" />
+                <input
+                  id="qa-title"
+                  value={title}
+                  onChange={(event) => {
+                    setTitle(event.target.value);
+                    if (moderationReason) setModerationReason('');
+                  }}
+                  placeholder="What are you trying to understand?"
+                />
               </div>
               <div className="form-group">
                 <label htmlFor="qa-body">Details</label>
-                <textarea id="qa-body" value={body} onChange={(event) => setBody(event.target.value)} placeholder="Share the full context, what you tried, and where you got stuck." />
+                <textarea
+                  id="qa-body"
+                  value={body}
+                  onChange={(event) => {
+                    setBody(event.target.value);
+                    if (moderationReason) setModerationReason('');
+                  }}
+                  placeholder="Share the full context, what you tried, and where you got stuck."
+                />
               </div>
               <div className="form-group">
                 <label htmlFor="qa-tags">Hashtags</label>
@@ -561,9 +629,9 @@ const QAPage = () => {
               </div>
               <div className="qa-form-actions">
                 <AttachmentPicker selectedFile={questionFile} onFileChange={(file) => handleFile(file, setQuestionFile)} onClear={() => setQuestionFile(null)} />
-                <button type="submit" className="modal-submit-btn" disabled={isSubmitting}>
-                  <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_top' : 'send'}</span>
-                  Post Question
+                <button type="submit" className="modal-submit-btn" disabled={isSubmitting || isVerifying}>
+                  <span className="material-symbols-outlined">{isVerifying || isSubmitting ? 'hourglass_top' : 'send'}</span>
+                  {isVerifying ? 'Verifying...' : 'Post Question'}
                 </button>
               </div>
             </form>

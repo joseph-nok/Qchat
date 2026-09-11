@@ -8,13 +8,14 @@ const LandingPage = () => {
     <div className="landing-page" data-mode="connect">
       <Header />
 
+<br /> <br /><br />
       <main className="main-content">
         {/* Hero Section */}
         <section className="hero-section">
           <div className="hero-content">
             <div className="hero-text-area">
               <h1 className="hero-title">
-                QCampus Connect <br />
+                QCampus <br />
                 <span className="highlight">Connect.</span>
               </h1>
               {/* <p className="hero-subtitle">
