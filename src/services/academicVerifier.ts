@@ -1,34 +1,35 @@
 export interface AcademicVerificationResult {
   isAcademic: boolean;
+  titleOk: boolean;
+  detailsOk: boolean;
   reason: string;
 }
 
 /**
- * Verifies whether a student question is academic using the Mercury 2 API.
- * Academic questions: coursework, university subjects, exams, assignments.
- * Non-academic questions: casual chat, gossip, spam, memes.
- *
- * On any API or network error, falls back to isAcademic: true so student questions are never blocked.
+ * Evaluates both the title and details together using the Mercury 2 API.
+ * A question is academic ONLY if BOTH parts are meaningful academic content.
+ * Reject casual greetings, one-word answers, random chat, gossip, spam, memes,
+ * or vague statements even if the title looks academic.
  */
 export async function verifyAcademicQuestion(
-  questionText: string
+  title: string,
+  details: string
 ): Promise<AcademicVerificationResult> {
   const fallbackResult: AcademicVerificationResult = {
     isAcademic: true,
-    reason: '',
+    titleOk: true,
+    detailsOk: true,
+    reason: 'Verification unavailable',
   };
 
   try {
     const apiKey = import.meta.env?.VITE_MERCURY_KEY;
     if (!apiKey) {
-      console.warn('[AcademicVerifier] VITE_MERCURY_KEY is missing. Defaulting to academic approval.');
+      console.warn('[AcademicVerifier] VITE_MERCURY_KEY is missing. Falling back.');
       return fallbackResult;
     }
 
-    const trimmedQuestion = questionText?.trim();
-    if (!trimmedQuestion) {
-      return fallbackResult;
-    }
+    const combinedPayload = `Title: ${title.trim()}\nDetails: ${details.trim()}`;
 
     const response = await fetch('https://api.inceptionlabs.ai/v1/chat/completions', {
       method: 'POST',
@@ -42,21 +43,21 @@ export async function verifyAcademicQuestion(
           {
             role: 'system',
             content:
-              'You are an AI academic moderator. Evaluate if the question is academic. Academic questions = coursework, university subjects, exams, assignments; non-academic = casual chat, gossip, spam, memes. Return ONLY JSON: {"isAcademic": true/false, "reason": "..."}.',
+              'You are an academic moderator. Evaluate BOTH the title and details. A question is academic ONLY if BOTH parts are meaningful academic content about coursework, university subjects, exams, assignments, or academic concepts. Reject casual greetings, one-word answers, random chat, gossip, spam, memes, or vague statements even if the title looks academic. Return ONLY JSON: {"isAcademic": true/false, "titleOk": true/false, "detailsOk": true/false, "reason": "..."}.',
           },
           {
             role: 'user',
-            content: trimmedQuestion,
+            content: combinedPayload,
           },
         ],
         temperature: 0.1,
-        max_tokens: 150,
+        max_tokens: 200,
         response_format: { type: 'json_object' },
       }),
     });
 
     if (!response.ok) {
-      console.warn(`[AcademicVerifier] API returned status ${response.status}: ${response.statusText}`);
+      console.warn(`[AcademicVerifier] API error status ${response.status}: ${response.statusText}`);
       return fallbackResult;
     }
 
@@ -66,16 +67,20 @@ export async function verifyAcademicQuestion(
       return fallbackResult;
     }
 
-    let parsed: { isAcademic?: boolean; reason?: string } | null = null;
+    let parsed: any = null;
     try {
       parsed = JSON.parse(content);
     } catch {
-      // Fallback parser in case response was truncated by token limit
+      // Fallback regex parsing if JSON was cut off
       const academicMatch = content.match(/"isAcademic"\s*:\s*(true|false)/i);
+      const titleOkMatch = content.match(/"titleOk"\s*:\s*(true|false)/i);
+      const detailsOkMatch = content.match(/"detailsOk"\s*:\s*(true|false)/i);
       const reasonMatch = content.match(/"reason"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)/i);
-      if (academicMatch) {
+      if (academicMatch || titleOkMatch || detailsOkMatch) {
         parsed = {
-          isAcademic: academicMatch[1].toLowerCase() === 'true',
+          isAcademic: academicMatch ? academicMatch[1].toLowerCase() === 'true' : undefined,
+          titleOk: titleOkMatch ? titleOkMatch[1].toLowerCase() === 'true' : undefined,
+          detailsOk: detailsOkMatch ? detailsOkMatch[1].toLowerCase() === 'true' : undefined,
           reason: reasonMatch ? reasonMatch[1].replace(/\\"/g, '"') : '',
         };
       }
@@ -85,22 +90,20 @@ export async function verifyAcademicQuestion(
       return fallbackResult;
     }
 
-    if (parsed.isAcademic === false) {
-      return {
-        isAcademic: false,
-        reason:
-          typeof parsed.reason === 'string' && parsed.reason.trim()
-            ? parsed.reason.trim()
-            : 'This question was flagged as non-academic. Please ensure your post is related to coursework, university subjects, exams, or assignments.',
-      };
-    }
+    const titleOk = typeof parsed.titleOk === 'boolean' ? parsed.titleOk : true;
+    const detailsOk = typeof parsed.detailsOk === 'boolean' ? parsed.detailsOk : true;
+    const isAcademic =
+      parsed.isAcademic === false || !titleOk || !detailsOk ? false : true;
+    const reason = typeof parsed.reason === 'string' ? parsed.reason.trim() : '';
 
     return {
-      isAcademic: true,
-      reason: typeof parsed.reason === 'string' ? parsed.reason.trim() : '',
+      isAcademic,
+      titleOk: isAcademic ? true : titleOk,
+      detailsOk: isAcademic ? true : detailsOk,
+      reason,
     };
   } catch (error) {
-    console.warn('[AcademicVerifier] Failed to verify question, falling back to approve:', error);
+    console.warn('[AcademicVerifier] Unexpected error during verification:', error);
     return fallbackResult;
   }
 }

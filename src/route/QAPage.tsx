@@ -158,7 +158,7 @@ const QAPage = () => {
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [moderationReason, setModerationReason] = useState('');
+  const [moderationErrors, setModerationErrors] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -287,21 +287,31 @@ const QAPage = () => {
     const postTextToAnchor = `${postTitle}\n${postBody}`;
 
     setError('');
-    setModerationReason('');
+    setModerationErrors([]);
 
     // AI Academic Verification before proceeding with mutation
     setIsVerifying(true);
-    let verification: { isAcademic: boolean; reason: string };
+    let verification: { isAcademic: boolean; titleOk: boolean; detailsOk: boolean; reason: string };
     try {
-      verification = await verifyAcademicQuestion(postTextToAnchor);
+      verification = await verifyAcademicQuestion(postTitle, postBody);
     } catch {
-      verification = { isAcademic: true, reason: '' };
+      verification = { isAcademic: true, titleOk: true, detailsOk: true, reason: 'Verification unavailable' };
     } finally {
       setIsVerifying(false);
     }
 
     if (verification.isAcademic === false) {
-      setModerationReason(verification.reason);
+      const fieldErrors: string[] = [];
+      if (verification.titleOk === false) {
+        fieldErrors.push('Please make your title academic');
+      }
+      if (verification.detailsOk === false) {
+        fieldErrors.push('Please add meaningful academic details');
+      }
+      if (fieldErrors.length === 0) {
+        fieldErrors.push(verification.reason || 'Please ensure your question is academic.');
+      }
+      setModerationErrors(fieldErrors);
       return;
     }
 
@@ -356,7 +366,7 @@ const QAPage = () => {
       setHashtags('');
       setTopic('');
       setQuestionFile(null);
-      setModerationReason('');
+      setModerationErrors([]);
       setShowAskForm(false);
       setNewQuestionId(result.questionId);
       setSearchParams({ questionId: result.questionId });
@@ -459,7 +469,7 @@ const QAPage = () => {
               className="new-chat-btn"
               onClick={() => {
                 setShowAskForm((value) => !value);
-                setModerationReason('');
+                setModerationErrors([]);
               }}
             >
               <span className="material-symbols-outlined">{showAskForm ? 'close' : 'add'}</span>
@@ -475,7 +485,7 @@ const QAPage = () => {
 
           {showAskForm && (
             <form className="qa-form" onSubmit={(event) => void handleAsk(event)}>
-              {moderationReason && (
+              {moderationErrors.length > 0 && (
                 <div
                   className="qa-moderation-reason"
                   style={{
@@ -485,17 +495,24 @@ const QAPage = () => {
                     borderRadius: '0.5rem',
                     padding: '0.75rem 1rem',
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     gap: '0.625rem',
                     fontSize: '0.875rem',
                     fontWeight: 500,
                   }}
                   role="alert"
                 >
-                  <span className="material-symbols-outlined" style={{ color: 'var(--error, #ba1a1a)', fontSize: '1.25rem', flexShrink: 0 }}>
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ color: 'var(--error, #ba1a1a)', fontSize: '1.25rem', flexShrink: 0, marginTop: '0.1rem' }}
+                  >
                     error
                   </span>
-                  <span>{moderationReason}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {moderationErrors.map((errMsg, idx) => (
+                      <span key={idx}>{errMsg}</span>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="form-group">
@@ -505,7 +522,7 @@ const QAPage = () => {
                   value={title}
                   onChange={(event) => {
                     setTitle(event.target.value);
-                    if (moderationReason) setModerationReason('');
+                    if (moderationErrors.length > 0) setModerationErrors([]);
                   }}
                   placeholder="What are you trying to understand?"
                 />
@@ -517,7 +534,7 @@ const QAPage = () => {
                   value={body}
                   onChange={(event) => {
                     setBody(event.target.value);
-                    if (moderationReason) setModerationReason('');
+                    if (moderationErrors.length > 0) setModerationErrors([]);
                   }}
                   placeholder="Share the full context, what you tried, and where you got stuck."
                 />
@@ -631,7 +648,7 @@ const QAPage = () => {
                 <AttachmentPicker selectedFile={questionFile} onFileChange={(file) => handleFile(file, setQuestionFile)} onClear={() => setQuestionFile(null)} />
                 <button type="submit" className="modal-submit-btn" disabled={isSubmitting || isVerifying}>
                   <span className="material-symbols-outlined">{isVerifying || isSubmitting ? 'hourglass_top' : 'send'}</span>
-                  {isVerifying ? 'Verifying...' : 'Post Question'}
+                  {isVerifying ? 'Checking academic content...' : 'Post Question'}
                 </button>
               </div>
             </form>
