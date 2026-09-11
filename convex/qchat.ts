@@ -831,6 +831,7 @@ export const getQuestions = query({
     sessionToken: v.string(),
     departmentId: v.optional(v.id("departments")),
     filter: v.optional(v.string()),
+    sortBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const currentUser = await getUserBySessionToken(ctx, args.sessionToken);
@@ -846,7 +847,7 @@ export const getQuestions = query({
         .withIndex("by_departmentId_and_createdAt", (q) =>
           q.eq("departmentId", currentUser.departmentId),
         )
-        .order("desc")
+        .order(args.sortBy === "oldest" ? "asc" : "desc")
         .take(75);
     } else {
       // Students
@@ -856,7 +857,7 @@ export const getQuestions = query({
           .withIndex("by_authorId_and_createdAt", (q) =>
             q.eq("authorId", currentUser._id),
           )
-          .order("desc")
+          .order(args.sortBy === "oldest" ? "asc" : "desc")
           .take(75);
       } else if (args.departmentId) {
         questions = await ctx.db
@@ -864,35 +865,22 @@ export const getQuestions = query({
           .withIndex("by_departmentId_and_createdAt", (q) =>
             q.eq("departmentId", args.departmentId),
           )
-          .order("desc")
+          .order(args.sortBy === "oldest" ? "asc" : "desc")
           .take(75);
       } else {
-        // Default student feed: Questions in student's own department + all questions asked by this student across departments
-        const deptQuestions = currentUser.departmentId
-          ? await ctx.db
-              .query("questions")
-              .withIndex("by_departmentId_and_createdAt", (q) =>
-                q.eq("departmentId", currentUser.departmentId),
-              )
-              .order("desc")
-              .take(50)
-          : [];
-
-        const myQuestions = await ctx.db
-          .query("questions")
-          .withIndex("by_authorId_and_createdAt", (q) =>
-            q.eq("authorId", currentUser._id),
-          )
-          .order("desc")
-          .take(50);
-
-        const map = new Map<string, (typeof deptQuestions)[0]>();
-        for (const q of [...myQuestions, ...deptQuestions]) {
-          map.set(q._id, q);
+        // Default student feed: ONLY questions in student's own verified department
+        // Cross-department questions asked by the user in other departments only show in My Questions
+        if (currentUser.departmentId) {
+          questions = await ctx.db
+            .query("questions")
+            .withIndex("by_departmentId_and_createdAt", (q) =>
+              q.eq("departmentId", currentUser.departmentId),
+            )
+            .order(args.sortBy === "oldest" ? "asc" : "desc")
+            .take(75);
+        } else {
+          questions = [];
         }
-        questions = Array.from(map.values())
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .slice(0, 75);
       }
     }
 
@@ -1074,6 +1062,8 @@ export const getPendingBB84Notifications = query({
         _id: notification._id,
         roomId: notification.roomId,
         actorName: actor?.fullName ?? "Someone",
+        title: notification.title ?? "Quantum Key Exchange Request",
+        body: notification.body ?? `${actor?.fullName ?? "Someone"} initiated a BB84 quantum key exchange. Confirm the fingerprint to unlock encrypted chat.`,
         fingerprint: room.bb84Fingerprint,
         createdAt: notification.createdAt,
       });

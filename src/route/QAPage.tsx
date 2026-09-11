@@ -102,41 +102,35 @@ const QAPage = () => {
 
   const [feedFilterMode, setFeedFilterMode] = useState<'all' | 'my_questions' | 'department'>('all');
   const [feedDepartmentId, setFeedDepartmentId] = useState<Id<'departments'> | null>(null);
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'most_answers' | 'unanswered'>('recent');
 
   const queryArgs = useMemo(() => {
     if (!sessionToken) return 'skip' as const;
+    const base: { sessionToken: string; sortBy?: string; filter?: string; departmentId?: Id<'departments'> } = {
+      sessionToken,
+      sortBy,
+    };
     if (currentUser?.role === 'lecturer') {
-      return { sessionToken };
+      return base;
     }
     if (feedFilterMode === 'my_questions') {
-      return { sessionToken, filter: 'my_questions' };
+      return { ...base, filter: 'my_questions' };
     }
     if (feedFilterMode === 'department' && feedDepartmentId) {
-      return { sessionToken, departmentId: feedDepartmentId };
+      return { ...base, departmentId: feedDepartmentId };
     }
-    return { sessionToken };
-  }, [sessionToken, currentUser?.role, feedFilterMode, feedDepartmentId]);
+    return base;
+  }, [sessionToken, currentUser?.role, feedFilterMode, feedDepartmentId, sortBy]);
 
   const questions = useQuery(convexApi.qchat.getQuestions, queryArgs) as QuestionFeedItem[] | undefined;
-  const notifications = useQuery(convexApi.qchat.getNotifications, sessionToken ? { sessionToken } : 'skip') as Array<{
-    _id: string;
-    type?: string;
-    title?: string;
-    body: string;
-    questionId: Id<'questions'>;
-    read: boolean;
-    createdAt: number;
-  }> | undefined;
-  // Search parameters are untyped runtime input. Only pass an ID to Convex
-  // after it has come from a question or notification returned by the app.
-  // This prevents values like "undefined" from reaching v.id("questions").
-  const questionId = useMemo(() => {
-    if (!questionIdParam) return null;
-    const knownQuestion = questionIdParam === newQuestionId
-      || questions?.some((question) => question._id === questionIdParam)
-      || notifications?.some((notification) => notification.questionId === questionIdParam);
-    return knownQuestion ? questionIdParam as Id<'questions'> : null;
-  }, [newQuestionId, notifications, questionIdParam, questions]);
+
+  const isValidQuestionId = useMemo(() => {
+    if (!questionIdParam) return false;
+    if (questionIdParam === 'undefined' || questionIdParam === 'null') return false;
+    return typeof questionIdParam === 'string' && questionIdParam.length >= 10 && !/\s/.test(questionIdParam);
+  }, [questionIdParam]);
+
+  const questionId = isValidQuestionId ? (questionIdParam as Id<'questions'>) : null;
   const thread = useQuery(
     convexApi.qchat.getQuestionThread,
     sessionToken && questionId ? { sessionToken, questionId } : 'skip',
@@ -146,7 +140,6 @@ const QAPage = () => {
   const askQuestion = useMutation(convexApi.qchat.askQuestion);
   const addAnswer = useMutation(convexApi.qchat.addAnswer);
   const markQuestionAnswered = useMutation(convexApi.qchat.markQuestionAnswered);
-  const markNotificationRead = useMutation(convexApi.qchat.markNotificationRead);
 
   const [showAskForm, setShowAskForm] = useState(false);
   const [title, setTitle] = useState('');
@@ -173,11 +166,11 @@ const QAPage = () => {
   }, [authLoading, navigate, sessionToken]);
 
   useEffect(() => {
-    if (questionIdParam && questions !== undefined && notifications !== undefined && !questionId) {
+    if (questionIdParam && !isValidQuestionId) {
       setError('That question link is no longer valid.');
       setSearchParams({}, { replace: true });
     }
-  }, [notifications, questionId, questionIdParam, questions, setSearchParams]);
+  }, [isValidQuestionId, questionIdParam, setSearchParams]);
 
   useEffect(() => {
     if (!lightboxImage) return undefined;
@@ -193,15 +186,36 @@ const QAPage = () => {
 
   const filteredQuestions = useMemo(() => {
     const filter = searchTerm.trim().replace(/^#/, '').toLowerCase();
-    if (!filter) return questions ?? [];
-    return (questions ?? []).filter((question) => [
-      question.title,
-      question.preview,
-      question.topic ?? '',
-      question.departmentName ?? '',
-      ...question.hashtags,
-    ].some((value) => value.toLowerCase().includes(filter)));
-  }, [questions, searchTerm]);
+    let list = questions ?? [];
+    if (filter) {
+      list = list.filter((question) => [
+        question.title,
+        question.preview,
+        question.topic ?? '',
+        question.departmentName ?? '',
+        ...question.hashtags,
+      ].some((value) => value.toLowerCase().includes(filter)));
+    }
+
+    return [...list].sort((a, b) => {
+      if (sortBy === 'recent') {
+        return b.date - a.date;
+      }
+      if (sortBy === 'oldest') {
+        return a.date - b.date;
+      }
+      if (sortBy === 'most_answers') {
+        return b.answerCount - a.answerCount || b.date - a.date;
+      }
+      if (sortBy === 'unanswered') {
+        if (a.answered !== b.answered) {
+          return a.answered ? 1 : -1;
+        }
+        return a.answerCount - b.answerCount || b.date - a.date;
+      }
+      return b.date - a.date;
+    });
+  }, [questions, searchTerm, sortBy]);
 
   const searchSuggestions = useMemo(() => {
     const filter = searchTerm.trim().replace(/^#/, '').toLowerCase();
@@ -250,17 +264,6 @@ const QAPage = () => {
         (dept.description && dept.description.toLowerCase().includes(q))
     );
   }, [departments, targetDeptSearch]);
-
-  const handleNotificationClick = async (notification: { _id: string; questionId: Id<'questions'>; read: boolean }) => {
-    if (!notification.read && sessionToken) {
-      try {
-        await markNotificationRead({ sessionToken, notificationId: notification._id as Id<'notifications'> });
-      } catch {
-        // Ignore
-      }
-    }
-    setSearchParams({ questionId: notification.questionId });
-  };
 
   const handleFile = (file: File | null, setter: (file: File | null) => void) => {
     if (!file) return;
@@ -434,27 +437,6 @@ const QAPage = () => {
               {showAskForm ? 'Close' : 'Ask Question'}
             </button>
           </div>
-
-          {notifications && notifications.length > 0 && (
-            <div className="qa-notifications">
-              {notifications.slice(0, 3).map((notification) => (
-                <button
-                  type="button"
-                  key={notification._id}
-                  className={`qa-notification ${notification.read ? '' : 'unread'}`}
-                  onClick={() => void handleNotificationClick(notification)}
-                >
-                  <span className="material-symbols-outlined">
-                    {notification.type === 'department_question' ? 'help_outline' : 'notifications'}
-                  </span>
-                  <div className="qa-notification-body">
-                    {notification.title && <strong className="qa-notification-title">{notification.title}</strong>}
-                    <span>{notification.body}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
 
           {error && (
             <div className="explore-toast qa-error">
@@ -630,70 +612,96 @@ const QAPage = () => {
             )}
           </div>
 
-          {currentUser.role === 'student' && !questionIdParam && (
+          {!questionIdParam && (
             <div className="qa-feed-filter-bar">
-              <div className="qa-filter-pills">
-                <button
-                  type="button"
-                  className={`qa-filter-pill ${feedFilterMode === 'all' ? 'active' : ''}`}
-                  onClick={() => {
-                    setFeedFilterMode('all');
-                    setFeedDepartmentId(null);
-                  }}
-                >
-                  <span className="material-symbols-outlined">dynamic_feed</span>
-                  My Feed
-                </button>
-                <button
-                  type="button"
-                  className={`qa-filter-pill ${feedFilterMode === 'my_questions' ? 'active' : ''}`}
-                  onClick={() => {
-                    setFeedFilterMode('my_questions');
-                    setFeedDepartmentId(null);
-                  }}
-                >
-                  <span className="material-symbols-outlined">contact_support</span>
-                  My Questions
-                </button>
-              </div>
-
-              <div className="qa-dept-filter-select-wrap">
-                <span className="material-symbols-outlined">filter_list</span>
-                <select
-                  className="qa-dept-filter-select"
-                  value={feedFilterMode === 'department' && feedDepartmentId ? feedDepartmentId : ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val) {
-                      setFeedFilterMode('department');
-                      setFeedDepartmentId(val as Id<'departments'>);
-                    } else {
+              {currentUser.role === 'student' && (
+                <div className="qa-filter-pills">
+                  <button
+                    type="button"
+                    className={`qa-filter-pill ${feedFilterMode === 'all' ? 'active' : ''}`}
+                    onClick={() => {
                       setFeedFilterMode('all');
                       setFeedDepartmentId(null);
-                    }
-                  }}
-                >
-                  <option value="">Browse Department (All)</option>
-                  {departments?.map((dept) => (
-                    <option key={dept._id} value={dept._id}>
-                      {dept.name} ({dept.code})
-                    </option>
-                  ))}
-                </select>
+                    }}
+                  >
+                    <span className="material-symbols-outlined">dynamic_feed</span>
+                    My Feed
+                  </button>
+                  <button
+                    type="button"
+                    className={`qa-filter-pill ${feedFilterMode === 'my_questions' ? 'active' : ''}`}
+                    onClick={() => {
+                      setFeedFilterMode('my_questions');
+                      setFeedDepartmentId(null);
+                    }}
+                  >
+                    <span className="material-symbols-outlined">contact_support</span>
+                    My Questions
+                  </button>
+                </div>
+              )}
+
+              <div className="qa-filter-controls-right">
+                {currentUser.role === 'student' && (
+                  <div className="qa-dept-filter-select-wrap">
+                    <span className="material-symbols-outlined">filter_list</span>
+                    <select
+                      className="qa-dept-filter-select"
+                      value={feedFilterMode === 'department' && feedDepartmentId ? feedDepartmentId : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                          setFeedFilterMode('department');
+                          setFeedDepartmentId(val as Id<'departments'>);
+                        } else {
+                          setFeedFilterMode('all');
+                          setFeedDepartmentId(null);
+                        }
+                      }}
+                    >
+                      <option value="">Browse Department (All)</option>
+                      {departments?.map((dept) => (
+                        <option key={dept._id} value={dept._id}>
+                          {dept.name} ({dept.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="qa-sort-select-wrap">
+                  <span className="material-symbols-outlined">sort</span>
+                  <select
+                    className="qa-sort-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'recent' | 'oldest' | 'most_answers' | 'unanswered')}
+                    aria-label="Sort questions"
+                  >
+                    <option value="recent">Recently Posted</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="most_answers">Most Answers</option>
+                    <option value="unanswered">Unanswered</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}
 
-          <p className="qa-department-scope">
-            <span className="material-symbols-outlined">visibility</span>
-            {currentUser.role === 'lecturer'
-              ? `Showing questions directed to ${currentUser.departmentName || 'your verified department'} (Lecturer View).`
-              : feedFilterMode === 'my_questions'
-              ? 'Showing all questions asked by you across departments.'
-              : feedFilterMode === 'department' && feedDepartmentId
-              ? `Showing questions in ${departments?.find((d) => d._id === feedDepartmentId)?.name || 'selected department'}.`
-              : `Showing questions from ${currentUser.departmentName || 'your verified department'} and your cross-department questions.`}
-          </p>
+          {!questionIdParam && (
+            <>
+              {currentUser.role === 'lecturer' ? (
+                <p className="qa-department-scope">
+                  <span className="material-symbols-outlined">visibility</span>
+                  {`Showing questions directed to ${currentUser.departmentName || 'your verified department'} (Lecturer View).`}
+                </p>
+              ) : feedFilterMode === 'department' && feedDepartmentId ? (
+                <p className="qa-department-scope">
+                  <span className="material-symbols-outlined">visibility</span>
+                  {`Showing questions in ${departments?.find((d) => d._id === feedDepartmentId)?.name || 'selected department'}.`}
+                </p>
+              ) : null}
+            </>
+          )}
 
           {questionIdParam ? (
             <section className="qa-thread">
@@ -758,10 +766,10 @@ const QAPage = () => {
 
                   {currentUser.role === 'lecturer' && currentUser.departmentId === thread.question.departmentId ? (
                     <form className="qa-reply-box" onSubmit={(event) => void handleReply(event)}>
-                      <div className="qa-reply-box-header">
+                      {/* <div className="qa-reply-box-header">
                         <span className="material-symbols-outlined">verified</span>
                         <span>Answering as verified lecturer for <strong>{thread.question.departmentName}</strong></span>
-                      </div>
+                      </div> */}
                       <textarea value={replyBody} onChange={(event) => setReplyBody(event.target.value)} placeholder="Write an academic answer..." />
                       <div className="qa-form-actions">
                         <AttachmentPicker selectedFile={replyFile} onFileChange={(file) => handleFile(file, setReplyFile)} onClear={() => setReplyFile(null)} />
@@ -822,7 +830,7 @@ const QAPage = () => {
                   </div>
                 </button>
               )) : (
-                <div className="no-conversations"><span className="material-symbols-outlined no-conv-icon">quiz</span><p>{searchTerm ? 'No questions match that search yet.' : 'No questions have been posted for your department yet.'}</p></div>
+                <div className="no-conversations"><span className="material-symbols-outlined no-conv-icon">quiz</span><p>{searchTerm ? 'No questions match that search yet.' : feedFilterMode === 'my_questions' ? 'You have not asked any questions yet.' : 'No questions have been posted for your department yet.'}</p></div>
               )}
             </section>
           )}

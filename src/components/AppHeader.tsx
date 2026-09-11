@@ -68,10 +68,9 @@ const AppHeader = ({ userName = 'Kwame Kwame', userRole = 'Academic Member', pro
                   >
                     <span className="app-notification-icon">⚛</span>
                     <span className="app-notification-copy">
-                      <strong>Quantum key exchange</strong>
+                      <strong>{(notification as any).title || "Quantum Key Exchange Request"}</strong>
                       <span>
-                        {notification.actorName} is waiting for you to accept
-                        the BB84 fingerprint.
+                        {(notification as any).body || `${notification.actorName} initiated a BB84 quantum key exchange. Confirm the fingerprint to unlock encrypted chat.`}
                       </span>
                       <em>Review and accept in Messages →</em>
                     </span>

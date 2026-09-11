@@ -1035,7 +1035,15 @@
   border-color: var(--secondary, #3a5f94);
 }
 
-.qa-dept-filter-select-wrap {
+.qa-filter-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.qa-dept-filter-select-wrap,
+.qa-sort-select-wrap {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -1045,12 +1053,14 @@
   background: var(--surface-container-lowest, #ffffff);
 }
 
-.qa-dept-filter-select-wrap > .material-symbols-outlined {
+.qa-dept-filter-select-wrap > .material-symbols-outlined,
+.qa-sort-select-wrap > .material-symbols-outlined {
   color: var(--secondary, #3a5f94);
   font-size: 1.1rem;
 }
 
-.qa-dept-filter-select {
+.qa-dept-filter-select,
+.qa-sort-select {
   border: none;
   outline: none;
   background: transparent;
