@@ -886,7 +886,7 @@ export const getQuestions = query({
 
     const rows = [];
     for (const question of questions) {
-      const author = await ctx.db.get(question.authorId);
+      const author = await ctx.db.get(question.authorId) as Doc<"users"> | null;
       if (!author) continue;
 
       rows.push({

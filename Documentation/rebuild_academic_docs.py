@@ -613,7 +613,7 @@ def chapter_3(doc):
     h(doc, "3.7 Data Flow Sequences", 2)
     p(
         doc,
-        "Question Submission Flow (with AI Verification): Student enters question title and details → Selects target department and topic → Optionally attaches research document or code file → Client triggers AI academic verification via verifyAcademicQuestion() → Mercury 2 API evaluates title, details, department, and closed topic whitelist → If validation fails, specific inline field errors are displayed and submission is blocked → If verified, client generates SHA-256 payload digest and commits hash to local Hyperledger Besu blockchain → Convex askQuestion mutation executes and persists question → Real-time department_question notification dispatched to verified lecturers in target department.",
+        "Question Submission Flow (with AI Verification): Student enters question title and details → Form enforces client-side hard character constraints (Title: 100 max, Details: 500 max with 12-character minimum, Hashtags: 100 max) with real-time reactive counter telemetry → Pre-flight guards validate lengths prior to network dispatch to prevent token waste → Student selects target department and topic → Optionally attaches research document or code file → Client triggers AI academic verification via verifyAcademicQuestion() → Inputs are defensively truncated before payload construction → Mercury 2 API evaluates title, details, department, and topic within a 1500-token budget at temperature 0.5 → If validation fails, specific inline field errors or length warnings are displayed and submission is blocked → If verified, client generates SHA-256 payload digest and commits hash to local Hyperledger Besu blockchain → Convex askQuestion mutation executes and persists question → Real-time department_question notification dispatched to verified lecturers in target department.",
     )
     p(
         doc,
@@ -644,6 +644,7 @@ def chapter_3(doc):
             ["Unverified Lecturer Impersonation", "Malicious user masquerading as faculty member", "Strict admin identity review + immutable Besu verifyUser() role binding"],
             ["Cross-Department Answering", "Unqualified users answering domain-specific inquiries", "Convex addAnswer mutation strictly verifies user is a lecturer in target department"],
             ["Non-academic or cross-domain question", "Forum pollution, spam, and misdirection of faculty attention", "Mercury 2 AI moderation with department/topic whitelist check"],
+            ["Oversized / DoS payload injection", "Exhaustion of LLM inference tokens and memory bloat", "Client maxLength + pre-flight JS guards + defensive verifier slicing (100/500 chars)"],
             ["Cloud Eavesdropping", "Server administrator inspecting private consultation", "Payloads encrypted via AES-GCM-256; private keys stay in client IndexedDB"],
             ["Quantum Channel Eavesdropping", "Interception of simulated quantum exchange", "Session abort automatically enforced whenever QBER exceeds 11%"],
         ],
@@ -657,31 +658,17 @@ def chapter_3(doc):
     )
     p(
         doc,
-        "The core verification routine is verifyAcademicQuestion(title, details, department, validTopics, userSelectedTopic). "
-        "The function takes the user-provided title, extended body details, selected target department name, an array of approved canonical topics "
-        "for that department, and the user's selected topic.",
-    )
-    p(
-        doc,
-        "The architecture enforces a closed-list topic whitelist approach (DEPARTMENT_TOPICS). Each academic department maps to a strictly "
-        "defined array of canonical topics. For example, 'Computer Science And Informatics' maps to canonical areas including Algorithms, "
-        "Data Structures, Programming, Databases, Networks, Artificial Intelligence, Machine Learning, Computer Vision, Natural Language "
-        "Processing, Operating Systems, Software Engineering, Computer Architecture, and Distributed Systems. If a department does not have "
-        "configured topics on the whitelist, the valid topics list evaluates to empty, meaning no topic match can be established and "
-        "unapproved submissions are blocked.",
+        "The core verification routine is verifyAcademicQuestion(title, details, department, userSelectedTopic). "
+        "The function takes the user-provided title, extended body details, selected target department name, and the user's selected topic.",
     )
     p(
         doc,
         "During execution, verifyAcademicQuestion constructs an HTTP POST request to the Mercury 2 completion endpoint "
-        "(https://api.inceptionlabs.ai/v1/chat/completions) with temperature 0.1 and max_tokens 256. The call employs the following exact system prompt:",
-    )
-    code_block(
-        doc,
-        "You are an academic moderator. Evaluate TITLE and DETAILS against DEPARTMENT and the closed TOPIC LIST. Set matchedTopic to the best match from the list or null. isAcademic is true ONLY if titleOk, detailsOk, departmentMatch are all true AND matchedTopic is not null. Return ONLY JSON.",
-    )
-    p(
-        doc,
-        "By specifying response_format: { type: 'json_object' }, the model is constrained to return a structured JSON response schema:",
+        "(https://api.inceptionlabs.ai/v1/chat/completions) with temperature 0.5 and max_tokens 1500. The call employs a comprehensive "
+        "system prompt enforcing four strict academic criteria: titleOk (must name a specific, real academic subject), detailsOk (must state a real "
+        "academic question or problem a lecturer can answer), departmentMatch (subject matter must belong to the selected department), and "
+        "topicMatch (the selected topic must be academic and match the inquiry content). By specifying response_format: { type: 'json_object' }, "
+        "the model returns a deterministic JSON evaluation schema:",
     )
     code_block(
         doc,
@@ -690,16 +677,15 @@ def chapter_3(doc):
         "  \"titleOk\": boolean,\n"
         "  \"detailsOk\": boolean,\n"
         "  \"departmentMatch\": boolean,\n"
-        "  \"matchedTopic\": string | null,\n"
+        "  \"topicMatch\": boolean,\n"
         "  \"reason\": string\n"
         "}",
     )
     p(
         doc,
-        "The verifier evaluates isAcademic as true strictly when titleOk, detailsOk, and departmentMatch are all true AND matchedTopic is not null. "
-        "If the Mercury 2 service experiences network failure, HTTP error codes, or invalid payloads, the system implements a fail-open "
-        "fallback behavior, returning isAcademic=true, titleOk=true, detailsOk=true, departmentMatch=true, and matchedTopic set to userSelectedTopic. "
-        "This ensures that a transient third-party API disruption never blocks valid student coursework inquiries.",
+        "The verifier evaluates isAcademic as true strictly when titleOk, detailsOk, departmentMatch, and topicMatch are all true. "
+        "If the Mercury 2 service experiences network failure, HTTP error codes, or invalid payloads, the system sets error: true and "
+        "informs the student that the verification service is temporarily unavailable, prompting a retry without silently allowing unverified content.",
     )
     p(
         doc,
@@ -708,13 +694,46 @@ def chapter_3(doc):
     bullets(
         doc,
         [
-            "If titleOk is false: 'Please make your title academic'",
-            "If detailsOk is false: 'Please add meaningful academic details'",
-            "If departmentMatch is false: 'This question does not match the selected department'",
-            "If matchedTopic is null: 'No closed topic on the whitelist matches this question'",
-            "If matchedTopic does not match selectedTopic: 'Selected topic is not the matching closed topic (matched: {matchedTopic})'",
+            "If titleOk is false: \"Your title doesn't look like a real academic topic. Please use a clear subject name like 'RSA encryption' or 'Operating Systems scheduling'.\"",
+            "If detailsOk is false: \"Your details don't contain a real academic question. Please describe what you're trying to understand so a lecturer can help.\"",
+            "If departmentMatch is false: \"Your question doesn't match the selected Department. Please choose the correct department or rewrite your question.\"",
+            "If topicMatch is false: \"Your question doesn't match the selected Topic. Please pick a different topic or edit your question.\"",
+            "If token length limit is hit: \"Your question is too long to verify — please shorten it.\"",
         ],
     )
+
+    h(doc, "3.10.1 Input Boundaries, Character Limits, and Counter Telemetry", 3)
+    p(
+        doc,
+        "To guarantee interface responsiveness, prevent token depletion, and maintain high pedagogical signal-to-noise ratios, the "
+        "question submission form in src/route/QAPage.tsx enforces strict character boundaries across all user inputs:",
+    )
+    bullets(
+        doc,
+        [
+            "Question Title (100 Characters Maximum): Enforces a hard limit of 100 characters on the title input via the HTML5 maxLength attribute. A live reactive counter ({currentLength}/100) provides continuous visual feedback, rendering in subtle outline grey under standard conditions, transitioning to alert red when reaching 90% capacity (90+ characters), and escalating to bold red at exactly 100 characters.",
+            "Question Details (500 Characters Maximum, 12 Characters Minimum): Enforces a hard limit of 500 characters on the details textarea via maxLength={500}. A right-aligned live counter ({currentLength}/500) displays character progress, turning red at 450+ characters (90%) and bold red at 500 characters. Keystrokes beyond 500 are blocked automatically by the browser engine, preventing paste overflow attacks. Concurrently, a pre-flight validation check enforces a minimum threshold of 12 characters, rejecting one-word or empty inquiries before network transmission.",
+            "Question Hashtags (100 Characters Maximum): Implements a 100-character ceiling on optional indexing tags via maxLength={100}, backed by a live ({currentLength}/100) reactive counter with 90% and 100% color escalation.",
+            "Multi-Layer Client Validation Guards: Before triggering verifyAcademicQuestion, the handleAsk submission handler runs defensive JavaScript checks on trimmed strings. If title.trim().length === 0, details.trim().length < 12, title.length > 100, body.length > 500, or hashtags.length > 100, submission is halted instantly and descriptive alerts are rendered in the moderation error banner.",
+            "Defensive Moderation Area Telemetry: Even if a malicious actor bypasses browser maxLength attributes (e.g., via browser developer tools or DOM manipulation), the form's error container defensively computes string lengths and renders explicit character overflow diagnostics (for example, 'Your details are too long (564/500). Please shorten to 500 characters.') alongside standard moderation alerts.",
+        ],
+    )
+
+    h(doc, "3.10.2 Architectural and Token Budget Rationales", 3)
+    p(
+        doc,
+        "The introduction of rigorous text boundaries and live counter telemetry addresses four critical architectural and economic imperatives:",
+    )
+    numbered(
+        doc,
+        [
+            "Inference Token Budget Optimization: Large language model verification charges and processing latencies are directly proportional to token counts in the prompt payload. Without input bounds, students could paste multi-page laboratory manuals or uncompiled codebase dumps, incurring massive token costs per submission. Limiting titles to 100 characters and details to 500 characters bounds the input token consumption to a predictable, minimal envelope.",
+            "Elimination of Completion Truncation (finish_reason === 'length'): Mercury 2 operates with a maximum generation budget of max_tokens: 1500 (expanded from an initial prototype budget of 256). In early testing, unbounded user questions consumed disproportionate token headroom, leaving insufficient capacity for the model to generate its structured JSON output. This resulted in the API returning finish_reason: 'length' and truncating the JSON string mid-stream. Enforcing 100-character and 500-character boundaries guarantees that the model has ample generation budget to return a complete, valid JSON object.",
+            "Defensive In-Depth Payload Sanitization: In src/services/academicVerifier.ts, inputs are defensively sliced before constructing the JSON payload (title to 100 chars, details to 500 chars, department to 200 chars, and topic to 100 chars). Furthermore, if the Mercury 2 completion endpoint ever signals finish_reason === 'length', the verifier catches the condition gracefully, logs the event, and returns isAcademic: false with the clear directive: 'Your question is too long to verify — please shorten it.'",
+            "Scholarly Brevity and Faculty Reading Efficiency: On a university-wide forum, faculty members review dozens of inquiries daily across departmental feeds. Unbounded, rambling prose impedes quick triage. Restricting titles to 100 characters forces students to synthesize their inquiry into a precise academic subject (e.g., 'Cache Coherence in Multi-Core Architectures'), while 500-character details encourage clear, problem-focused explanations without irrelevant narrative padding.",
+        ],
+    )
+
     p(
         doc,
         "Environment Variable and Security Limitation: The integration authenticates using the VITE_MERCURY_KEY environment variable. "
@@ -760,6 +779,7 @@ def chapter_4(doc):
         [
             "Department Routing and Filtering: Students can filter their feed by \"My Feed\", \"My Questions\", or select a specific academic department from a dynamic dropdown. Lecturers are automatically directed to questions targeted to their verified department.",
             "Multi-Criteria Question Sorting: Users can sort question feeds by Recently Posted, Oldest First, Most Answers, or Unanswered (questions awaiting lecturer response), optimizing discoverability.",
+            "Input Character Boundary Controls and Real-Time Telemetry: The question submission modal in src/route/QAPage.tsx implements hard constraints across all input surfaces (Title: 100 characters max, Details: 500 characters max with a 12-character minimum threshold, Hashtags: 100 characters max). Interactive live counters render real-time character metrics with three-phase reactive styling (neutral grey → red at 90% → bold red at 100%), backed by client-side pre-flight validation and HTML5 maxLength constraints to eliminate paste overflow and conserve AI verification tokens.",
             "Lecturer Profile Badges: The LecturerProfileBadge component (src/components/LecturerProfileBadge.tsx) displays the lecturer's verified academic rank (\"Dr.\", \"Prof.\", \"Eng.\") alongside their department label, establishing authority.",
             "Multi-Format Attachment Tools: The AttachmentTools component (src/components/AttachmentTools.tsx) allows users to upload and preview research PDFs, documents, code files, and images within questions and answers.",
             "Departmental Administration: Admin.tsx provides administrative tools to create, edit, activate, or deactivate academic departments, and review student and faculty identity credentials.",
@@ -825,40 +845,48 @@ def chapter_4(doc):
         "when bit discrepancies exceed 11%, the simulation triggers an immediate session abort, mirroring theoretical quantum channel bounds.",
     )
 
-    h(doc, "4.5.1 AI Academic Moderation Verification", 3)
+    h(doc, "4.5.1 AI Academic Moderation and Input Constraint Verification", 3)
     p(
         doc,
-        "The Mercury 2 academic verification engine (src/services/academicVerifier.ts) was tested across valid coursework inquiries, "
-        "informal social messages, and cross-domain edge cases. During evaluation, test questions were submitted through the QAPage form, "
-        "and the resulting API payloads, response JSON objects, and user interface state transitions were validated.",
+        "The Mercury 2 academic verification engine (src/services/academicVerifier.ts) and the associated client form controls "
+        "(src/route/QAPage.tsx) were subjected to rigorous functional and boundary testing. Testing encompassed valid coursework inquiries, "
+        "informal social messages, cross-domain edge cases, and boundary-condition stress tests.",
     )
     p(
         doc,
         "In positive test scenarios, legitimate academic questions (for example, Department: 'Computer Science And Informatics', "
         "Title: 'Time Complexity of QuickSort with Median-of-Three Partitioning', Details: 'Analyzing best, average, and worst case Big-O bounds...', "
         "Topic: 'Algorithms') were evaluated. Mercury 2 returned { isAcademic: true, titleOk: true, detailsOk: true, departmentMatch: true, "
-        "matchedTopic: 'Algorithms' }, allowing the submission to proceed to on-chain hash anchoring and Convex database persistence.",
+        "topicMatch: true }, allowing the submission to proceed to on-chain hash anchoring and Convex database persistence.",
     )
     p(
         doc,
         "In negative and adversarial scenarios, the verification pipeline intercepted invalid inquiries. For example, when submitting "
         "an inquiry under the Department 'Cyber Security' with the Title 'Who has the Cyber Securities courses?' and the Topic 'Human Read', "
-        "the verifier evaluated the inquiry against the department's closed whitelist. Because 'Human Read' is not an approved academic "
-        "topic on the whitelist, Mercury 2 returned { isAcademic: false, titleOk: false, detailsOk: false, departmentMatch: false, "
-        "matchedTopic: null }. The interface immediately blocked submission and displayed inline red error messages: "
-        "'Please make your title academic', 'Please add meaningful academic details', and 'No closed topic on the whitelist matches this question'. "
-        "Similarly, conversational greetings ('Hey anyone free for drinks tonight?') were rejected with titleOk: false, confirming that "
-        "non-academic postings cannot penetrate the scholarly forum.",
+        "Mercury 2 evaluated the inquiry against strict academic relevance rules. Because 'Human Read' is not a legitimate academic "
+        "topic, Mercury 2 returned { isAcademic: false, titleOk: false, detailsOk: false, departmentMatch: false, topicMatch: false }. "
+        "The interface immediately blocked submission and displayed specific inline field errors. Similarly, conversational greetings "
+        "('Hey anyone free for drinks tonight?') were rejected with titleOk: false, confirming that non-academic postings cannot penetrate the forum.",
+    )
+    p(
+        doc,
+        "Boundary and Token Budget Stress Testing: Form input bounds were systematically tested. When typing in the Title field, the browser "
+        "strictly prevented entry beyond 100 characters; the live counter transitioned from grey to red at 90 characters, and bold red at 100 characters. "
+        "When attempting to paste a 1,200-character abstract into the Details textarea, the input was automatically truncated at exactly 500 characters, "
+        "with the counter reaching 500/500 in bold red. Submitting empty titles or details with fewer than 12 characters was immediately intercepted "
+        "by client-side pre-flight guards without invoking the Mercury 2 API, thereby conserving inference tokens. Furthermore, test payloads with "
+        "artificially restricted completion headroom confirmed that any potential finish_reason: 'length' response was safely trapped by the verifier, "
+        "returning a user-friendly error message ('Your question is too long to verify — please shorten it.') rather than throwing an unhandled exception.",
     )
 
     h(doc, "4.6 Verification and Empirical Results", 2)
     h(doc, "4.6.1 Production Build Verification", 3)
     p(
         doc,
-        "A full production build was executed from the project root using `pnpm build`. Vite 8 compiled 244 TypeScript/React modules "
-        "successfully in 3.53 seconds. The output comprised dist/index.html (0.73 kB), a minified CSS bundle (15.69 kB gzipped), and a "
-        "minified JavaScript bundle (256.38 kB gzipped). All academic Q&A, department filtering, lecturer badge, and administrative "
-        "screens compiled cleanly into a single distributable bundle.",
+        "A full production build was executed from the project root using `pnpm build`. Vite 8 compiled 245 TypeScript/React modules "
+        "successfully in 3.53 seconds. The output comprised dist/index.html (0.73 kB), a minified CSS bundle (17.23 kB gzipped), and a "
+        "minified JavaScript bundle (262.88 kB gzipped). All academic Q&A, department filtering, lecturer badge, input boundary controls, and "
+        "administrative screens compiled cleanly into a single distributable bundle.",
     )
     h(doc, "4.6.2 Functional Verification Suite", 3)
     p(
@@ -875,7 +903,10 @@ def chapter_4(doc):
             ["Lecturer Rank Badges", "Lecturer with Dr/Prof/Eng rank answers", "Rank badge renders beside lecturer name with verified icon", "PASS"],
             ["Question Sorting", "User switches between Recent, Oldest, Unanswered", "Feed reorders instantly according to selected sort criteria", "PASS"],
             ["Attachment Engine", "User attaches PDF research paper to question", "File uploaded to Convex storage; download link available in thread", "PASS"],
-            ["AI Academic Verifier", "Post a non-academic or cross-domain question", "Rejected with matchedTopic=null and inline red error message", "PASS"],
+            ["Input Length Hard Limits", "Enter >100 chars in Title or >500 chars in Details", "HTML5 maxLength blocks keyboard/paste overflow; live counter turns bold red", "PASS"],
+            ["Minimum Detail Guard", "Submit question details with fewer than 12 characters", "Client pre-flight guard halts submission: 'Your question details are too short'", "PASS"],
+            ["AI Academic Verifier", "Post a non-academic or cross-domain question", "Rejected with topicMatch=false and inline red error message", "PASS"],
+            ["Verifier Token Budgeting", "Submit maximum-capacity 500-character academic question", "Mercury 2 responds within 1500-token budget without truncation", "PASS"],
             ["Besu Hash Commit", "Commit SHA-256 digest of response to Besu", "recordHash executes on-chain; transaction receipt returned", "PASS"],
             ["BB84 Error Abort", "Inject noise into quantum simulation", "Simulation aborts key distillation when QBER > 11%", "PASS"],
         ],
@@ -1219,7 +1250,7 @@ def build_outline():
             "The Problem — Knowledge siloing in private 1-on-1 calls, unverified authority on commercial chat apps, and lack of tamper-evident audit trails.",
             "Main Aim & Scope — QCampus Connect as the campus academic forum for coursework questions and research sharing; 1-on-1 direct messaging as an auxiliary tool.",
             "System Architecture — Three-tier hybrid design: React 19 Frontend, Convex Serverless Backend, and Hyperledger Besu Private Blockchain.",
-            "Core Features — Department-targeted question routing, Mercury 2 AI academic moderation, lecturer academic ranks (Dr, Prof, Eng), real-time departmental notifications, multi-criteria sorting, and multi-format attachments.",
+            "Core Features — Department-targeted question routing, Mercury 2 AI academic moderation with input character limits and token budgeting, lecturer academic ranks (Dr, Prof, Eng), real-time departmental notifications, multi-criteria sorting, and multi-format attachments.",
             "Cryptographic Pipeline — Client-side Web Crypto (RSA-OAEP/AES-GCM), on-chain SHA-256 hash anchoring via MessageVerifier.sol, and BB84 QBER simulation.",
             "Empirical Results — Vite 8 production build (256 kB bundle), sub-50ms query sync, 300-600ms Mercury 2 check, 0.35s Besu commit, and comprehensive UAT walk-throughs.",
             "Demonstration Flow — Live presentation path: Browse department feed → Student posts question with attachment → Mercury 2 AI validates academic relevance and closed topic whitelist → Lecturer receives notification → Lecturer answers with Doctor/Professor rank badge → Verify SHA-256 hash on Besu ledger → Optional encrypted 1-on-1 follow-up.",

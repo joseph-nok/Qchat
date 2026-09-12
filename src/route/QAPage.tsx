@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
 import { logHashToBlockchain } from '../services/web3Service';
 import LecturerProfileBadge from '../components/LecturerProfileBadge';
-import { verifyAcademicQuestion, type AcademicVerificationResult } from '../services/academicVerifier';
+import { verifyAcademicQuestion } from '../services/academicVerifier';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
 
@@ -86,12 +86,28 @@ const formatAcademicName = (user: Pick<PublicUser, 'fullName' | 'role' | 'rank'>
     : user.fullName;
 };
 
+const getCounterColorClass = (current: number, max: number, threshold: number) => {
+  if (current >= max) return 'text-red-600 font-bold';
+  if (current >= threshold) return 'text-red-500';
+  return 'text-gray-500';
+};
+
+const getCounterStyle = (current: number, max: number, threshold: number): React.CSSProperties => {
+  if (current >= max) {
+    return { color: 'var(--error, #ba1a1a)', fontWeight: 700, fontSize: '0.75rem' };
+  }
+  if (current >= threshold) {
+    return { color: '#ef4444', fontWeight: 500, fontSize: '0.75rem' };
+  }
+  return { color: 'var(--outline, #657570)', fontWeight: 400, fontSize: '0.75rem' };
+};
+
 const QAPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, sessionToken, isLoading: authLoading } = useAuth();
   const questionIdParam = searchParams.get('questionId');
-  const [newQuestionId, setNewQuestionId] = useState<Id<'questions'> | null>(null);
+
 
   // Department queries and feed filtering state
   const departments = useQuery(convexApi.qchat.getDepartments) as Array<{
@@ -282,45 +298,68 @@ const QAPage = () => {
     event.preventDefault();
     if (!sessionToken || isSubmitting || isVerifying) return;
 
+    setError('');
+    setModerationErrors([]);
+
+    const trimmedTitle = title.trim();
+    const trimmedBody = body.trim();
+
+    // Defensive validation guards before calling verifyAcademicQuestion to save tokens
+    if (trimmedTitle.length === 0) {
+      setModerationErrors(['Please enter a title.']);
+      return;
+    }
+
+    if (title.length > 100) {
+      setModerationErrors([`Your title is too long. Please shorten to 100 characters. (${title.length}/100)`]);
+      return;
+    }
+
+    if (trimmedBody.length < 12) {
+      setModerationErrors(['Your question details are too short. Please write at least 12 characters.']);
+      return;
+    }
+
+    if (body.length > 500) {
+      setModerationErrors([`Your details are too long. Please shorten to 500 characters. (${body.length}/500)`]);
+      return;
+    }
+
+    if (hashtags.length > 100) {
+      setModerationErrors([`Your hashtags are too long. Please shorten to 100 characters. (${hashtags.length}/100)`]);
+      return;
+    }
+
     const postTitle = title;
     const postBody = body;
     const postTextToAnchor = `${postTitle}\n${postBody}`;
-
-    setError('');
-    setModerationErrors([]);
 
     const selectedDeptName =
       selectedTargetDept?.name ?? currentUser?.departmentName ?? '';
     const selectedTopic = topic.trim();
 
-    // AI Academic Verification before proceeding with mutation
+    // AI Academic Verification — verifier never throws; errors return isAcademic:false with error:true
     setIsVerifying(true);
-    let verification: AcademicVerificationResult;
-    try {
-      verification = await verifyAcademicQuestion(
-        postTitle,
-        postBody,
-        selectedDeptName,
-        selectedTopic,
-      );
-    } catch {
-      // Network / unexpected error — allow submission (never block a student).
-      verification = {
-        isAcademic: true,
-        titleOk: true,
-        detailsOk: true,
-        departmentMatch: true,
-        topicMatch: true,
-        reason: 'Verification unavailable — allowing by default',
-      };
-    } finally {
-      setIsVerifying(false);
+    const verification = await verifyAcademicQuestion(
+      postTitle,
+      postBody,
+      selectedDeptName,
+      selectedTopic,
+    );
+    setIsVerifying(false);
+
+    // Verifier service error — do not silently allow; ask user to retry
+    if (verification.error) {
+      setModerationErrors(['Could not verify your question right now. Please try again in a moment.']);
+      return;
     }
 
     if (verification.isAcademic === false) {
       // Show ONE message for the FIRST failing check, in priority order.
       let singleMessage: string;
-      if (verification.titleOk === false) {
+      if (verification.reason === 'Your question is too long to verify — please shorten it.') {
+        singleMessage = verification.reason;
+      } else if (verification.titleOk === false) {
         singleMessage =
           "Your title doesn't look like a real academic topic. Please use a clear subject name like 'RSA encryption' or 'Operating Systems scheduling'.";
       } else if (verification.detailsOk === false) {
@@ -332,12 +371,14 @@ const QAPage = () => {
         singleMessage = `Your question doesn't match the selected Topic (${selectedTopic || 'none'}). Please pick a different topic or edit your question.`;
       } else {
         singleMessage =
+          verification.reason ||
           "Your question doesn't meet the academic standards for this platform. Please revise and try again.";
       }
       setModerationErrors([singleMessage]);
       return;
     }
 
+    // Verifier confirmed academic — proceed to mutation
     setIsSubmitting(true);
     try {
       // 1. Retrieve user-isolated private key from IndexedDB
@@ -367,6 +408,8 @@ const QAPage = () => {
 
       let result: { questionId: Id<'questions'> };
       try {
+        // TEMPORARY DEBUG — remove after confirming verifier works end-to-end
+        console.log('VERIFIER PASSED — POSTING NOW');
         result = await askQuestion({
           sessionToken,
           title,
@@ -420,7 +463,6 @@ const QAPage = () => {
       setQuestionFile(null);
       setModerationErrors([]);
       setShowAskForm(false);
-      setNewQuestionId(result.questionId);
       setSearchParams({ questionId: result.questionId });
     } catch (err) {
       console.error('[QAPage] Unexpected submission error:', err);
@@ -538,40 +580,11 @@ const QAPage = () => {
 
           {showAskForm && (
             <form className="qa-form" onSubmit={(event) => void handleAsk(event)}>
-              {moderationErrors.length > 0 && (
-                <div
-                  className="qa-moderation-reason"
-                  style={{
-                    color: 'var(--error, #ba1a1a)',
-                    backgroundColor: 'rgba(186, 26, 26, 0.08)',
-                    border: '1px solid var(--error, #ba1a1a)',
-                    borderRadius: '0.5rem',
-                    padding: '0.75rem 1rem',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '0.625rem',
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                  }}
-                  role="alert"
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ color: 'var(--error, #ba1a1a)', fontSize: '1.25rem', flexShrink: 0, marginTop: '0.1rem' }}
-                  >
-                    error
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    {moderationErrors.map((errMsg, idx) => (
-                      <span key={idx}>{errMsg}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
               <div className="form-group">
                 <label htmlFor="qa-title">Title</label>
                 <input
                   id="qa-title"
+                  maxLength={100}
                   value={title}
                   onChange={(event) => {
                     setTitle(event.target.value);
@@ -579,11 +592,20 @@ const QAPage = () => {
                   }}
                   placeholder="What are you trying to understand?"
                 />
+                <div className="text-right flex justify-end" style={{ textAlign: 'right', display: 'flex', justifyContent: 'flex-end', marginTop: '-0.25rem' }}>
+                  <span
+                    className={`text-xs ${getCounterColorClass(title.length, 100, 90)}`}
+                    style={getCounterStyle(title.length, 100, 90)}
+                  >
+                    {title.length}/100
+                  </span>
+                </div>
               </div>
               <div className="form-group">
                 <label htmlFor="qa-body">Details</label>
                 <textarea
                   id="qa-body"
+                  maxLength={500}
                   value={body}
                   onChange={(event) => {
                     setBody(event.target.value);
@@ -591,10 +613,35 @@ const QAPage = () => {
                   }}
                   placeholder="Share the full context, what you tried, and where you got stuck."
                 />
+                <div className="text-right flex justify-end" style={{ textAlign: 'right', display: 'flex', justifyContent: 'flex-end', marginTop: '-0.25rem' }}>
+                  <span
+                    className={`text-xs ${getCounterColorClass(body.length, 500, 450)}`}
+                    style={getCounterStyle(body.length, 500, 450)}
+                  >
+                    {body.length}/500
+                  </span>
+                </div>
               </div>
               <div className="form-group">
-                <label htmlFor="qa-tags">Hashtags</label>
-                <input id="qa-tags" value={hashtags} onChange={(event) => setHashtags(event.target.value)} placeholder="#ComputerScience, #Calculus" />
+                <label htmlFor="qa-tags">Hashtags(Optional)</label>
+                <input
+                  id="qa-tags"
+                  maxLength={100}
+                  value={hashtags}
+                  onChange={(event) => {
+                    setHashtags(event.target.value);
+                    if (moderationErrors.length > 0) setModerationErrors([]);
+                  }}
+                  placeholder="#ComputerScience, #Calculus"
+                />
+                <div className="text-right flex justify-end" style={{ textAlign: 'right', display: 'flex', justifyContent: 'flex-end', marginTop: '-0.25rem' }}>
+                  <span
+                    className={`text-xs ${getCounterColorClass(hashtags.length, 100, 90)}`}
+                    style={getCounterStyle(hashtags.length, 100, 90)}
+                  >
+                    {hashtags.length}/100
+                  </span>
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '1rem' }}>
                 <div className="form-group qa-target-dept-box">
@@ -701,6 +748,50 @@ const QAPage = () => {
                   />
                 </div>
               </div>
+
+              {(moderationErrors.length > 0 || title.length > 100 || body.length > 500 || hashtags.length > 100) && (
+                <div
+                  className="qa-moderation-reason mt-2 mb-2"
+                  style={{
+                    color: 'var(--error, #ba1a1a)',
+                    backgroundColor: 'rgba(186, 26, 26, 0.08)',
+                    border: '1px solid var(--error, #ba1a1a)',
+                    borderRadius: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.625rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    marginTop: '0.5rem',
+                    marginBottom: '0.5rem',
+                    width: '100%',
+                  }}
+                  role="alert"
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ color: 'var(--error, #ba1a1a)', fontSize: '1.25rem', flexShrink: 0, marginTop: '0.1rem' }}
+                  >
+                    error
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {title.length > 100 && (
+                      <span>Your title is too long ({title.length}/100). Please shorten to 100 characters.</span>
+                    )}
+                    {body.length > 500 && (
+                      <span>Your details are too long ({body.length}/500). Please shorten to 500 characters.</span>
+                    )}
+                    {hashtags.length > 100 && (
+                      <span>Your hashtags are too long ({hashtags.length}/100). Please shorten to 100 characters.</span>
+                    )}
+                    {moderationErrors.map((errMsg, idx) => (
+                      <span key={idx}>{errMsg}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="qa-form-actions">
                 <AttachmentPicker selectedFile={questionFile} onFileChange={(file) => handleFile(file, setQuestionFile)} onClear={() => setQuestionFile(null)} />
                 <button type="submit" className="modal-submit-btn" disabled={isSubmitting || isVerifying}>
