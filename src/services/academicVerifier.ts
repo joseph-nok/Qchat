@@ -3,55 +3,8 @@ export interface AcademicVerificationResult {
   titleOk: boolean;
   detailsOk: boolean;
   departmentMatch: boolean;
-  matchedTopic: string | null;
+  topicMatch: boolean;
   reason: string;
-}
-
-/**
- * Closed-topic whitelist per department.
- * Each department maps to an array of accepted academic topic strings.
- * Topics are matched case-insensitively and trimmed inside the verifier.
- *
- * Important: a department does NOT need to exist in this map for the question
- * to be verified. Any department the user selects — including newly added ones
- * that have not had their whitelist configured yet — is still sent to the
- * Mercury 2 verifier. If the department has no entry here, it is treated as an
- * empty closed topic list, so NOTHING can match and the question is rejected
- * (matchedTopic = null) until the department's topics are added below.
- */
-export const DEPARTMENT_TOPICS: Record<string, string[]> = {
-  // Example department — replace / extend with real closed topic lists.
-  'Computer Science And Informatics': [
-    'Algorithms',
-    'Data Structures',
-    'Programming',
-    'Databases',
-    'Networks',
-    'Artificial Intelligence',
-    'Machine Learning',
-    'Computer Vision',
-    'Natural Language Processing',
-    'Operating Systems',
-    'Software Engineering',
-    'Computer Architecture',
-    'Distributed Systems',
-  ],
-};
-
-/**
- * Returns the closed topic list for a department, or an empty array when the
- * department has no defined whitelist. Matching is done case-insensitively by
- * the verifier, so store topics in a canonical form here.
- */
-export function getTopicsForDepartment(department: string): string[] {
-  if (!department || typeof department !== 'string') return [];
-  // Try exact key first, then a case-insensitive fallback.
-  const exact = DEPARTMENT_TOPICS[department];
-  if (exact) return exact;
-  const key = Object.keys(DEPARTMENT_TOPICS).find(
-    (k) => k.toLowerCase() === department.toLowerCase()
-  );
-  return key ? DEPARTMENT_TOPICS[key] : [];
 }
 
 const FALLBACK_RESULT: AcademicVerificationResult = {
@@ -59,56 +12,62 @@ const FALLBACK_RESULT: AcademicVerificationResult = {
   titleOk: true,
   detailsOk: true,
   departmentMatch: true,
-  matchedTopic: null,
-  reason: 'Verification unavailable',
+  topicMatch: true,
+  reason: 'Verification unavailable — allowing by default',
 };
 
+const SYSTEM_PROMPT = `You are a strict academic content moderator for a university Q&A platform.
+
+You will receive a TITLE, DETAILS, a DEPARTMENT, and a USER-SELECTED TOPIC.
+
+Judge each of the four checks independently using your general knowledge of what is academic and what is not. Do NOT rely on any fixed list of topics.
+
+Rules:
+1. titleOk = true ONLY if the TITLE names a specific, real academic subject. Pop culture, cartoons, brands, games, greetings, ads, gossip, vague single words like "Help", or meaningless strings are NOT academic. Set titleOk=false.
+2. detailsOk = true ONLY if the DETAILS contain a clear academic question or problem statement that a qualified lecturer could answer. Greetings, download requests, vague one-liners, personal gossip, spam, or casual chat are NOT academic. Set detailsOk=false.
+3. departmentMatch = true ONLY if the TITLE and DETAILS clearly belong to the given DEPARTMENT. If the subject belongs to a different domain (for example, biology under Computer Science, or history under Engineering), set departmentMatch=false.
+4. topicMatch = true ONLY if the USER-SELECTED TOPIC is a real, specific academic topic AND the TITLE and DETAILS clearly relate to it. If the topic is a generic buzzword ("technology", "programming", "general", "misc"), is unrelated to the question, or is not a real academic topic, set topicMatch=false.
+5. isAcademic = true ONLY if titleOk, detailsOk, departmentMatch, and topicMatch are ALL true.
+
+Return ONLY this JSON object and nothing else:
+{
+  "isAcademic": true | false,
+  "titleOk": true | false,
+  "detailsOk": true | false,
+  "departmentMatch": true | false,
+  "topicMatch": true | false,
+  "reason": "one short sentence explaining the first failing check, or 'All checks passed'"
+}`;
+
 /**
- * Evaluates TITLE and DETAILS against DEPARTMENT and the closed TOPIC LIST
- * using the Mercury 2 model.
+ * Evaluates TITLE, DETAILS, DEPARTMENT, and USER-SELECTED TOPIC using
+ * Mercury 2's general academic knowledge — no closed topic whitelist.
  *
- * Returns ONLY JSON shaped as:
- *   { isAcademic, titleOk, detailsOk, departmentMatch, matchedTopic, reason }
- *
- * Rules (encoded in the system prompt):
- *   - matchedTopic is the best match from the topic list, or null.
- *   - isAcademic is true ONLY if titleOk AND detailsOk AND departmentMatch
- *     are all true AND matchedTopic is not null.
- *   - On API/parsing errors the result falls back to all-true with
- *     matchedTopic set to userSelectedTopic so submission is not blocked.
+ * On ANY API error or missing key the function falls back to all-true so
+ * a network problem never blocks a student.
  */
 export async function verifyAcademicQuestion(
   title: string,
   details: string,
   department: string,
-  validTopics: string[],
-  userSelectedTopic: string
+  userSelectedTopic: string,
 ): Promise<AcademicVerificationResult> {
   const apiKey = import.meta.env?.VITE_MERCURY_KEY;
   if (!apiKey) {
-    console.warn('[AcademicVerifier] VITE_MERCURY_KEY is missing. Falling back.');
-    return {
-      ...FALLBACK_RESULT,
-      matchedTopic: userSelectedTopic || null,
-    };
+    console.warn('[AcademicVerifier] VITE_MERCURY_KEY is missing — falling back to allow.');
+    return { ...FALLBACK_RESULT };
   }
 
-  const topicListText =
-    validTopics.length > 0
-      ? validTopics.map((t) => `- ${t}`).join('\n')
-      : 'NONE — this department has no closed topic list; any non-empty topic is treated as no match.';
-
-  const systemPrompt =
-    'You are an academic moderator. Evaluate TITLE and DETAILS against DEPARTMENT and the closed TOPIC LIST. Set matchedTopic to the best match from the list or null. isAcademic is true ONLY if titleOk, detailsOk, departmentMatch are all true AND matchedTopic is not null. Return ONLY JSON.';
-
-  const userPayload = JSON.stringify({
-    TITLE: title.trim(),
-    DETAILS: details.trim(),
-    DEPARTMENT: department.trim(),
-    TOPIC_LIST: validTopics,
-    SELECTED_TOPIC: userSelectedTopic.trim(),
-    TOPIC_LIST_TEXT: topicListText,
-  }, null, 2);
+  const userPayload = JSON.stringify(
+    {
+      TITLE: title.trim(),
+      DETAILS: details.trim(),
+      DEPARTMENT: department.trim(),
+      USER_SELECTED_TOPIC: userSelectedTopic.trim(),
+    },
+    null,
+    2,
+  );
 
   try {
     const response = await fetch('https://api.inceptionlabs.ai/v1/chat/completions', {
@@ -120,90 +79,93 @@ export async function verifyAcademicQuestion(
       body: JSON.stringify({
         model: 'mercury-2',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPayload },
         ],
         temperature: 0.1,
-        max_tokens: 256,
+        max_tokens: 250,
         response_format: { type: 'json_object' },
       }),
     });
 
     if (!response.ok) {
       console.warn(
-        `[AcademicVerifier] Mercury API error ${response.status}: ${response.statusText}`
+        `[AcademicVerifier] Mercury API error ${response.status}: ${response.statusText} — falling back to allow.`,
       );
-      return {
-        ...FALLBACK_RESULT,
-        matchedTopic: userSelectedTopic || null,
-      };
+      return { ...FALLBACK_RESULT };
     }
 
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content || typeof content !== 'string') {
-      return {
-        ...FALLBACK_RESULT,
-        matchedTopic: userSelectedTopic || null,
-      };
+    const data: unknown = await response.json();
+    const content =
+      data &&
+      typeof data === 'object' &&
+      'choices' in data &&
+      Array.isArray((data as Record<string, unknown>)['choices'])
+        ? (
+            (data as Record<string, unknown[]>)['choices'][0] as
+              | Record<string, unknown>
+              | undefined
+          )?.['message']
+        : undefined;
+
+    const rawContent =
+      content && typeof content === 'object' && 'content' in (content as object)
+        ? (content as Record<string, unknown>)['content']
+        : undefined;
+
+    if (!rawContent || typeof rawContent !== 'string') {
+      console.warn('[AcademicVerifier] Unexpected response shape — falling back to allow.');
+      return { ...FALLBACK_RESULT };
     }
 
-    let parsed: any = null;
+    let parsed: unknown = null;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(rawContent);
     } catch {
-      // Fallback regex extraction if JSON was truncated.
-      const pick = (key: string) => {
-        const m = content.match(new RegExp(`"${key}"\\s*:\\s*(true|false|null|"[^"]*"|[\\d.]+)`, 'i'));
+      // Regex fallback when JSON is truncated.
+      const pick = (key: string): string | undefined => {
+        const m = rawContent.match(
+          new RegExp(`"${key}"\\s*:\\s*(true|false|null|"[^"]*"|[\\d.]+)`, 'i'),
+        );
         return m ? m[1] : undefined;
       };
-      const rawTopic = pick('matchedTopic');
       parsed = {
         isAcademic: pick('isAcademic'),
         titleOk: pick('titleOk'),
         detailsOk: pick('detailsOk'),
         departmentMatch: pick('departmentMatch'),
-        matchedTopic:
-          rawTopic === 'null'
-            ? null
-            : rawTopic ?? null,
-        reason: (pick('reason') || '').replace(/^["']|["']$/g, ''),
+        topicMatch: pick('topicMatch'),
+        reason: (pick('reason') ?? '').replace(/^["']|["']$/g, ''),
       };
     }
 
     if (!parsed || typeof parsed !== 'object') {
-      return {
-        ...FALLBACK_RESULT,
-        matchedTopic: userSelectedTopic || null,
-      };
+      console.warn('[AcademicVerifier] Could not parse Mercury response — falling back to allow.');
+      return { ...FALLBACK_RESULT };
     }
 
-    const titleOk = parsed.titleOk === true;
-    const detailsOk = parsed.detailsOk === true;
-    const departmentMatch = parsed.departmentMatch === true;
-    const matchedTopic =
-      parsed.matchedTopic === null || parsed.matchedTopic === undefined
-        ? null
-        : String(parsed.matchedTopic);
-    const isAcademic =
-      titleOk && detailsOk && departmentMatch && matchedTopic !== null;
+    const p = parsed as Record<string, unknown>;
+
+    // Treat any non-explicit-true value as false to stay conservative.
+    const titleOk = p['titleOk'] === true;
+    const detailsOk = p['detailsOk'] === true;
+    const departmentMatch = p['departmentMatch'] === true;
+    const topicMatch = p['topicMatch'] === true;
+    const isAcademic = titleOk && detailsOk && departmentMatch && topicMatch;
 
     return {
       isAcademic,
       titleOk,
       detailsOk,
       departmentMatch,
-      matchedTopic,
+      topicMatch,
       reason:
-        typeof parsed.reason === 'string' && parsed.reason.trim()
-          ? parsed.reason.trim()
+        typeof p['reason'] === 'string' && (p['reason'] as string).trim()
+          ? (p['reason'] as string).trim()
           : '',
     };
-  } catch (error) {
-    console.warn('[AcademicVerifier] Unexpected error during verification:', error);
-    return {
-      ...FALLBACK_RESULT,
-      matchedTopic: userSelectedTopic || null,
-    };
+  } catch (err) {
+    console.warn('[AcademicVerifier] Unexpected error — falling back to allow:', err);
+    return { ...FALLBACK_RESULT };
   }
 }

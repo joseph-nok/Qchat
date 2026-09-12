@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
 import { logHashToBlockchain } from '../services/web3Service';
 import LecturerProfileBadge from '../components/LecturerProfileBadge';
-import { verifyAcademicQuestion, getTopicsForDepartment, type AcademicVerificationResult } from '../services/academicVerifier';
+import { verifyAcademicQuestion, type AcademicVerificationResult } from '../services/academicVerifier';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
 
@@ -289,12 +289,8 @@ const QAPage = () => {
     setError('');
     setModerationErrors([]);
 
-    // Topic whitelist is per department; when the user changes title/body/topic
-    // the form already clears these errors. Compute the closed list fresh from
-    // the currently selected target department (or the user's home department).
     const selectedDeptName =
       selectedTargetDept?.name ?? currentUser?.departmentName ?? '';
-    const validTopics = getTopicsForDepartment(selectedDeptName);
     const selectedTopic = topic.trim();
 
     // AI Academic Verification before proceeding with mutation
@@ -305,44 +301,40 @@ const QAPage = () => {
         postTitle,
         postBody,
         selectedDeptName,
-        validTopics,
         selectedTopic,
       );
     } catch {
+      // Network / unexpected error — allow submission (never block a student).
       verification = {
         isAcademic: true,
         titleOk: true,
         detailsOk: true,
         departmentMatch: true,
-        matchedTopic: selectedTopic || null,
-        reason: 'Verification unavailable',
+        topicMatch: true,
+        reason: 'Verification unavailable — allowing by default',
       };
     } finally {
       setIsVerifying(false);
     }
 
     if (verification.isAcademic === false) {
-      const fieldErrors: string[] = [];
+      // Show ONE message for the FIRST failing check, in priority order.
+      let singleMessage: string;
       if (verification.titleOk === false) {
-        fieldErrors.push('Please make your title academic');
+        singleMessage =
+          "Your title doesn't look like a real academic topic. Please use a clear subject name like 'RSA encryption' or 'Operating Systems scheduling'.";
+      } else if (verification.detailsOk === false) {
+        singleMessage =
+          "Your details don't contain a real academic question. Please describe what you're trying to understand so a lecturer can help.";
+      } else if (verification.departmentMatch === false) {
+        singleMessage = `Your question doesn't match the selected Department (${selectedDeptName}). Please choose the correct department or rewrite your question.`;
+      } else if (verification.topicMatch === false) {
+        singleMessage = `Your question doesn't match the selected Topic (${selectedTopic || 'none'}). Please pick a different topic or edit your question.`;
+      } else {
+        singleMessage =
+          "Your question doesn't meet the academic standards for this platform. Please revise and try again.";
       }
-      if (verification.detailsOk === false) {
-        fieldErrors.push('Please add meaningful academic details');
-      }
-      if (verification.departmentMatch === false) {
-        fieldErrors.push('This question does not match the selected department');
-      }
-      if (verification.matchedTopic === null) {
-        fieldErrors.push('No closed topic on the whitelist matches this question');
-      } else if (selectedTopic && verification.matchedTopic !== selectedTopic) {
-        fieldErrors.push(
-          `Selected topic is not the matching closed topic (matched: ${verification.matchedTopic})`,
-        );
-      }
-      if (fieldErrors.length === 0) {
-        fieldErrors.push(verification.reason || 'Please ensure your question is academic.');
-      }
-      setModerationErrors(fieldErrors);
+      setModerationErrors([singleMessage]);
       return;
     }
 
@@ -373,16 +365,45 @@ const QAPage = () => {
       const finalDeptId = selectedTargetDept?._id || targetDepartmentId || currentUser?.departmentId;
       const finalDeptName = selectedTargetDept?.name || currentUser?.departmentName;
 
-      const result = await askQuestion({
-        sessionToken,
-        title,
-        body,
-        hashtags: parseTags(hashtags),
-        topic: topic.trim() || undefined,
-        departmentId: finalDeptId || undefined,
-        departmentName: finalDeptName || undefined,
-        ...attachment,
-      });
+      let result: { questionId: Id<'questions'> };
+      try {
+        result = await askQuestion({
+          sessionToken,
+          title,
+          body,
+          hashtags: parseTags(hashtags),
+          topic: topic.trim() || undefined,
+          departmentId: finalDeptId || undefined,
+          departmentName: finalDeptName || undefined,
+          ...attachment,
+        });
+      } catch (askErr) {
+        // Log raw Convex error to console; never show it to the user.
+        console.error('[QAPage] askQuestion error:', askErr);
+        const raw = askErr instanceof Error ? askErr.message : String(askErr);
+        let friendly: string;
+        if (raw.includes('at least 12 characters')) {
+          friendly = 'Your question details are too short. Please write at least 12 characters explaining your academic question.';
+        } else if (raw.includes('title') && raw.includes('required')) {
+          friendly = 'Please enter a title for your question.';
+        } else if (raw.includes('title') && raw.includes('at least')) {
+          friendly = 'Your title is too short. Please write a clear academic title.';
+        } else if (raw.includes('details') && raw.includes('required')) {
+          friendly = 'Please describe your question in the details field.';
+        } else if (raw.includes('department') && raw.includes('required')) {
+          friendly = 'Please select a department for your question.';
+        } else if (raw.includes('topic') && raw.includes('required')) {
+          friendly = 'Please select a topic for your question.';
+        } else if (raw.includes('not authenticated')) {
+          friendly = 'Your session has expired. Please log in again.';
+        } else if (raw.includes('rate limit') || raw.includes('too many')) {
+          friendly = 'You are posting too quickly. Please wait a moment and try again.';
+        } else {
+          friendly = 'Something went wrong while posting your question. Please try again.';
+        }
+        setModerationErrors([friendly]);
+        return;
+      }
 
       // Asynchronously relay the forum post (title + body) content hash to Besu using the Convex question ID as anchor
       relayHashToBesu("RECORD_MESSAGE", result.questionId, postTextToAnchor, {
@@ -402,7 +423,8 @@ const QAPage = () => {
       setNewQuestionId(result.questionId);
       setSearchParams({ questionId: result.questionId });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not post your question.');
+      console.error('[QAPage] Unexpected submission error:', err);
+      setModerationErrors(['Something went wrong while posting your question. Please try again.']);
     } finally {
       setIsSubmitting(false);
     }
