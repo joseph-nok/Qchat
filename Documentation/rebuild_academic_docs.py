@@ -136,6 +136,7 @@ APA_REFS = [
     "Ethers.js Contributors. (2024). Ethers.js v6 documentation. https://docs.ethers.org/v6",
     "Gisin, N., Ribordy, G., Tittel, W., & Zbinden, H. (2002). Quantum cryptography. Reviews of Modern Physics, 74(1), 145–195. https://doi.org/10.1103/RevModPhys.74.145",
     "Hyperledger Foundation. (2024). Hyperledger Besu documentation. https://besu.hyperledger.org",
+    "Inception Labs. (2025). Mercury 2 API documentation. https://docs.inceptionlabs.ai",
     "Marlinspike, M., & Perrin, T. (2016). The X3DH key agreement protocol. Signal Foundation. https://signal.org/docs/specifications/x3dh/",
     "Meta. (2023). WhatsApp encryption overview (Technical white paper). https://www.whatsapp.com/security/WhatsApp-Security-Whitepaper.pdf",
     "Mozilla Developer Network. (2024). Web Crypto API. https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API",
@@ -264,6 +265,7 @@ def chapter_1(doc, numbered_chapter=True):
             "Engineer an automated real-time notification engine that alerts verified department lecturers whenever an academic inquiry is directed to their field.",
             "Implement multi-criteria question filtering (by department, personal feed, and submitted questions) and multi-mode sorting (recently posted, oldest, most answers, and unanswered).",
             "Provide rich multi-format attachment tools supporting academic papers, research documents, code snippets, and diagrams within forum threads.",
+            "Integrate AI-based academic content moderation to reject non-academic or cross-domain questions before they are posted.",
             "Anchor cryptographic SHA-256 payload digests to a permissioned Hyperledger Besu blockchain network using a Solidity smart contract (MessageVerifier.sol) via Ethers.js recordHash calls.",
             "Deploy an auxiliary client-side encrypted one-on-one messaging channel (utilizing W3C Web Crypto RSA-OAEP and AES-GCM) for private student-lecturer consultations.",
         ],
@@ -275,7 +277,7 @@ def chapter_1(doc, numbered_chapter=True):
         "This project provides significant practical and institutional value for universities generally. By establishing an "
         "open academic forum, it protects faculty work-life balance and privacy, eliminating unscheduled phone calls and crowded "
         "office queues. It democratizes access to lecturer expertise: every student in a department benefits when a difficult "
-        "concept is explained in a public thread. Furthermore, the hybrid architecture—combining sub-100ms Convex cloud delivery "
+        "concept is explained in a public thread. In addition, the hybrid architecture—combining sub-100ms Convex cloud delivery "
         "with zero-gas Hyperledger Besu blockchain immutability—demonstrates how educational institutions can deploy tamper-evident "
         "cryptographic systems without incurring public network transaction fees. The embedded BB84 quantum key distribution "
         "module also serves as an active instructional tool for computer science students studying modern cryptography.",
@@ -291,6 +293,7 @@ def chapter_1(doc, numbered_chapter=True):
             "Real-time departmental notification dispatch alerting faculty to relevant student questions",
             "Multi-criteria question sorting (recent, oldest, most answers, unanswered) and department-level feed filtering",
             "Multi-format attachment handling for academic PDFs, research documents, code snippets, and diagrams",
+            "AI-powered academic content verification using Mercury 2 (Inception Labs) API with department/topic matching",
             "Local Hyperledger Besu private network (ChainId 1337, zero gas price) running MessageVerifier.sol for SHA-256 hash logging",
             "Auxiliary browser-native RSA-OAEP/AES-GCM encrypted one-to-one messaging via the W3C Web Crypto API with IndexedDB storage",
             "Software simulation of the BB84 quantum key distribution protocol with an 11% QBER abort threshold (src/lib/bb84.ts)",
@@ -306,6 +309,19 @@ def chapter_1(doc, numbered_chapter=True):
             "Native mobile operating system compilation (iOS/Android binary builds) or real-time voice and video streaming",
             "Enterprise Single Sign-On (SAML 2.0 / Shibboleth) integration with institutional Active Directory servers",
         ],
+    )
+
+    h(doc, "1.6 AI Academic Moderation", 2)
+    p(
+        doc,
+        "To protect the scholarly focus of the forum and prevent spam, social chatter, or misplaced inquiries from diluting "
+        "academic discussions, QCampus Connect incorporates automated AI academic moderation directly into the question "
+        "submission pipeline. Before an inquiry is committed to the database or broadcast to faculty feeds, the Mercury 2 model "
+        "(Inception Labs, 2025) inspects the question title and details against the user's selected Department and canonical Topic. "
+        "The model verifies that the problem formulation is academically rigorous and strictly pertains to the designated discipline. "
+        "If an inquiry is conversational, non-academic, or cross-domain, the verifier intercepts the post prior to publication, "
+        "presenting targeted feedback that directs the student to refine their submission. This automated filtering safeguards "
+        "faculty time and ensures that the platform functions strictly as an authoritative academic repository.",
     )
 
 
@@ -327,7 +343,7 @@ def chapter_2(doc):
         "Learning Management Systems such as Canvas, Moodle, and Blackboard provide built-in discussion boards. While these tools "
         "are institutionally managed, their user experience is notoriously cumbersome. LMS discussion boards suffer from rigid course "
         "silos, meaning students cannot discover discussions across related disciplines or consult faculty in adjacent departments. "
-        "Furthermore, traditional LMS boards lack instant push delivery, operating on slow page refreshes that discourage lively "
+        "Traditional LMS boards also lack instant push delivery, operating on slow page refreshes that discourage lively "
         "academic debate. Consequently, student participation rates on LMS discussion forums remain low.",
     )
     p(
@@ -343,9 +359,39 @@ def chapter_2(doc):
         "Faced with these limitations, students and faculty universally default to commercial messaging applications like WhatsApp "
         "(Meta, 2023). While WhatsApp delivers instant mobile messaging, its adoption for higher education communication creates "
         "severe dysfunction. It requires lecturers to expose personal phone numbers, inviting late-night calls and unsolicited messages. "
-        "Moreover, WhatsApp groups are unstructured: questions and answers are buried in linear chat streams, academic files cannot "
+        "In practice, WhatsApp groups are unstructured: questions and answers are buried in linear chat streams, academic files cannot "
         "be indexed, and answers cannot be referenced by future student cohorts. Most importantly, WhatsApp allows \"Delete for Everyone\" "
         "and offers no mechanism to cryptographically prove that an announcement, assignment instruction, or submission was made.",
+    )
+
+    h(doc, "2.1.6 AI-Based Content Moderation", 2)
+    p(
+        doc,
+        "Automated content moderation is essential for maintaining the focus and intellectual standard of online academic "
+        "environments. Traditional moderation architectures rely on static keyword blacklists and regular expressions to block "
+        "unwanted text. However, rule-based filtering lacks semantic awareness, failing to distinguish between genuine technical "
+        "inquiries that happen to use informal words and non-academic chatter disguised with academic terminology. Recent developments "
+        "in Large Language Models (LLMs) have introduced contextual text classification capable of evaluating complex semantic intent "
+        "(Inception Labs, 2025). Models such as Mercury 2 can read the full context of a question and determine whether both the "
+        "title and body represent authentic academic coursework inquiries, while simultaneously verifying alignment with specific "
+        "departmental subject domains.",
+    )
+    p(
+        doc,
+        "A vital consideration when deploying language models for programmatic content verification is the enforcement of structured "
+        "JSON outputs. Conversational text generation produces variable prose that requires complex, brittle parsing logic on client "
+        "applications. By utilizing structured JSON schemas (such as response_format: { type: 'json_object' }), the language model is "
+        "constrained to output deterministic, machine-readable validation objects containing explicit boolean flags (such as titleOk, "
+        "detailsOk, and departmentMatch) and classified topic strings. This enables deterministic programmatic evaluation in application "
+        "logic without ambiguous natural language parsing.",
+    )
+    p(
+        doc,
+        "Additionally, OpenAI-compatible chat completion APIs (/v1/chat/completions) enable low-latency classification in modern web "
+        "applications. Because these HTTP REST endpoints adhere to standardized request formats, single-page applications can invoke "
+        "inference directly during the form validation cycle. High-throughput architectures such as Mercury 2 provide inference "
+        "latencies of a few hundred milliseconds, ensuring that pre-submission academic screening occurs synchronously without degrading "
+        "the responsiveness of the user interface.",
     )
 
     h(doc, "2.2 Real-Time Cloud Persistence and Reactive State", 2)
@@ -420,6 +466,7 @@ def chapter_2(doc):
             ["Piazza / Ed Discussion", "Yes (Proprietary)", "Instructor Tag", "Moderate (Cloud)", "None (Cloud Database)", "Limited"],
             ["Reddit / Stack Overflow", "Yes (Public)", "Karma Scores", "Moderate (Polling/WS)", "None (Silent Edits)", "Basic Chat"],
             ["Public Web3 dApps", "No (Token Chat)", "Wallet Address", "Low (Block Polling)", "Full On-Chain (High Gas)", "Wallet-to-Wallet"],
+            ["Mercury 2 (Inception Labs)", "AI Academic Moderation", "N/A (Automated Filter)", "High (REST API)", "Deterministic JSON", "Pre-Submission Guard"],
             [f"{APP} (This Project)", "Yes (Department-Targeted)", "Verified (Dr, Prof, Eng)", "High (Convex WS)", "Private Besu (QBFT)", "End-to-End Encrypted"],
         ],
     )
@@ -566,7 +613,11 @@ def chapter_3(doc):
     h(doc, "3.7 Data Flow Sequences", 2)
     p(
         doc,
-        "Academic Q&A Workflow (Primary): Student enters question title and details → Selects target department → Optionally attaches research document or code file → Convex askQuestion mutation executes → Real-time department_question notification dispatched to verified lecturers in target department → Lecturer reviews inquiry on QAPage → Verified lecturer posts academic answer with rank badge (Doctor, Professor, Engineer) → Answer saved and broadcast to forum feed → Student receives question_reply notification → Optional: Student clicks \"Direct Message\" to initiate private encrypted follow-up consultation.",
+        "Question Submission Flow (with AI Verification): Student enters question title and details → Selects target department and topic → Optionally attaches research document or code file → Client triggers AI academic verification via verifyAcademicQuestion() → Mercury 2 API evaluates title, details, department, and closed topic whitelist → If validation fails, specific inline field errors are displayed and submission is blocked → If verified, client generates SHA-256 payload digest and commits hash to local Hyperledger Besu blockchain → Convex askQuestion mutation executes and persists question → Real-time department_question notification dispatched to verified lecturers in target department.",
+    )
+    p(
+        doc,
+        "Academic Q&A Workflow (Primary): Verified lecturer reviews inquiry on QAPage → Verified lecturer posts academic answer with rank badge (Doctor, Professor, Engineer) → Answer saved and broadcast to forum feed via Convex reactive subscription → Student receives question_reply notification → Optional: Student clicks \"Direct Message\" to initiate private encrypted follow-up consultation.",
     )
     p(
         doc,
@@ -592,9 +643,84 @@ def chapter_3(doc):
             ["Convex DB Modification", "Unauthorized payload alteration by database admin", "SHA-256 digest on Besu ledger fails verifyHash() comparison"],
             ["Unverified Lecturer Impersonation", "Malicious user masquerading as faculty member", "Strict admin identity review + immutable Besu verifyUser() role binding"],
             ["Cross-Department Answering", "Unqualified users answering domain-specific inquiries", "Convex addAnswer mutation strictly verifies user is a lecturer in target department"],
+            ["Non-academic or cross-domain question", "Forum pollution, spam, and misdirection of faculty attention", "Mercury 2 AI moderation with department/topic whitelist check"],
             ["Cloud Eavesdropping", "Server administrator inspecting private consultation", "Payloads encrypted via AES-GCM-256; private keys stay in client IndexedDB"],
             ["Quantum Channel Eavesdropping", "Interception of simulated quantum exchange", "Session abort automatically enforced whenever QBER exceeds 11%"],
         ],
+    )
+
+    h(doc, "3.10 AI Academic Moderation Pipeline", 2)
+    p(
+        doc,
+        "To safeguard the academic standard of the forum and prevent irrelevant or non-academic submissions, QCampus Connect "
+        "implements an automated AI content moderation pipeline in src/services/academicVerifier.ts, invoked during question submission in src/route/QAPage.tsx.",
+    )
+    p(
+        doc,
+        "The core verification routine is verifyAcademicQuestion(title, details, department, validTopics, userSelectedTopic). "
+        "The function takes the user-provided title, extended body details, selected target department name, an array of approved canonical topics "
+        "for that department, and the user's selected topic.",
+    )
+    p(
+        doc,
+        "The architecture enforces a closed-list topic whitelist approach (DEPARTMENT_TOPICS). Each academic department maps to a strictly "
+        "defined array of canonical topics. For example, 'Computer Science And Informatics' maps to canonical areas including Algorithms, "
+        "Data Structures, Programming, Databases, Networks, Artificial Intelligence, Machine Learning, Computer Vision, Natural Language "
+        "Processing, Operating Systems, Software Engineering, Computer Architecture, and Distributed Systems. If a department does not have "
+        "configured topics on the whitelist, the valid topics list evaluates to empty, meaning no topic match can be established and "
+        "unapproved submissions are blocked.",
+    )
+    p(
+        doc,
+        "During execution, verifyAcademicQuestion constructs an HTTP POST request to the Mercury 2 completion endpoint "
+        "(https://api.inceptionlabs.ai/v1/chat/completions) with temperature 0.1 and max_tokens 256. The call employs the following exact system prompt:",
+    )
+    code_block(
+        doc,
+        "You are an academic moderator. Evaluate TITLE and DETAILS against DEPARTMENT and the closed TOPIC LIST. Set matchedTopic to the best match from the list or null. isAcademic is true ONLY if titleOk, detailsOk, departmentMatch are all true AND matchedTopic is not null. Return ONLY JSON.",
+    )
+    p(
+        doc,
+        "By specifying response_format: { type: 'json_object' }, the model is constrained to return a structured JSON response schema:",
+    )
+    code_block(
+        doc,
+        "{\n"
+        "  \"isAcademic\": boolean,\n"
+        "  \"titleOk\": boolean,\n"
+        "  \"detailsOk\": boolean,\n"
+        "  \"departmentMatch\": boolean,\n"
+        "  \"matchedTopic\": string | null,\n"
+        "  \"reason\": string\n"
+        "}",
+    )
+    p(
+        doc,
+        "The verifier evaluates isAcademic as true strictly when titleOk, detailsOk, and departmentMatch are all true AND matchedTopic is not null. "
+        "If the Mercury 2 service experiences network failure, HTTP error codes, or invalid payloads, the system implements a fail-open "
+        "fallback behavior, returning isAcademic=true, titleOk=true, detailsOk=true, departmentMatch=true, and matchedTopic set to userSelectedTopic. "
+        "This ensures that a transient third-party API disruption never blocks valid student coursework inquiries.",
+    )
+    p(
+        doc,
+        "When an inquiry fails verification, QAPage halts submission and displays actionable user-facing rejection messages targeting the exact failing field:",
+    )
+    bullets(
+        doc,
+        [
+            "If titleOk is false: 'Please make your title academic'",
+            "If detailsOk is false: 'Please add meaningful academic details'",
+            "If departmentMatch is false: 'This question does not match the selected department'",
+            "If matchedTopic is null: 'No closed topic on the whitelist matches this question'",
+            "If matchedTopic does not match selectedTopic: 'Selected topic is not the matching closed topic (matched: {matchedTopic})'",
+        ],
+    )
+    p(
+        doc,
+        "Environment Variable and Security Limitation: The integration authenticates using the VITE_MERCURY_KEY environment variable. "
+        "In the prototype, accessing this key directly via import.meta.env on the client exposes the credential in client-side JavaScript bundles. "
+        "While acceptable for prototype testing and evaluation, production deployments must proxy the verification request through a secure "
+        "Convex serverless action so that API credentials never reach the browser.",
     )
 
 
@@ -699,6 +825,32 @@ def chapter_4(doc):
         "when bit discrepancies exceed 11%, the simulation triggers an immediate session abort, mirroring theoretical quantum channel bounds.",
     )
 
+    h(doc, "4.5.1 AI Academic Moderation Verification", 3)
+    p(
+        doc,
+        "The Mercury 2 academic verification engine (src/services/academicVerifier.ts) was tested across valid coursework inquiries, "
+        "informal social messages, and cross-domain edge cases. During evaluation, test questions were submitted through the QAPage form, "
+        "and the resulting API payloads, response JSON objects, and user interface state transitions were validated.",
+    )
+    p(
+        doc,
+        "In positive test scenarios, legitimate academic questions (for example, Department: 'Computer Science And Informatics', "
+        "Title: 'Time Complexity of QuickSort with Median-of-Three Partitioning', Details: 'Analyzing best, average, and worst case Big-O bounds...', "
+        "Topic: 'Algorithms') were evaluated. Mercury 2 returned { isAcademic: true, titleOk: true, detailsOk: true, departmentMatch: true, "
+        "matchedTopic: 'Algorithms' }, allowing the submission to proceed to on-chain hash anchoring and Convex database persistence.",
+    )
+    p(
+        doc,
+        "In negative and adversarial scenarios, the verification pipeline intercepted invalid inquiries. For example, when submitting "
+        "an inquiry under the Department 'Cyber Security' with the Title 'Who has the Cyber Securities courses?' and the Topic 'Human Read', "
+        "the verifier evaluated the inquiry against the department's closed whitelist. Because 'Human Read' is not an approved academic "
+        "topic on the whitelist, Mercury 2 returned { isAcademic: false, titleOk: false, detailsOk: false, departmentMatch: false, "
+        "matchedTopic: null }. The interface immediately blocked submission and displayed inline red error messages: "
+        "'Please make your title academic', 'Please add meaningful academic details', and 'No closed topic on the whitelist matches this question'. "
+        "Similarly, conversational greetings ('Hey anyone free for drinks tonight?') were rejected with titleOk: false, confirming that "
+        "non-academic postings cannot penetrate the scholarly forum.",
+    )
+
     h(doc, "4.6 Verification and Empirical Results", 2)
     h(doc, "4.6.1 Production Build Verification", 3)
     p(
@@ -723,6 +875,7 @@ def chapter_4(doc):
             ["Lecturer Rank Badges", "Lecturer with Dr/Prof/Eng rank answers", "Rank badge renders beside lecturer name with verified icon", "PASS"],
             ["Question Sorting", "User switches between Recent, Oldest, Unanswered", "Feed reorders instantly according to selected sort criteria", "PASS"],
             ["Attachment Engine", "User attaches PDF research paper to question", "File uploaded to Convex storage; download link available in thread", "PASS"],
+            ["AI Academic Verifier", "Post a non-academic or cross-domain question", "Rejected with matchedTopic=null and inline red error message", "PASS"],
             ["Besu Hash Commit", "Commit SHA-256 digest of response to Besu", "recordHash executes on-chain; transaction receipt returned", "PASS"],
             ["BB84 Error Abort", "Inject noise into quantum simulation", "Simulation aborts key distillation when QBER > 11%", "PASS"],
         ],
@@ -759,6 +912,7 @@ def chapter_4(doc):
             ["BB84 256-bit Simulation", "~12 ms", "In-memory basis generation, sifting, and error estimation"],
             ["AES-GCM Payload Encrypt", "~2 ms", "Client-side encryption of text and attachments"],
             ["Convex Reactive Query Sync", "~50 ms", "Cloud WebSocket round-trip state synchronization"],
+            ["Mercury 2 Verification Call", "~300–600 ms", "Remote REST API round trip to Inception Labs inference engine"],
             ["Besu recordHash Commit", "~0.35 s", "Local QBFT consensus transaction confirmation"],
         ],
     )
@@ -766,10 +920,10 @@ def chapter_4(doc):
     h(doc, "4.7 Evaluation Against Project Objectives", 2)
     p(
         doc,
-        "The prototype successfully fulfilled all seven engineering objectives: (1) Department-targeted academic Q&A operational; "
+        "The prototype successfully fulfilled all eight engineering objectives: (1) Department-targeted academic Q&A operational; "
         "(2) Lecturer academic rank verification functioning; (3) Real-time department notification dispatch active; (4) Multi-criteria "
-        "sorting and filtering implemented; (5) Multi-format file attachments operational; (6) Hyperledger Besu audit logging confirmed; "
-        "and (7) Auxiliary encrypted direct messaging working smoothly.",
+        "sorting and filtering implemented; (5) Multi-format file attachments operational; (6) AI-based academic content moderation active via Mercury 2; "
+        "(7) Hyperledger Besu audit logging confirmed; and (8) Auxiliary encrypted direct messaging working smoothly.",
     )
 
 
@@ -801,6 +955,7 @@ def chapter_5(doc):
             "Centralized academic Q&A forums resolve the systemic communication bottlenecks of personal phone calls and office queuing in universities, preserving faculty privacy while preventing knowledge siloing.",
             "Restricting answer permissions to verified lecturers within targeted departments ensures high academic quality and eliminates the spread of misinformation.",
             "Displaying verified academic ranks (Doctor, Professor, Engineer) establishes clear intellectual authority in digital campus dialogue.",
+            "AI-based moderation using Mercury 2 with a closed topic whitelist effectively prevents non-academic and cross-domain questions from entering the academic forum.",
             "Hybrid cloud/ledger architectures deliver both real-time WebSocket responsiveness (via Convex) and immutable non-repudiable audit logging (via Hyperledger Besu with QBFT consensus).",
             "In-browser cryptography utilizing the W3C Web Crypto API provides robust client-side confidentiality via RSA-OAEP 2048 and AES-GCM (NIST, 2001; MDN, 2024) without relying on untrusted third-party servers.",
         ],
@@ -809,7 +964,7 @@ def chapter_5(doc):
     h(doc, "5.3 System Limitations and Future Engineering Works", 2)
     p(
         doc,
-        "To advance the prototype into a comprehensive enterprise platform for universities, the project team outlines five "
+        "To advance the prototype into a comprehensive enterprise platform for universities, the project team outlines six "
         "strategic future engineering works:",
     )
     numbered(
@@ -819,6 +974,7 @@ def chapter_5(doc):
             "Dedicated Single Course Chatrooms: Implement unified, course-code-specific virtual collaborative rooms (such as CS 301 Database Systems) where the assigned course lecturer and registered students can interact in real time. These synchronized rooms will support virtual office hours, live review sessions, and collaborative problem-solving directly tied to active semester courses.",
             "Automated AI-Driven Identity Verification: Integrate multimodal artificial intelligence and Optical Character Recognition (OCR) pipelines capable of reading physical student and staff identity cards, extracting credential fields (full name, identification number, and department), and cross-referencing this data against the university student information system (SIS) portal. This automated pipeline will verify new user registrations within 7 days, eliminating administrative bottlenecks.",
             "Departmental Notice Board and News Sidebar: Add a dedicated faculty broadcast panel in the navigation sidebar where verified lecturers can publish official departmental circulars, seminar announcements, and research calls. This feature will include search by title, hashtags, and recency; restricted visibility strictly to students and lecturers in that department; multi-format image and document attachments; and interactive comment sections for student inquiries.",
+            "Backend AI Moderation Action: Move Mercury API calls from the frontend to a Convex action so the API key never reaches the browser in production. While direct browser calls via VITE_MERCURY_KEY enabled rapid prototyping and evaluation, production architectures require encapsulating third-party credentials within serverless backend actions to eliminate client-side credential exposure.",
             "Multi-Node Blockchain Consortium Scaling: Scale the current single-node Hyperledger Besu deployment into a multi-node, multi-validator private consortium distributed across autonomous university units (such as the Central Administration/Registrar, School of Sciences, School of Engineering, and University Library). Running Quorum Byzantine Fault Tolerance (QBFT) consensus across independent institutional nodes ensures that no single department or server administrator can alter academic records, provides fault tolerance capable of withstanding up to f = (N - 1) / 3 compromised or offline nodes (Castro & Liskov, 2002), and enables secure peer-to-peer ledger replication across multi-campus university environments with Solidity 0.8.20 smart contracts (Ethereum Foundation, 2024).",
         ],
     )
@@ -930,7 +1086,9 @@ def prelim_pages(doc):
         doc,
         [
             "AES-GCM — Advanced Encryption Standard Galois/Counter Mode",
+            "API — Application Programming Interface",
             "BB84 — Bennett and Brassard 1984 Quantum Key Distribution Protocol",
+            "LLM — Large Language Model",
             "LMS — Learning Management System",
             "QBER — Quantum Bit Error Rate",
             "QKD — Quantum Key Distribution",
@@ -1024,6 +1182,9 @@ def build_proposal():
             "Develop an academic Q&A interface with department routing and verified lecturer responses.",
             "Implement academic rank verification (Doctor, Professor, Engineer) and role governance.",
             "Engineer real-time departmental notifications alerting faculty to incoming student questions.",
+            "Implement multi-criteria question filtering and multi-mode sorting across department feeds.",
+            "Provide rich multi-format attachment tools supporting academic papers, research documents, and code.",
+            "Integrate AI-based academic content moderation to reject non-academic or cross-domain questions before they are posted.",
             "Deploy MessageVerifier.sol on a local Hyperledger Besu network using Ethers.js recordHash.",
             "Implement client-side RSA-OAEP and AES-GCM encryption using W3C Web Crypto APIs (NIST, 2001; MDN, 2024).",
             "Construct an educational BB84 quantum key simulation module with an 11% QBER abort threshold (Scarani et al., 2009).",
@@ -1034,7 +1195,7 @@ def build_proposal():
     h(doc, "Proposed Architecture and Methodology")
     p(
         doc,
-        "The system uses a three-tier architecture: Presentation (React 19 SPA), Application (Convex real-time platform), "
+        "The system uses a three-tier architecture: Presentation (React 19 SPA), Application (Convex real-time platform with Mercury 2 AI moderation), "
         "and Verification (Hyperledger Besu QBFT blockchain). Development follows a ten-week Agile sprint methodology.",
     )
 
@@ -1058,11 +1219,11 @@ def build_outline():
             "The Problem — Knowledge siloing in private 1-on-1 calls, unverified authority on commercial chat apps, and lack of tamper-evident audit trails.",
             "Main Aim & Scope — QCampus Connect as the campus academic forum for coursework questions and research sharing; 1-on-1 direct messaging as an auxiliary tool.",
             "System Architecture — Three-tier hybrid design: React 19 Frontend, Convex Serverless Backend, and Hyperledger Besu Private Blockchain.",
-            "Core Features — Department-targeted question routing, lecturer academic ranks (Dr, Prof, Eng), real-time departmental notifications, multi-criteria sorting, and multi-format attachments.",
+            "Core Features — Department-targeted question routing, Mercury 2 AI academic moderation, lecturer academic ranks (Dr, Prof, Eng), real-time departmental notifications, multi-criteria sorting, and multi-format attachments.",
             "Cryptographic Pipeline — Client-side Web Crypto (RSA-OAEP/AES-GCM), on-chain SHA-256 hash anchoring via MessageVerifier.sol, and BB84 QBER simulation.",
-            "Empirical Results — Vite 8 production build (256 kB bundle), sub-50ms query sync, 0.35s Besu commit, and comprehensive UAT walk-throughs.",
-            "Demonstration Flow — Live presentation path: Browse department feed → Student posts question with attachment → Lecturer receives notification → Lecturer answers with Doctor/Professor rank badge → Verify SHA-256 hash on Besu ledger → Optional encrypted 1-on-1 follow-up.",
-            "Strategic Future Works Roadmap — Five key extensions: (1) Program-specific niching; (2) Dedicated single course chatrooms; (3) Automated AI identity verification in <7 days; (4) Departmental news sidebar; (5) Multi-node blockchain consortium scaling.",
+            "Empirical Results — Vite 8 production build (256 kB bundle), sub-50ms query sync, 300-600ms Mercury 2 check, 0.35s Besu commit, and comprehensive UAT walk-throughs.",
+            "Demonstration Flow — Live presentation path: Browse department feed → Student posts question with attachment → Mercury 2 AI validates academic relevance and closed topic whitelist → Lecturer receives notification → Lecturer answers with Doctor/Professor rank badge → Verify SHA-256 hash on Besu ledger → Optional encrypted 1-on-1 follow-up.",
+            "Strategic Future Works Roadmap — Six key extensions: (1) Program-specific niching; (2) Dedicated single course chatrooms; (3) Automated AI identity verification in <7 days; (4) Departmental news sidebar; (5) Backend Convex AI moderation action proxy; (6) Multi-node blockchain consortium scaling.",
         ],
     )
     h(doc, "Defence Strategy Note", 2)

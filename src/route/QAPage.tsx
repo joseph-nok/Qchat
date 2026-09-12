@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
 import { logHashToBlockchain } from '../services/web3Service';
 import LecturerProfileBadge from '../components/LecturerProfileBadge';
-import { verifyAcademicQuestion } from '../services/academicVerifier';
+import { verifyAcademicQuestion, getTopicsForDepartment, type AcademicVerificationResult } from '../services/academicVerifier';
 import '../route_css/MessagesList.css';
 import '../route_css/QA.css';
 
@@ -289,13 +289,34 @@ const QAPage = () => {
     setError('');
     setModerationErrors([]);
 
+    // Topic whitelist is per department; when the user changes title/body/topic
+    // the form already clears these errors. Compute the closed list fresh from
+    // the currently selected target department (or the user's home department).
+    const selectedDeptName =
+      selectedTargetDept?.name ?? currentUser?.departmentName ?? '';
+    const validTopics = getTopicsForDepartment(selectedDeptName);
+    const selectedTopic = topic.trim();
+
     // AI Academic Verification before proceeding with mutation
     setIsVerifying(true);
-    let verification: { isAcademic: boolean; titleOk: boolean; detailsOk: boolean; reason: string };
+    let verification: AcademicVerificationResult;
     try {
-      verification = await verifyAcademicQuestion(postTitle, postBody);
+      verification = await verifyAcademicQuestion(
+        postTitle,
+        postBody,
+        selectedDeptName,
+        validTopics,
+        selectedTopic,
+      );
     } catch {
-      verification = { isAcademic: true, titleOk: true, detailsOk: true, reason: 'Verification unavailable' };
+      verification = {
+        isAcademic: true,
+        titleOk: true,
+        detailsOk: true,
+        departmentMatch: true,
+        matchedTopic: selectedTopic || null,
+        reason: 'Verification unavailable',
+      };
     } finally {
       setIsVerifying(false);
     }
@@ -307,6 +328,16 @@ const QAPage = () => {
       }
       if (verification.detailsOk === false) {
         fieldErrors.push('Please add meaningful academic details');
+      }
+      if (verification.departmentMatch === false) {
+        fieldErrors.push('This question does not match the selected department');
+      }
+      if (verification.matchedTopic === null) {
+        fieldErrors.push('No closed topic on the whitelist matches this question');
+      } else if (selectedTopic && verification.matchedTopic !== selectedTopic) {
+        fieldErrors.push(
+          `Selected topic is not the matching closed topic (matched: ${verification.matchedTopic})`,
+        );
       }
       if (fieldErrors.length === 0) {
         fieldErrors.push(verification.reason || 'Please ensure your question is academic.');
@@ -598,6 +629,7 @@ const QAPage = () => {
                                 setTargetDepartmentId(dept._id);
                                 setIsTargetDeptOpen(false);
                                 setTargetDeptSearch('');
+                                if (moderationErrors.length > 0) setModerationErrors([]);
                               }}
                             >
                               <span className="material-symbols-outlined">
@@ -639,7 +671,10 @@ const QAPage = () => {
                   <input
                     id="qa-topic"
                     value={topic}
-                    onChange={(event) => setTopic(event.target.value)}
+                    onChange={(event) => {
+                      setTopic(event.target.value);
+                      if (moderationErrors.length > 0) setModerationErrors([]);
+                    }}
                     placeholder="e.g. Cryptography, Algorithms, Linear Algebra"
                   />
                 </div>

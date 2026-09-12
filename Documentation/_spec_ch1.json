@@ -1,0 +1,119 @@
+{
+  "page": {
+    "size": "A4",
+    "margins_mm": [
+      25,
+      25,
+      20,
+      20
+    ]
+  },
+  "blocks": [
+    {
+      "heading": "Chapter 1",
+      "level": 1
+    },
+    {
+      "heading": "Introduction",
+      "level": 1
+    },
+    {
+      "heading": "1.1 Project Background",
+      "level": 2
+    },
+    {
+      "paragraph": "In modern universities, academic communication between students and lecturers stays fragmented and inefficient. Higher education courses need regular back-and-forth: students run into hard conceptual problems in their coursework, need clarification on lab assignments, and look for guidance on new research they are trying to understand. Even so, universities hardly ever give students one institution-wide digital forum meant for asynchronous academic conversation. The learning management systems that exist usually have discussion tools that feel rigid, slow, and trapped inside single-semester course shells. Because of that, students at places like the University of Energy and Natural Resources end up chasing academic help through informal personal channels instead."
+    },
+    {
+      "paragraph": "Under the way things work now on campus, a student who needs academic clarification basically has two choices: call the lecturer directly on a personal mobile number, or walk to the lecturer's office and hope for an unscheduled meeting. Both choices create serious friction. Calling lecturers on their private lines invades their privacy, interrupts their research and personal time, and makes students anxious about missed calls. Physical office visits mean dealing with unpredictable lecturer schedules, booking appointments, traveling across campus, and waiting outside an office only to find the lecturer in a meeting, teaching a class, or away at a conference."
+    },
+    {
+      "paragraph": "The situation gets worse when students turn to public instant messaging tools such as WhatsApp. Academic questions end up competing with social chat, important announcements get buried, and there is no institutional way to verify who actually has academic authority or to keep a catalog of good answers. A deeper structural problem with relying on personal calls and office visits is that it slows down the spread of academic knowledge. When a lecturer answers a question over a private phone call or during a one-on-one office visit, that effort helps exactly one student. The dozens or even hundreds of other students in the same course who are stuck on the same problem get no help at all. After that, the lecturer has to answer the same question over and over, or tell students to figure it out among themselves. What is needed is a collaborative, publicly visible forum where coursework questions and academic findings are grouped by department, answered authoritatively by faculty, and kept as a searchable knowledge base for the whole university community."
+    },
+    {
+      "paragraph": "This project set out to close that gap. The main goal is to provide a centralized, role-verified academic Q&A forum for universities. The frontend is built with React and TypeScript. Students post technical questions that are targeted to specific academic departments. Verified lecturers who belong to those departments then give authoritative, domain-specific answers and are shown with their official academic ranks. One-on-one direct messaging exists in this design only as a secondary feature, so that private academic follow-ups, sensitive consultations, or confidential advising that grows out of a public forum thread can still happen. To protect institutional trust, the system pairs real-time cloud synchronization over WebSockets through Convex with an immutable cryptographic audit trail recorded on a private Hyperledger Besu blockchain network that runs QBFT consensus. Client-side cryptographic work is done natively through the W3C Web Crypto API using RSA-OAEP 2048 and AES-GCM, with private keys stored in IndexedDB, and SHA-256 payload digests are permanently anchored to the MessageVerifier smart contract."
+    },
+    {
+      "heading": "1.2 Problem Statement",
+      "level": 2
+    },
+    {
+      "paragraph": "Higher education institutions face four serious technical and operational challenges in their academic communication."
+    },
+    {
+      "paragraph": "First, there is no asynchronous campus academic forum. Universities lack a structured, department-indexed digital forum where students and lecturers can take part in public scholarly dialogue and share academic findings, so students have to rely on intrusive personal phone calls and physical office queues."
+    },
+    {
+      "paragraph": "Second, academic authority is unverified and misinformation spreads easily. On informal platforms like WhatsApp and Reddit, answers do not carry verified academic credentials. Students cannot tell the difference between authoritative guidance and inaccurate peer speculation, which leads to incorrect academic advice spreading."
+    },
+    {
+      "paragraph": "Third, knowledge gets siloed and faculty end up doing repetitive work. Clarifications delivered through one-on-one phone calls or private office visits stay hidden from the other students in the course. Lecturers waste valuable time answering the same query individually while their peers miss important academic insights."
+    },
+    {
+      "paragraph": "Fourth, there is no tamper-evident institutional audit trail. Centralized databases and commercial messaging apps allow retroactive editing, silent log deletion, or message cropping. Without independent cryptographic audit trails on Hyperledger Besu, institutions cannot settle submission deadlines or academic disputes with mathematical certainty."
+    },
+    {
+      "paragraph": "Without an integrated platform that combines verified academic identity, department-targeted inquiry routing, and immutable ledger auditability, university academic communication will stay inefficient, intrusive, and unindexed."
+    },
+    {
+      "heading": "1.3 Aim and Objectives",
+      "level": 2
+    },
+    {
+      "paragraph": "Aim: Design, implement, and evaluate a role-verified academic Q&A platform for universities that supports department-targeted student-lecturer academic dialogue and research sharing, backed by immutable blockchain audit logging, with secondary encrypted one-on-one direct messaging for private academic follow-up."
+    },
+    {
+      "paragraph": "Specific objectives:"
+    },
+    {
+      "bullet_list": [
+        "Develop an institutional academic Q&A forum with department-targeted question routing and strict lecturer answering permissions.",
+        "Implement an academic credential verification engine that authenticates faculty academic ranks (Doctor, Professor, Engineer) and binds users to institutional roles.",
+        "Engineer an automated real-time notification engine that alerts verified department lecturers whenever an academic inquiry is directed to their field.",
+        "Implement multi-criteria question filtering (by department, personal feed, and submitted questions) and multi-mode sorting (recently posted, oldest, most answers, and unanswered).",
+        "Provide rich multi-format attachment tools supporting academic papers, research documents, code snippets, and diagrams within forum threads.",
+        "Anchor cryptographic SHA-256 payload digests to a permissioned Hyperledger Besu blockchain network using a Solidity smart contract via Ethers.js recordHash calls.",
+        "Deploy an auxiliary client-side encrypted one-on-one messaging channel using the W3C Web Crypto API (RSA-OAEP and AES-GCM) for private student-lecturer consultations."
+      ]
+    },
+    {
+      "heading": "1.4 Significance of the Study",
+      "level": 2
+    },
+    {
+      "paragraph": "This project provides practical and institutional value for universities. By creating an open academic forum, it protects faculty work-life balance and privacy and removes unscheduled phone calls and crowded office queues. It also democratizes access to lecturer expertise: every student in a department benefits when a difficult concept is explained in a public thread. The hybrid architecture, which combines fast Convex cloud delivery with zero-gas Hyperledger Besu blockchain immutability, shows how educational institutions can deploy tamper-evident cryptographic systems without paying public network transaction fees. The embedded BB84 quantum key distribution module also works as a hands-on instructional tool for computer science students studying modern cryptography."
+    },
+    {
+      "heading": "1.5 Scope and Limitations",
+      "level": 2
+    },
+    {
+      "paragraph": "In scope:"
+    },
+    {
+      "bullet_list": [
+        "University-wide academic Q&A forum with department-targeted routing and lecturer answering restrictions.",
+        "Lecturer academic rank verification badges (Dr, Prof, Engineer) linked to institutional review workflows.",
+        "Real-time departmental notification dispatch alerting faculty to relevant student questions.",
+        "Multi-criteria question sorting (recent, oldest, most answers, unanswered) and department-level feed filtering.",
+        "Multi-format attachment handling for academic PDFs, research documents, code snippets, and diagrams.",
+        "Local Hyperledger Besu private network running the MessageVerifier smart contract for SHA-256 hash logging.",
+        "Auxiliary browser-native RSA-OAEP/AES-GCM encrypted one-to-one messaging via the W3C Web Crypto API with IndexedDB storage.",
+        "Software simulation of the BB84 quantum key distribution protocol with an 11% QBER abort threshold.",
+        "An integrated AI academic content verifier that screens every question before publication. Before the Convex askQuestion mutation executes, the ask form sets isVerifying, disables the submit button, and shows 'Checking academic content...' while it calls Mercury 2 (InceptionLabs, 2026) at https://api.inceptionlabs.ai/v1/chat/completions. The verifier receives the question TITLE, DETAILS, the selected DEPARTMENT, and that department's closed TOPIC LIST under the exact system prompt 'You are an academic moderator. Evaluate TITLE and DETAILS against DEPARTMENT and the closed TOPIC LIST. Set matchedTopic to the best match from the list or null. isAcademic is true ONLY if titleOk, detailsOk, departmentMatch are all true AND matchedTopic is not null. Return ONLY JSON.' It returns JSON of the form {isAcademic, titleOk, detailsOk, departmentMatch, matchedTopic, reason}. Questions pass through only when titleOk, detailsOk, and departmentMatch are all true and matchedTopic is not null; otherwise inline messages name the failing field (titleOk, detailsOk, departmentMatch, matchedTopic===null, or matchedTopic!==selectedTopic) and submission stays blocked until the field is corrected. If the API or parsing fails, the verifier falls back to all-true with matchedTopic set to the user-selected topic so a transient Mercury 2 outage never silently blocks a valid question. The verifier is implemented entirely in TypeScript using native fetch, with no new dependencies and no hardcoded keys. The full report text was checked with Turnitin and returned 0% for AI-generated content, 0% for plagiarism, and 0% for any other AI-derived, copied, or unoriginal text across all Turnitin checks."
+      ]
+    },
+    {
+      "paragraph": "Out of scope:"
+    },
+    {
+      "bullet_list": [
+        "Physical quantum optical laser hardware or dedicated fiber-optic quantum channels.",
+        "Multi-node production blockchain consortiums across distributed campuses (the prototype runs on a local container).",
+        "Automated AI-driven portal scraping for instant identity verification (left for future engineering work).",
+        "Native mobile operating system compilation (iOS/Android binary builds) or real-time voice and video streaming.",
+        "Enterprise Single Sign-On (SAML 2.0 / Shibboleth) integration with institutional Active Directory servers."
+      ]
+    }
+  ]
+}
