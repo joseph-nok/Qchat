@@ -8,8 +8,8 @@ import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import { AttachmentLink, AttachmentPicker, isImageAttachment, uploadAttachment } from '../components/AttachmentTools';
 import { useAuth } from '../context/AuthContext.jsx';
-import { relayHashToBesu, getPrivateKeyFromIndexedDB } from '../utils/cryptoBridge';
-import { logHashToBlockchain } from '../services/web3Service';
+// Blockchain (relayHashToBesu / logHashToBlockchain) is intentionally NOT imported here.
+// Q&A is a pure Web2 feature — blockchain recording is reserved for the Messages portal only.
 import LecturerProfileBadge from '../components/LecturerProfileBadge';
 import { verifyAcademicQuestion } from '../services/academicVerifier';
 import '../route_css/MessagesList.css';
@@ -332,7 +332,6 @@ const QAPage = () => {
 
     const postTitle = title;
     const postBody = body;
-    const postTextToAnchor = `${postTitle}\n${postBody}`;
 
     const selectedDeptName =
       selectedTargetDept?.name ?? currentUser?.departmentName ?? '';
@@ -378,38 +377,16 @@ const QAPage = () => {
       return;
     }
 
-    // Verifier confirmed academic — proceed to mutation
+    // Verifier confirmed academic — proceed to Web2 Convex save (no blockchain)
     setIsSubmitting(true);
     try {
-      // 1. Retrieve user-isolated private key from IndexedDB
-      const activeUserId = currentUser?._id || localStorage.getItem('qchat_active_user_id');
-      const privateKey = activeUserId ? await getPrivateKeyFromIndexedDB(activeUserId) : null;
-      if (!privateKey) {
-        console.warn('Private identity key missing from IndexedDB vault.');
-      }
-
-      // 2. Calculate client-side SHA-256 fingerprint hash of post text payload
-      const msgUint8 = new TextEncoder().encode(postTextToAnchor);
-      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
-      const calculatedHash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-
-      // 3. Register fingerprint on local Besu node
-      try {
-        await logHashToBlockchain(calculatedHash);
-      } catch (err) {
-        console.error('Besu node registration error:', err);
-      }
-
       const attachment = questionFile ? await uploadAttachment(questionFile, generateUploadUrl) : {};
       const finalDeptId = selectedTargetDept?._id || targetDepartmentId || currentUser?.departmentId;
       const finalDeptName = selectedTargetDept?.name || currentUser?.departmentName;
 
       let result: { questionId: Id<'questions'> };
       try {
-        // TEMPORARY DEBUG — remove after confirming verifier works end-to-end
-        console.log('VERIFIER PASSED — POSTING NOW');
+        console.log('✅ VERIFIER PASSED — POSTING VIA WEB2 DATABASE NOW');
         result = await askQuestion({
           sessionToken,
           title,
@@ -448,14 +425,6 @@ const QAPage = () => {
         return;
       }
 
-      // Asynchronously relay the forum post (title + body) content hash to Besu using the Convex question ID as anchor
-      relayHashToBesu("RECORD_MESSAGE", result.questionId, postTextToAnchor, {
-        senderId: currentUser?._id,
-        receiverId: "public",
-      })
-        .then((txHash) => console.log(`[Blockchain Sync] Forum post anchored to Besu. Tx: ${txHash}`))
-        .catch((err) => console.error("[Blockchain Sync] Failed to anchor forum post hash to Besu:", err));
-
       setTitle('');
       setBody('');
       setHashtags('');
@@ -477,46 +446,17 @@ const QAPage = () => {
     if (!sessionToken || !questionId || isSubmitting) return;
     if (!replyBody.trim() && !replyFile) return;
 
-    const answerText = replyBody;
     setIsSubmitting(true);
     setError('');
     try {
-      // 1. Retrieve user-isolated private key from IndexedDB
-      const activeUserId = currentUser?._id || localStorage.getItem('qchat_active_user_id');
-      const privateKey = activeUserId ? await getPrivateKeyFromIndexedDB(activeUserId) : null;
-      if (!privateKey) {
-        console.warn('Private identity key missing from IndexedDB vault.');
-      }
-
-      // 2. Calculate client-side SHA-256 fingerprint hash of reply text payload
-      const msgUint8 = new TextEncoder().encode(answerText);
-      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
-      const calculatedHash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-
-      // 3. Register fingerprint on local Besu node
-      try {
-        await logHashToBlockchain(calculatedHash);
-      } catch (err) {
-        console.error('Besu node registration error:', err);
-      }
-
+      // Pure Web2 — save answer directly to Convex (no blockchain for Q&A answers)
       const attachment = replyFile ? await uploadAttachment(replyFile, generateUploadUrl) : {};
-      const result = await addAnswer({
+      await addAnswer({
         sessionToken,
         questionId,
         body: replyBody,
         ...attachment,
       });
-
-      // Asynchronously relay the reply content hash to Besu using the Convex answer ID as anchor
-      relayHashToBesu("RECORD_MESSAGE", result.answerId, answerText, {
-        senderId: currentUser?._id,
-        receiverId: thread?.question?.author?._id,
-      })
-        .then((txHash) => console.log(`[Blockchain Sync] Forum reply anchored to Besu. Tx: ${txHash}`))
-        .catch((err) => console.error("[Blockchain Sync] Failed to anchor forum reply hash to Besu:", err));
 
       setReplyBody('');
       setReplyFile(null);
