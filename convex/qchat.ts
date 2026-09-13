@@ -21,7 +21,7 @@ const getUserBySessionToken = async (
 const requireUser = async (ctx: MutationCtx, sessionToken: string) => {
   const user = await getUserBySessionToken(ctx, sessionToken);
   if (!user) {
-    throw new Error("You must be logged in to continue.");
+    throw new ConvexError("You must be logged in to continue.");
   }
   return user;
 };
@@ -221,6 +221,38 @@ const getMembership = async (
     .first();
 };
 
+export const checkUserExists = query({
+  args: {
+    email: v.string(),
+    idNumber: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const email = args.email.trim().toLowerCase();
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+
+    if (existingUser) {
+      return { exists: true, field: "email" };
+    }
+
+    if (args.idNumber) {
+      const idNumber = args.idNumber.trim().toUpperCase();
+      const existingId = await ctx.db
+        .query("users")
+        .withIndex("by_idNumber", (q) => q.eq("idNumber", idNumber))
+        .first();
+
+      if (existingId) {
+        return { exists: true, field: "idNumber" };
+      }
+    }
+
+    return { exists: false };
+  },
+});
+
 export const registerUser = mutation({
   args: {
     firstName: v.string(),
@@ -243,7 +275,7 @@ export const registerUser = mutation({
       .first();
 
     if (existingUser) {
-      throw new ConvexError("An account with this email address already exists.");
+      throw new ConvexError("An account with this email address already exists. Please log in.");
     }
 
     const idNumber = args.idNumber.trim().toUpperCase();
@@ -291,7 +323,7 @@ export const registerUser = mutation({
     });
 
     const user = await ctx.db.get(userId);
-    if (!user) throw new Error("Could not create user.");
+    if (!user) throw new ConvexError("Could not create user.");
     return { ...publicUser(user), messageCount: 0 };
   },
 });
@@ -430,6 +462,23 @@ export const registerUserWithRecaptcha = action({
     recaptchaToken: v.string(),
   },
   handler: async (ctx, args): Promise<any> => {
+    // 1. DATABASE GUARD FIRST (Web2 Query):
+    // Immediately check if the user's email or idNumber already exists in the database
+    // before processing any external tokens or token validations.
+    const duplicate: { exists: boolean; field?: string } = await ctx.runQuery(
+      api.qchat.checkUserExists,
+      {
+        email: args.email,
+        idNumber: args.idNumber,
+      },
+    );
+
+    if (duplicate.exists) {
+      throw new ConvexError("An account with this email address already exists. Please log in.");
+    }
+
+    // 2. SECURITY & NETWORK SECOND:
+    // If the database is clear (user is completely new), proceed with reCAPTCHA verification.
     if (!args.recaptchaToken) {
       throw new ConvexError("reCAPTCHA token is required.");
     }
@@ -565,12 +614,12 @@ export const getOrCreateRoom = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
 
     if (currentUser._id === args.targetUserId) {
-      throw new Error("You cannot create a chat room with yourself.");
+      throw new ConvexError("You cannot create a chat room with yourself.");
     }
 
     const targetUser = await ctx.db.get(args.targetUserId);
     if (!targetUser) {
-      throw new Error("The selected user no longer exists.");
+      throw new ConvexError("The selected user no longer exists.");
     }
 
     const participantKey = roomKeyFor(currentUser._id, targetUser._id);
@@ -730,7 +779,7 @@ export const initiateBB84KeyExchange = mutation({
     const room = await ctx.db.get(args.roomId);
     const membership = await getMembership(ctx, args.roomId, currentUser._id);
     if (!room || !membership) {
-      throw new Error("You do not have access to this room.");
+      throw new ConvexError("You do not have access to this room.");
     }
 
     await ctx.db.patch(args.roomId, {
@@ -783,7 +832,7 @@ export const confirmBB84KeyExchange = mutation({
     const room = await ctx.db.get(args.roomId);
     const membership = await getMembership(ctx, args.roomId, currentUser._id);
     if (!room || !membership) {
-      throw new Error("You do not have access to this room.");
+      throw new ConvexError("You do not have access to this room.");
     }
 
     const currentConfirmed = room.bb84ConfirmedUsers ?? [];
@@ -821,7 +870,7 @@ export const resetBB84KeyExchange = mutation({
     const room = await ctx.db.get(args.roomId);
     const membership = await getMembership(ctx, args.roomId, currentUser._id);
     if (!room || !membership) {
-      throw new Error("You do not have access to this room.");
+      throw new ConvexError("You do not have access to this room.");
     }
 
     await ctx.db.patch(args.roomId, {
@@ -1092,7 +1141,7 @@ export const markBB84NotificationRead = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const notification = await ctx.db.get(args.notificationId);
     if (!notification || notification.userId !== currentUser._id) {
-      throw new Error("Notification not found.");
+      throw new ConvexError("Notification not found.");
     }
 
     await ctx.db.patch(args.notificationId, { read: true });
@@ -1134,12 +1183,12 @@ export const sendMessage = mutation({
     const room = await ctx.db.get(args.roomId);
     const membership = await getMembership(ctx, args.roomId, currentUser._id);
     if (!room || !membership) {
-      throw new Error("You do not have access to this room.");
+      throw new ConvexError("You do not have access to this room.");
     }
 
     const text = args.text.trim();
     if (!text && !args.attachmentStorageId) {
-      throw new Error("Message cannot be empty.");
+      throw new ConvexError("Message cannot be empty.");
     }
 
     const attachmentUrl = args.attachmentStorageId
@@ -1210,10 +1259,10 @@ export const askQuestion = mutation({
     const title = args.title.trim().replace(/\s+/g, " ");
     const body = args.body.trim();
     if (title.length < 6) {
-      throw new Error("Question title must be at least 6 characters.");
+      throw new ConvexError("Question title must be at least 6 characters.");
     }
     if (body.length < 12) {
-      throw new Error("Question details must be at least 12 characters.");
+      throw new ConvexError("Question details must be at least 12 characters.");
     }
 
     let targetDeptId = currentUser.departmentId;
@@ -1222,14 +1271,14 @@ export const askQuestion = mutation({
     if (args.departmentId) {
       const targetDept = await ctx.db.get(args.departmentId);
       if (!targetDept || targetDept.isActive === false) {
-        throw new Error("Selected department is not valid or active.");
+        throw new ConvexError("Selected department is not valid or active.");
       }
       targetDeptId = targetDept._id;
       targetDeptName = targetDept.name;
     }
 
     if (!targetDeptId || !targetDeptName) {
-      throw new Error("Please select a target department for your question.");
+      throw new ConvexError("Please select a target department for your question.");
     }
 
     const now = Date.now();
@@ -1296,19 +1345,19 @@ export const addAnswer = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const question = await ctx.db.get(args.questionId);
     if (!question) {
-      throw new Error("Question not found.");
+      throw new ConvexError("Question not found.");
     }
     // Only lecturers from the question's target department are allowed to answer
     if (currentUser.role !== "lecturer") {
-      throw new Error("Only lecturers can answer questions.");
+      throw new ConvexError("Only lecturers can answer questions.");
     }
     if (!currentUser.departmentId || question.departmentId !== currentUser.departmentId) {
-      throw new Error(`Only lecturers from ${question.departmentName ?? "the target department"} can answer this question.`);
+      throw new ConvexError(`Only lecturers from ${question.departmentName ?? "the target department"} can answer this question.`);
     }
 
     const body = args.body.trim();
     if (!body && !args.attachmentStorageId) {
-      throw new Error("Reply cannot be empty.");
+      throw new ConvexError("Reply cannot be empty.");
     }
 
     const now = Date.now();
@@ -1362,10 +1411,10 @@ export const markQuestionAnswered = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const question = await ctx.db.get(args.questionId);
     if (!question) {
-      throw new Error("Question not found.");
+      throw new ConvexError("Question not found.");
     }
     if (question.authorId !== currentUser._id) {
-      throw new Error("Only the original poster can mark this answered.");
+      throw new ConvexError("Only the original poster can mark this answered.");
     }
 
     await ctx.db.patch(args.questionId, {
@@ -1400,7 +1449,7 @@ export const markAsRead = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const membership = await getMembership(ctx, args.roomId, currentUser._id);
     if (!membership) {
-      throw new Error("You do not have access to this room.");
+      throw new ConvexError("You do not have access to this room.");
     }
 
     const now = Date.now();
@@ -1427,14 +1476,14 @@ export const updateProfile = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const cleanedName = args.fullName.trim().replace(/\s+/g, " ");
     if (!cleanedName) {
-      throw new Error("Full name is required.");
+      throw new ConvexError("Full name is required.");
     }
 
     const [firstName, ...remainingName] = cleanedName.split(" ");
     const lastName = remainingName.join(" ") || currentUser.lastName;
     const rank = currentUser.role === "lecturer" ? args.rank?.trim() : undefined;
     if (rank && !["Dr", "Prof", "Engineer"].includes(rank)) {
-      throw new Error("Select a valid academic rank.");
+      throw new ConvexError("Select a valid academic rank.");
     }
     const avatarUrl = args.avatarStorageId
       ? (await ctx.storage.getUrl(args.avatarStorageId)) ?? undefined
@@ -1509,10 +1558,10 @@ export const deleteMessage = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const message = await ctx.db.get(args.messageId);
     if (!message) {
-      throw new Error("Message not found.");
+      throw new ConvexError("Message not found.");
     }
     if (message.senderId !== currentUser._id) {
-      throw new Error("You can only delete your own messages.");
+      throw new ConvexError("You can only delete your own messages.");
     }
     await ctx.db.patch(args.messageId, { deletedAt: Date.now() });
     return { ok: true };
@@ -1531,17 +1580,17 @@ export const editMessage = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const message = await ctx.db.get(args.messageId);
     if (!message) {
-      throw new Error("Message not found.");
+      throw new ConvexError("Message not found.");
     }
     if (message.senderId !== currentUser._id) {
-      throw new Error("You can only edit your own messages.");
+      throw new ConvexError("You can only edit your own messages.");
     }
     if (message.attachmentStorageId) {
-      throw new Error("File messages cannot be edited.");
+      throw new ConvexError("File messages cannot be edited.");
     }
     const newText = args.text.trim();
     if (!newText) {
-      throw new Error("Message text cannot be empty.");
+      throw new ConvexError("Message text cannot be empty.");
     }
     await ctx.db.patch(args.messageId, {
       text: newText,
@@ -1574,10 +1623,10 @@ export const updateMessageTxHash = mutation({
     const currentUser = await requireUser(ctx, args.sessionToken);
     const message = await ctx.db.get(args.messageId);
     if (!message) {
-      throw new Error("Message not found.");
+      throw new ConvexError("Message not found.");
     }
     if (message.senderId !== currentUser._id) {
-      throw new Error("You can only update your own messages.");
+      throw new ConvexError("You can only update your own messages.");
     }
     await ctx.db.patch(args.messageId, {
       blockchainTxHash: args.txHash,

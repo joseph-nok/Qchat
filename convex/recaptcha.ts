@@ -104,6 +104,20 @@ export const registerUserWithRecaptcha = action({
     recaptchaToken: v.string(),
   },
   handler: async (ctx, args) => {
+    // 1. DATABASE GUARD FIRST (Web2 Query):
+    const duplicate: { exists: boolean; field?: string } = await ctx.runQuery(
+      api.qchat.checkUserExists,
+      {
+        email: args.email,
+        idNumber: args.idNumber,
+      },
+    );
+
+    if (duplicate.exists) {
+      throw new ConvexError("An account with this email address already exists. Please log in.");
+    }
+
+    // 2. SECURITY & NETWORK SECOND:
     if (!args.recaptchaToken) {
       throw new ConvexError("reCAPTCHA token is required.");
     }
