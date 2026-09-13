@@ -90,7 +90,13 @@ const Login = () => {
 
     const errorText = toErrorText(error);
 
-    if (errorText.includes('reCAPTCHA') || errorText.includes('captcha')) {
+    if (
+      errorCode === 'RECAPTCHA_FAILED' ||
+      errorCode === 'RECAPTCHA_REQUIRED' ||
+      errorText.includes('recaptcha verification failed') ||
+      errorText.includes('recaptcha challenge') ||
+      errorText.includes('recaptcha token')
+    ) {
       setErrorsRecord({ recaptcha: 'reCAPTCHA verification failed. Please complete the check again.' });
       return;
     }

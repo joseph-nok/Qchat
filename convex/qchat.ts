@@ -243,7 +243,17 @@ export const registerUser = mutation({
       .first();
 
     if (existingUser) {
-      throw new Error("An account with this email address already exists.");
+      throw new ConvexError("An account with this email address already exists.");
+    }
+
+    const idNumber = args.idNumber.trim().toUpperCase();
+    const existingId = await ctx.db
+      .query("users")
+      .withIndex("by_idNumber", (q) => q.eq("idNumber", idNumber))
+      .first();
+
+    if (existingId) {
+      throw new ConvexError("This ID number is already registered with another account.");
     }
 
     const firstName = args.firstName.trim();
@@ -252,7 +262,7 @@ export const registerUser = mutation({
     const school = args.school.trim();
     const rank = args.role === "lecturer" ? args.rank?.trim() : undefined;
     if (rank && !["Dr", "Prof", "Engineer"].includes(rank)) {
-      throw new Error("Select a valid academic rank.");
+      throw new ConvexError("Select a valid academic rank.");
     }
     const now = Date.now();
     const sessionToken = `session:${email}:${crypto.randomUUID()}`;

@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../convex/_generated/api';
-import { isNetworkError, toErrorText } from '../lib/convexErrors';
+import { isNetworkError, toErrorText, getConvexErrorCode } from '../lib/convexErrors';
 import { saveSessionToken } from '../lib/session';
 import { savePrivateKeyToIndexedDB, relayHashToBesu } from '../utils/cryptoBridge';
 import ReCaptcha, { ReCaptchaRef } from '../components/ReCaptcha';
@@ -215,29 +215,81 @@ const Register = () => {
       return;
     }
 
+    const errorCode = getConvexErrorCode(error);
     const errorText = toErrorText(error);
 
-    if (errorText.includes('reCAPTCHA') || errorText.includes('captcha')) {
-      setErrorsRecord({ recaptcha: 'reCAPTCHA verification failed. Please complete the check again.' });
+    // 1. Email already exists
+    if (
+      errorCode === 'EMAIL_ALREADY_EXISTS' ||
+      errorText.includes('already exists') ||
+      (errorText.includes('email') && errorText.includes('exist')) ||
+      errorText.includes('account with this email')
+    ) {
+      setErrorsRecord({
+        email: 'An account with this email address already exists. Please log in.',
+        form: 'An account with this email address already exists. Please log in.',
+      });
+      document.getElementById('email')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    if (errorText.includes('index') || errorText.includes('match')) {
-      setErrorsRecord({ idNumber: 'This ID number is already registered with another account.' });
+    // 2. ID number already exists
+    if (
+      errorCode === 'ID_ALREADY_EXISTS' ||
+      errorText.includes('id number is already registered') ||
+      errorText.includes('index number') ||
+      errorText.includes('already registered with another account')
+    ) {
+      setErrorsRecord({
+        idNumber: 'This ID number is already registered with another account.',
+        form: 'This ID number is already registered with another account.',
+      });
+      document.getElementById('id_number')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    if (errorText.includes('no account') || errorText.includes('exist')) {
-      setErrorsRecord({ email: 'This email address is already in use by another student.' });
+    // 3. Academic rank
+    if (errorText.includes('rank')) {
+      setErrorsRecord({ form: 'Select a valid academic rank.' });
       return;
     }
 
-    if (errorText.includes('credential') || errorText.includes('password')) {
-      setErrorsRecord({ password: 'Could not save your password. Please choose a different one and try again.' });
+    // 4. Password requirements
+    if (
+      errorCode === 'PASSWORD_TOO_SHORT' ||
+      errorText.includes('password must be at least') ||
+      errorText.includes('credential') ||
+      errorText.includes('password')
+    ) {
+      setErrorsRecord({
+        password: 'Password does not meet requirements. Please choose a different one.',
+        form: 'Password does not meet requirements. Please choose a different one.',
+      });
       return;
     }
 
-    setErrorsRecord({ form: 'Something went wrong. Please try again.' });
+    // 5. reCAPTCHA failure (specifically check for recaptcha failure, NOT generic 'captcha' substring)
+    if (
+      errorCode === 'RECAPTCHA_FAILED' ||
+      errorCode === 'RECAPTCHA_REQUIRED' ||
+      errorText.includes('recaptcha verification failed') ||
+      errorText.includes('recaptcha challenge') ||
+      errorText.includes('recaptcha token is required')
+    ) {
+      setErrorsRecord({
+        recaptcha: 'reCAPTCHA verification failed. Please complete the check again.',
+        form: 'reCAPTCHA verification failed. Please complete the check again.',
+      });
+      return;
+    }
+
+    // 6. Generic/fallback
+    const cleanMsg =
+      errorText && errorText.length < 150 && !errorText.includes('{')
+        ? errorText.charAt(0).toUpperCase() + errorText.slice(1)
+        : 'Registration failed. Please check your details and try again.';
+
+    setErrorsRecord({ form: cleanMsg });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

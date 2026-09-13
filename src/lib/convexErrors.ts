@@ -50,33 +50,49 @@ export function getConvexErrorCode(error: unknown): string {
   return '';
 }
 
-/** Converts any caught Convex error into a lowercase string for simple `.includes()` checks. */
 export function toErrorText(error: unknown): string {
+  if (isConvexThrownError(error)) {
+    const convexError = error as ConvexError<string | { message?: string }>;
+    if (typeof convexError.data === 'string') {
+      return convexError.data.toLowerCase();
+    }
+    if (
+      convexError.data &&
+      typeof convexError.data === 'object' &&
+      'message' in convexError.data &&
+      typeof (convexError.data as { message?: unknown }).message === 'string'
+    ) {
+      return ((convexError.data as { message: string }).message).toLowerCase();
+    }
+  }
+
   const raw = extractRawMessage(error);
   if (!raw) {
     return '';
   }
 
-  const lower = raw.toLowerCase();
-  const marker = 'uncaught error:';
-  const markerIndex = lower.indexOf(marker);
+  let text = raw;
 
-  if (markerIndex !== -1) {
-    let extracted = raw.slice(markerIndex + marker.length).trim();
-    const stackIndex = extracted.indexOf('\n    at ');
-    if (stackIndex !== -1) {
-      extracted = extracted.slice(0, stackIndex).trim();
-    }
-    const newlineIndex = extracted.indexOf('\n');
-    if (newlineIndex !== -1) {
-      extracted = extracted.slice(0, newlineIndex).trim();
-    }
-    if (extracted) {
-      return extracted.toLowerCase();
-    }
+  // 1. Strip Convex action/mutation caller prefixes like "[CONVEX A(qchat:registerUserWithRecaptcha)] "
+  text = text.replace(/^\[CONVEX\s+[A-Z]\([^)]+\)\]\s*/i, '');
+
+  // 2. Strip repeated "Uncaught Error:" prefixes
+  while (/^uncaught\s+error:\s*/i.test(text)) {
+    text = text.replace(/^uncaught\s+error:\s*/i, '').trim();
   }
 
-  return lower;
+  // 3. Strip stack traces: " at handler (...)" or "\n at ..."
+  const atIndex = text.search(/\s+at\s+([a-zA-Z0-9_$<>]+|\()/);
+  if (atIndex !== -1) {
+    text = text.slice(0, atIndex).trim();
+  }
+
+  const newlineIndex = text.indexOf('\n');
+  if (newlineIndex !== -1) {
+    text = text.slice(0, newlineIndex).trim();
+  }
+
+  return text.toLowerCase();
 }
 
 export function isNetworkError(error: unknown): boolean {
