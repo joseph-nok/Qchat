@@ -69,6 +69,7 @@ const VerifyProfile = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
 
   useEffect(() => {
     if (!currentUser) return;
@@ -147,8 +148,10 @@ const VerifyProfile = () => {
       });
       setSubmitted(true);
       setSelectedFile(null);
+      setSubmitMessage('Verification submitted successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to submit verification.');
+      setSubmitMessage('');
     } finally {
       setIsSubmitting(false);
     }
@@ -298,11 +301,18 @@ const VerifyProfile = () => {
                   />
                 </div>
 
-                <div className="verify-form-actions">
+                <div className="verify-form-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                   <button type="submit" className="verify-submit-btn" disabled={formLocked}>
                     <span className="material-symbols-outlined">{isSubmitting ? 'hourglass_top' : 'send'}</span>
                     {isSubmitting ? 'Submitting...' : 'Submit for Verification'}
                   </button>
+
+                  {submitMessage && (
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fcd116', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>check_circle</span>
+                      {submitMessage}
+                    </span>
+                  )}
                 </div>
               </form>
             </section>

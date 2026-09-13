@@ -255,13 +255,6 @@ const EditProfile = () => {
 
           <form className="edit-profile-grid" onSubmit={(event) => void handleSubmit(event)}>
             <section className="edit-profile-main">
-              {message && (
-                <div className="edit-profile-notice success">
-                  <span className="material-symbols-outlined">check_circle</span>
-                  <span>{message}</span>
-                </div>
-              )}
-
               {error && (
                 <div className="edit-profile-notice error">
                   <span className="material-symbols-outlined">error</span>
@@ -418,11 +411,18 @@ const EditProfile = () => {
                 )}
               </div>
 
-              <div className="edit-profile-actions">
+              <div className="edit-profile-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                 <button type="submit" className="edit-submit-btn" disabled={isSaving}>
                   <span className="material-symbols-outlined">{isSaving ? 'hourglass_top' : 'save'}</span>
                   {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
+
+                {message && (
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fcd116', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>check_circle</span>
+                    {message}
+                  </span>
+                )}
               </div>
             </section>
 
