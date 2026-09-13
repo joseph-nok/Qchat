@@ -113,7 +113,7 @@ const Register = () => {
       text = 'Strong Security';
       color = 'var(--secondary)'; // UENR Deep Blue (#3a5f94)
     } else if (score === 5) {
-      text = 'Quantum-Grade Security';
+      text = 'Password is Strong';
       color = 'var(--tertiary)'; // Ghana Green (#046d3f)
     }
     return { score, text, color };
