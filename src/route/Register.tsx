@@ -283,11 +283,41 @@ const Register = () => {
       return;
     }
 
-    // 6. Generic/fallback
+    // 6. If all the noise was stripped and we're left with nothing useful, check the raw
+    //    ConvexError data string one more time (covers cases where the prefix stripping
+    //    consumed the whole message).
+    if (!errorText || errorText === 'server error') {
+      const convexData =
+        (error as { data?: unknown })?.data;
+      const rawData =
+        typeof convexData === 'string'
+          ? convexData.toLowerCase()
+          : '';
+
+      if (rawData.includes('already exists') || rawData.includes('account with this email')) {
+        setErrorsRecord({
+          email: 'An account with this email address already exists. Try logging in instead.',
+          form: 'An account with this email address already exists. Try logging in instead.',
+        });
+        document.getElementById('email')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      if (rawData.includes('already registered')) {
+        setErrorsRecord({
+          idNumber: 'This ID number is already registered with another account.',
+          form: 'This ID number is already registered with another account.',
+        });
+        document.getElementById('id_number')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+
+    // 7. Generic/fallback
     const cleanMsg =
-      errorText && errorText.length < 150 && !errorText.includes('{')
+      errorText && errorText.length < 150 && !errorText.includes('{') && errorText !== 'server error'
         ? errorText.charAt(0).toUpperCase() + errorText.slice(1)
-        : 'Registration failed. Please check your details and try again.';
+        : 'Something went wrong while creating your account. Please double-check your details and try again.';
 
     setErrorsRecord({ form: cleanMsg });
   };

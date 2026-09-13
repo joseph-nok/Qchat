@@ -76,6 +76,9 @@ export function toErrorText(error: unknown): string {
   // 1. Strip Convex action/mutation caller prefixes like "[CONVEX A(qchat:registerUserWithRecaptcha)] "
   text = text.replace(/^\[CONVEX\s+[A-Z]\([^)]+\)\]\s*/i, '');
 
+  // 1b. Strip Convex request-ID prefixes like "[Request ID: abc123] Server Error"
+  text = text.replace(/^\[request\s+id:[^\]]+\]\s*(server\s+error[:\s]*)*/i, '').trim();
+
   // 2. Strip repeated "Uncaught Error:" prefixes
   while (/^uncaught\s+error:\s*/i.test(text)) {
     text = text.replace(/^uncaught\s+error:\s*/i, '').trim();
